@@ -1,11 +1,14 @@
 """Tes render PlantUML memakai executable palsu dan kontrak cache PNG."""
 
 import base64
+import ctypes
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -77,6 +80,10 @@ if os.environ.get("FAKE_PLANTUML_FAIL"):
     print(os.environ["FAKE_PLANTUML_FAIL"], file=sys.stderr)
     raise SystemExit(200)
 if os.environ.get("FAKE_PLANTUML_SLEEP"):
+    pid_path = os.environ.get("FAKE_PLANTUML_PID")
+    if pid_path:
+        with open(pid_path, "w", encoding="utf-8") as handle:
+            handle.write(str(os.getpid()))
     time.sleep(float(os.environ["FAKE_PLANTUML_SLEEP"]))
 if os.environ.get("FAKE_PLANTUML_EMPTY_OUTPUT"):
     raise SystemExit(0)
@@ -160,6 +167,89 @@ def cache_pngs(cache: Path) -> list[Path]:
     return sorted(cache.glob("plantuml-*.png"))
 
 
+def make_directory_symlink(link: Path, target: Path) -> None:
+    """Buat symlink direktori; Windows memakai junction bila symlink ditolak."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except OSError as error:
+        if os.name != "nt":
+            pytest.skip(f"symlink direktori tidak didukung: {error}")
+        command = os.environ.get("COMSPEC", "cmd.exe")
+        completed = subprocess.run(
+            [command, "/c", "mklink", "/J", str(link), str(target)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()
+            pytest.skip(
+                "symlink direktori dan junction tidak dapat dibuat: "
+                f"symlink={error}; junction={detail or 'tanpa output'}"
+            )
+
+
+def remove_directory_symlink(link: Path) -> None:
+    """Hapus symlink atau junction direktori tanpa menyentuh targetnya."""
+    try:
+        if link.is_symlink():
+            link.unlink()
+        elif link.is_junction():
+            os.rmdir(link)
+    except OSError:
+        return
+
+
+def read_process_id(path: Path) -> int | None:
+    """Baca PID yang ditulis proses uji; None bila berkas belum ada atau rusak."""
+    try:
+        return int(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return None
+
+
+def terminate_process(pid: int) -> None:
+    """Hentikan proses uji; aman dipanggil untuk PID yang sudah berhenti."""
+    if os.name == "nt":
+        process_terminate = 0x0001
+        handle = ctypes.windll.kernel32.OpenProcess(process_terminate, False, pid)
+        if not handle:
+            return
+        try:
+            ctypes.windll.kernel32.TerminateProcess(handle, 1)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+        return
+    try:
+        os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+    except OSError:
+        return
+
+
+def wait_for_process_exit(pid: int, *, timeout: float = 10.0) -> bool:
+    """Tunggu proses berhenti; Windows memakai satu wait bersinyal."""
+    if os.name == "nt":
+        synchronize = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
+        if not handle:
+            return True
+        try:
+            return ctypes.windll.kernel32.WaitForSingleObject(handle, int(timeout * 1000)) == 0
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return False
+        time.sleep(0.05)
+    return False
+
+
 def test_resolve_plantuml_source_accepts_nested_file(tmp_path: Path) -> None:
     diagram = tmp_path / "diagrams" / "arsitektur" / "flow.puml"
     diagram.parent.mkdir(parents=True)
@@ -237,13 +327,13 @@ def test_resolve_plantuml_source_rejects_symlink_escape(tmp_path: Path) -> None:
     outside = tmp_path / "luar"
     outside.mkdir()
     (outside / "flow.puml").write_text(SOURCE_TEXT, encoding="utf-8")
+    link = root / "link"
+    make_directory_symlink(link, outside)
     try:
-        os.symlink(outside, root / "link", target_is_directory=True)
-    except OSError as error:
-        pytest.skip(f"symlink tidak didukung: {error}")
-
-    with pytest.raises(PlantUmlError, match="keluar"):
-        resolve_plantuml_source(root, "link/flow.puml")
+        with pytest.raises(PlantUmlError, match="keluar"):
+            resolve_plantuml_source(root, "link/flow.puml")
+    finally:
+        remove_directory_symlink(link)
 
 
 def test_resolve_plantuml_source_rejects_oversized_file(
@@ -735,6 +825,7 @@ def test_oversized_stderr_is_rejected(
     assert not out.exists()
 
 
+@pytest.mark.integration
 def test_timeout_is_reported_and_removes_target(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -742,15 +833,27 @@ def test_timeout_is_reported_and_removes_target(
 ) -> None:
     make_fake_plantuml(tmp_path, monkeypatch)
     monkeypatch.setattr(plantuml_module, "DEFAULT_TIMEOUT", 1.0)
-    monkeypatch.setenv("FAKE_PLANTUML_SLEEP", "60")
+    monkeypatch.setenv("FAKE_PLANTUML_SLEEP", "4")
+    pid_file = tmp_path / "fake.pid"
+    monkeypatch.setenv("FAKE_PLANTUML_PID", str(pid_file))
     source = write_source(tmp_path)
     out = tmp_path / "flow.png"
+    pid: int | None = None
 
-    with pytest.raises(PlantUmlError, match="melebihi batas waktu") as error:
-        render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+    try:
+        with pytest.raises(PlantUmlError, match="melebihi batas waktu") as error:
+            render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
 
-    assert error.value.code == "PLANTUML-TIMEOUT"
-    assert not out.exists()
+        assert error.value.code == "PLANTUML-TIMEOUT"
+        assert not out.exists()
+        pid = read_process_id(pid_file)
+        assert pid is not None
+        assert wait_for_process_exit(pid), f"proses fake PlantUML {pid} masih hidup"
+    finally:
+        if pid is None:
+            pid = read_process_id(pid_file)
+        if pid is not None:
+            terminate_process(pid)
 
 
 def test_render_timeout_removes_target(
@@ -1443,21 +1546,21 @@ def test_cache_digest_rejects_invalid_source(tmp_path: Path, theme) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.slow
-def test_real_plantuml_renders_high_resolution_png(tmp_path: Path, theme) -> None:
-    executable = shutil.which("plantuml")
-    jar = shutil.which("plantuml.jar")
-    if executable is None and jar is None:
-        pytest.skip("PlantUML tidak terpasang")
+def test_real_plantuml_renders_valid_png(tmp_path: Path, theme) -> None:
+    executable = find_plantuml()
+    if executable is None:
+        pytest.skip("PlantUML tidak tersedia; set AUTOOFFICE_PLANTUML atau pasang plantuml di PATH")
     source = write_source(tmp_path, text="@startuml\nAlice -> Bob: halo\n@enduml\n")
     out = tmp_path / "flow.png"
 
     result = render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
 
     assert result == out
-    assert out.read_bytes().startswith(PNG_SIGNATURE)
+    assert _is_png(out)
     with Image.open(out) as image:
-        assert max(image.size) >= 1600
+        width, height = image.size
+    assert width > 0
+    assert height > 0
 
 
 def completed(

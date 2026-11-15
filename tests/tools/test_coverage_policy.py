@@ -111,6 +111,23 @@ def test_critical_failure_when_module_is_not_measured() -> None:
     assert check.passed is False
 
 
+def test_critical_modules_include_deck_plantuml() -> None:
+    assert "autooffice.deck.media.plantuml" in check_coverage.CRITICAL_MODULES
+
+
+def test_critical_failure_when_deck_plantuml_is_not_measured() -> None:
+    target = "autooffice.deck.media.plantuml"
+    stats = _baseline()
+    del stats[target]
+
+    report = check_coverage.evaluate_policy(stats)
+    check = _check(report, "critical", target)
+
+    assert check.missing_modules == (target,)
+    assert check.passed is False
+    assert report.passed is False
+
+
 def test_adapter_failure_when_package_below_eighty_five() -> None:
     target = "autooffice.google.slides"
     stats = _baseline()
@@ -168,6 +185,7 @@ def test_list_policy_does_not_require_coverage(capsys) -> None:
     output = capsys.readouterr().out
     assert code == 0
     assert "critical 100.00 autooffice.deck.model.keys" in output
+    assert "critical 100.00 autooffice.deck.media.plantuml" in output
     assert "adapter 85.00 autooffice.google.*" in output
 
 

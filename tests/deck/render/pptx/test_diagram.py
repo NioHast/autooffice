@@ -1,6 +1,8 @@
 """Tes integrasi block diagram PlantUML sebagai picture native PPTX."""
 
 import base64
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,7 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 
+import autooffice.deck.media.plantuml as plantuml_module
 import autooffice.deck.render.pptx.diagram as diagram_module
 from autooffice.deck.layout.spec import LayoutPlan, PlacedBlock, SlideLayout
 from autooffice.deck.media.plantuml import PLANTUML_ENV_VAR, PlantUmlError
@@ -29,19 +32,58 @@ PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
+FAKE_PLANTUML_VERSION = ".".join(str(part) for part in plantuml_module.MIN_PLANTUML_VERSION)
 
-def _fake_plantuml(
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    render_error: PlantUmlError | None = None,
-    resolve_error: PlantUmlError | None = None,
-) -> list[tuple[Path, Path, Theme]]:
+FAKE_PLANTUML = f"""\
+import base64
+import json
+import os
+import sys
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+    "+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+arguments = sys.argv[1:]
+log_path = os.environ.get("FAKE_PLANTUML_LOG")
+if log_path:
+    with open(log_path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(arguments) + "\\n")
+
+if arguments == ["--version"]:
+    print("PlantUML version {FAKE_PLANTUML_VERSION} (fake)")
+    raise SystemExit(0)
+
+source = sys.stdin.buffer.read()
+if not source:
+    print("fake plantuml: stdin kosong", file=sys.stderr)
+    raise SystemExit(2)
+if "--png" not in arguments or "-pipe" not in arguments:
+    print("fake plantuml: butuh --png dan -pipe", file=sys.stderr)
+    raise SystemExit(2)
+
+sys.stdout.buffer.write(PNG)
+sys.stdout.buffer.flush()
+"""
+
+
+def _install_fake_plantuml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Pasang executable PlantUML palsu lewat override environment."""
+    script = tmp_path / "fake-plantuml.py"
+    script.write_text(FAKE_PLANTUML, encoding="utf-8", newline="\n")
+    log = tmp_path / "plantuml-calls.jsonl"
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(script))
+    monkeypatch.setenv("FAKE_PLANTUML_LOG", str(log))
+    monkeypatch.setattr(plantuml_module, "_VERSION_CACHE", {})
+    return log
+
+
+def _fake_plantuml(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, Path, Theme]]:
     """Ganti pemanggilan PlantUML dengan implementasi deterministik."""
     calls: list[tuple[Path, Path, Theme]] = []
 
     def fake_resolve(deck_root: Path, relative_path: str) -> Path:
-        if resolve_error is not None:
-            raise resolve_error
         source = deck_root / relative_path
         assert source.is_file()
         return source
@@ -50,8 +92,6 @@ def _fake_plantuml(
         calls.append((source, output, theme))
         assert cache_dir == output.parent
         assert output.suffix == ".png"
-        if render_error is not None:
-            raise render_error
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(PNG_1X1)
         return output
@@ -180,6 +220,44 @@ def test_diagram_block_inserts_picture_caption_and_coverage(
     assert sorted(path.name for path in (workspace / "cache").iterdir()) == ["plantuml"]
 
 
+def test_diagram_renders_real_plantuml_into_cache(
+    workspace: Path,
+    theme: Theme,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls_log = _install_fake_plantuml(tmp_path, monkeypatch)
+    source = _write_diagram(workspace)
+    deck, layout = _diagram_case()
+
+    result = _render(deck, layout, workspace, theme)
+
+    presentation = Presentation(str(result.artifact_path))
+    shapes = {shape.name: shape for shape in presentation.slides[0].shapes}
+    picture = shapes["autooffice:diagram:s01.process"]
+    assert picture.shape_type == MSO_SHAPE_TYPE.PICTURE
+    node = picture._element.find(".//" + qn("p:cNvPr"))
+    assert node is not None
+    assert node.get("descr") == "Diagram alur build"
+    assert result.coverage.ok is True
+
+    cache_dir = workspace / "cache" / "plantuml"
+    cached = list(cache_dir.glob("plantuml-*.png"))
+    assert len(cached) == 1
+    assert (cache_dir / "s01.process.png").is_file()
+    metadata = json.loads(cached[0].with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert metadata["theme"]["name"] == theme.name
+    assert metadata["plantuml_version"] == FAKE_PLANTUML_VERSION
+
+    calls = [
+        json.loads(line) for line in calls_log.read_text(encoding="utf-8").splitlines() if line
+    ]
+    assert ["--version"] in calls
+    render_call = next(call for call in calls if "--version" not in call)
+    assert "-secure" in render_call
+
+
 def test_diagram_without_caption_has_only_picture(
     workspace: Path,
     theme: Theme,
@@ -203,23 +281,19 @@ def test_diagram_without_caption_has_only_picture(
 def test_diagram_missing_plantuml_fails_without_pptx_fallback(
     workspace: Path,
     theme: Theme,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    error = PlantUmlError(
-        "PlantUML tidak ditemukan di PATH. Pasang PlantUML sebelum build diagram.",
-        code="PLANTUML-TOOL",
-    )
-    _fake_plantuml(monkeypatch, render_error=error)
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(tmp_path / "tidak-ada-plantuml"))
     _write_diagram(workspace)
     deck, layout = _diagram_case()
 
-    with pytest.raises(
-        PptxRenderError,
-        match=r"diagram PlantUML.*PlantUML tidak ditemukan",
-    ):
+    with pytest.raises(PptxRenderError, match=r"PlantUML tidak ditemukan") as error:
         _render(deck, layout, workspace, theme)
 
-    assert not (workspace / "diagram-deck.pptx").exists()
+    cause = error.value.__cause__
+    assert isinstance(cause, PlantUmlError)
+    assert cause.code == "PLANTUML-TOOL"
     assert list(workspace.glob("*.pptx")) == []
     assert list((workspace / "cache" / "plantuml").glob("*.png")) == []
 
@@ -256,34 +330,45 @@ def test_diagram_missing_caption_key_fails_coverage(
     assert not (workspace / "diagram-deck.pptx").exists()
 
 
-def test_diagram_source_traversal_fails_before_render(
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        ("diagrams/missing.puml", r"Diagram PlantUML tidak ditemukan"),
+        ("../flow.puml", r"tidak boleh memuat segmen kosong"),
+    ],
+    ids=["missing", "traversal"],
+)
+def test_diagram_invalid_source_fails_before_render(
     workspace: Path,
     theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    message: str,
 ) -> None:
-    _fake_plantuml(
-        monkeypatch,
-        resolve_error=PlantUmlError(
-            "Path diagram tidak boleh memuat '..': '../flow.puml'.",
-            code="PLANTUML-SOURCE",
-        ),
-    )
-    deck, layout = _diagram_case(source="../flow.puml")
+    def unexpected_render(*_args: object, **_kwargs: object) -> Path:
+        raise AssertionError("render tidak boleh dipanggil saat sumber invalid")
 
-    with pytest.raises(PptxRenderError, match=r"diagram PlantUML.*\.\."):
+    monkeypatch.setattr(diagram_module, "render_plantuml", unexpected_render)
+    deck, layout = _diagram_case(source=source)
+
+    with pytest.raises(PptxRenderError, match=message) as error:
         _render(deck, layout, workspace, theme)
 
+    cause = error.value.__cause__
+    assert isinstance(cause, PlantUmlError)
+    assert cause.code == "PLANTUML-SOURCE"
     assert not (workspace / "diagram-deck.pptx").exists()
 
 
 def test_minimal_deck_does_not_need_plantuml(
     minimal_case,
     theme: Theme,
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = _fake_plantuml(monkeypatch)
-    monkeypatch.setenv(PLANTUML_ENV_VAR, str(tmp_path / "tidak-ada-plantuml"))
+    def unexpected_find() -> Path | None:
+        raise AssertionError("deck tanpa diagram tidak boleh mencari PlantUML")
+
+    monkeypatch.setattr(plantuml_module, "find_plantuml", unexpected_find)
 
     result = PptxRenderer().render(
         RenderRequest(
@@ -295,6 +380,5 @@ def test_minimal_deck_does_not_need_plantuml(
         )
     )
 
-    assert calls == []
     assert result.artifact_path.is_file()
     assert result.coverage.ok is True

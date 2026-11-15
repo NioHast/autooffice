@@ -14,7 +14,9 @@ def _patch_report(
     tools: dict[str, str] | None = None,
     font_assets_status: tuple[bool, str] = (True, "aset font siap"),
 ) -> None:
+    """Isolasi laporan doctor dari Pandoc dan PlantUML yang terpasang."""
     available = tools or {}
+    plantuml = Path(available["plantuml"]) if "plantuml" in available else None
 
     monkeypatch.setattr(doctor, "_find_tool", lambda name: available.get(name))
     monkeypatch.setattr(
@@ -22,15 +24,28 @@ def _patch_report(
         "_tool_version",
         lambda command: f"{command} 1.0" if command else None,
     )
+    monkeypatch.setattr(doctor, "_find_plantuml", lambda: plantuml)
+    monkeypatch.setattr(
+        doctor,
+        "_plantuml_release",
+        lambda found: "1.2026.10" if found is not None else None,
+    )
     monkeypatch.setattr(doctor, "_font_assets_status", lambda: font_assets_status)
     monkeypatch.setattr(doctor, "_google_status", lambda: (True, "google siap"))
     monkeypatch.setattr(doctor.os, "access", lambda *_args: True)
 
 
-@pytest.mark.parametrize("targets", [None, ("pptx",)])
+@pytest.mark.parametrize(
+    ("targets", "required"),
+    [
+        (None, {"python", "workspace", "pandoc", "font-assets"}),
+        (("pptx",), {"python", "workspace", "font-assets"}),
+    ],
+)
 def test_doctor_does_not_require_installed_fonts(
     monkeypatch: pytest.MonkeyPatch,
     targets: tuple[str, ...] | None,
+    required: set[str],
 ) -> None:
     _patch_report(monkeypatch, tools={"pandoc": "pandoc"})
 
@@ -38,7 +53,15 @@ def test_doctor_does_not_require_installed_fonts(
 
     names = {check.name for check in report.checks}
     assert "fonts" not in names
-    assert "font-assets" in names
+    assert {check.name for check in report.checks if check.required} == required
+    assert {check.name: check.ok for check in report.checks} == {
+        "python": True,
+        "pandoc": True,
+        "plantuml": False,
+        "font-assets": True,
+        "google": True,
+        "workspace": True,
+    }
     assert report.ok is True
 
 

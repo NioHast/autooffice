@@ -41,7 +41,7 @@ def test_python_m_autooffice_entrypoint_prints_version(
         runpy.run_module("autooffice", run_name="__main__")
 
     assert error.value.code == 0
-    assert "autooffice 2.0.0" in capsys.readouterr().out
+    assert "autooffice 2.0.1" in capsys.readouterr().out
 
 
 def test_importing_entrypoint_module_does_not_run_cli() -> None:
@@ -65,4 +65,4 @@ def test_python_m_autooffice_subprocess_prints_version() -> None:
     )
 
     assert completed.returncode == 0
-    assert "autooffice 2.0.0" in completed.stdout
+    assert "autooffice 2.0.1" in completed.stdout

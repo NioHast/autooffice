@@ -19,7 +19,8 @@ Modul ini hanya menyediakan API render dan stage ``PlantUmlStage``; orkestrasi
 urutan tetap milik ``autooffice.docx.pipeline``.
 
 Setiap diagram di-hash dari isi PlantUML dan opsi render. Berkas PNG yang sudah
-ada dipakai ulang tanpa memanggil PlantUML lagi.
+ada dipakai ulang tanpa memanggil PlantUML lagi bila strukturnya valid; PNG
+rusak atau terpotong dirender ulang.
 
 Referensi: https://plantuml.com
 """
@@ -59,6 +60,13 @@ PLANTUML_INSTALL_HINT = (
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 _PNG_HEADER_SIZE = 13
 _PNG_MAX_CHUNK_LENGTH = 0x7FFFFFFF
+_PNG_BIT_DEPTHS = {
+    0: frozenset({1, 2, 4, 8, 16}),
+    2: frozenset({8, 16}),
+    3: frozenset({1, 2, 4, 8}),
+    4: frozenset({8, 16}),
+    6: frozenset({8, 16}),
+}
 
 _FENCE_OPEN_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _LANGUAGE_RE = re.compile(r"^\.?plantuml(?=$|[\s{])", re.IGNORECASE)
@@ -397,15 +405,14 @@ def find_plantuml(explicit: str | Path | None = None) -> str | None:
     """Cari PlantUML dari path eksplisit, ``AUTOOFFICE_PLANTUML``, atau ``PATH``.
 
     Nilai environment boleh berupa ``plantuml.jar`` maupun executable
-    ``plantuml``. ``None`` berarti PlantUML tidak ditemukan.
+    ``plantuml``. Nilai kosong dianggap tidak diset sehingga pencarian jatuh ke
+    ``PATH``. ``None`` berarti PlantUML tidak ditemukan.
     """
 
     if explicit is not None:
         return _find_candidate(explicit)
     configured = os.environ.get(PLANTUML_ENV_VAR)
-    if configured is not None:
-        if not configured.strip():
-            return None
+    if configured:
         return _find_candidate(configured)
     return shutil.which("plantuml")
 
@@ -414,13 +421,7 @@ def _plantuml_missing_message(explicit: str | Path | None = None) -> str:
     if explicit is not None:
         return f"PlantUML tidak ditemukan: {explicit}. {PLANTUML_INSTALL_HINT}"
     configured = os.environ.get(PLANTUML_ENV_VAR)
-    if configured is not None and not configured.strip():
-        return (
-            f"PlantUML tidak ditemukan: {PLANTUML_ENV_VAR} diisi kosong; hapus "
-            f"variabel atau tunjuk plantuml.jar/executable PlantUML. "
-            f"{PLANTUML_INSTALL_HINT}"
-        )
-    if configured is not None:
+    if configured:
         return (
             f"PlantUML tidak ditemukan: {PLANTUML_ENV_VAR} menunjuk path yang "
             f"tidak dapat dijalankan: {configured!r}. {PLANTUML_INSTALL_HINT}"
@@ -532,8 +533,9 @@ def _png_problem(data: bytes) -> str | None:
             return f"CRC chunk {chunk_type.decode('ascii', 'replace')} rusak"
 
         if first:
-            if int.from_bytes(payload[0:4], "big") == 0 or int.from_bytes(payload[4:8], "big") == 0:
-                return "dimensi IHDR nol"
+            ihdr_problem = _ihdr_problem(payload)
+            if ihdr_problem is not None:
+                return ihdr_problem
             first = False
         if chunk_type == b"IDAT":
             seen_idat = True
@@ -547,6 +549,60 @@ def _png_problem(data: bytes) -> str | None:
             return None
 
     return "IEND tidak ditemukan"
+
+
+def _ihdr_problem(payload: bytes) -> str | None:
+    """Periksa field IHDR: dimensi, color type, bit depth, dan metode."""
+
+    width = int.from_bytes(payload[0:4], "big")
+    height = int.from_bytes(payload[4:8], "big")
+    bit_depth = payload[8]
+    color_type = payload[9]
+    compression = payload[10]
+    filter_method = payload[11]
+    interlace = payload[12]
+    if width == 0 or height == 0:
+        return "dimensi IHDR nol"
+    allowed_depths = _PNG_BIT_DEPTHS.get(color_type)
+    if allowed_depths is None:
+        return "color type IHDR tidak valid"
+    if bit_depth not in allowed_depths:
+        return "bit depth IHDR tidak valid"
+    if compression != 0:
+        return "compression IHDR tidak valid"
+    if filter_method != 0:
+        return "filter IHDR tidak valid"
+    if interlace not in {0, 1}:
+        return "interlace IHDR tidak valid"
+    return None
+
+
+def _png_file_problem(path: Path) -> str | None:
+    """Validasi PNG yang sudah ada di disk sebelum dipakai ulang."""
+
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        return f"tidak dapat dibaca ({exc})"
+    if size > MAX_OUTPUT_BYTES:
+        return f"melebihi batas {MAX_OUTPUT_BYTES} byte"
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return f"tidak dapat dibaca ({exc})"
+    return _png_problem(data)
+
+
+def _discard_invalid_png(path: Path) -> None:
+    """Hapus PNG lama yang tidak valid agar dapat dirender ulang."""
+
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as exc:
+        raise PlantUmlError(
+            f"Gagal menghapus PNG PlantUML tidak valid {path}: {exc}",
+            code="PLANTUML-OUTPUT",
+        ) from exc
 
 
 def _render_plantuml(
@@ -565,7 +621,9 @@ def _render_plantuml(
 
     target = Path(output_png)
     if target.is_file():
-        return target
+        if _png_file_problem(target) is None:
+            return target
+        _discard_invalid_png(target)
 
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -686,7 +744,9 @@ def render_blocks(
     pending: dict[str, _BlockPlan] = {}
     for plan in plans:
         if plan.image_path.is_file():
-            continue
+            if _png_file_problem(plan.image_path) is None:
+                continue
+            _discard_invalid_png(plan.image_path)
         pending.setdefault(plan.digest, plan)
 
     if pending:

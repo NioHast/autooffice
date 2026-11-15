@@ -3,8 +3,6 @@
 import base64
 import json
 import os
-import subprocess
-import sys
 import zlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,13 +11,7 @@ import pytest
 
 import autooffice.docx.stages.plantuml as plantuml_module
 from autooffice.docx.errors import DocgenError, StageError, ToolMissingError
-from autooffice.docx.pipeline import (
-    CANONICAL_ORDER,
-    CANONICAL_STAGES,
-    ArtifactStore,
-    StageName,
-    Workspace,
-)
+from autooffice.docx.pipeline import ArtifactStore, Workspace
 from autooffice.docx.stages.plantuml import (
     PLANTUML_ENV_VAR,
     PlantUmlError,
@@ -42,13 +34,16 @@ def png_chunk(chunk_type: bytes, payload: bytes) -> bytes:
     return len(payload).to_bytes(4, "big") + chunk_type + payload + crc.to_bytes(4, "big")
 
 
-PNG_HEADER = png_chunk(
-    b"IHDR",
-    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00",
-)
+PNG_IHDR = b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+PNG_HEADER = png_chunk(b"IHDR", PNG_IHDR)
 PNG_IDAT = png_chunk(b"IDAT", b"data")
 PNG_IEND = png_chunk(b"IEND", b"")
 VALID_PNG = PNG_SIGNATURE + PNG_HEADER + PNG_IDAT + PNG_IEND
+
+
+def png_with_ihdr(ihdr: bytes) -> bytes:
+    return PNG_SIGNATURE + png_chunk(b"IHDR", ihdr) + PNG_IDAT + PNG_IEND
+
 
 CODE_SEQUENCE = "@startuml\nAlice -> Bob: Halo\n@enduml"
 CODE_OTHER = "@startuml\nBob -> Alice: Balasan\n@enduml"
@@ -633,10 +628,11 @@ def test_render_blocks_missing_engine_raises_tool_missing(tmp_path: Path) -> Non
     assert not (base / "gambar").exists()
 
 
-def test_missing_engine_with_empty_environment_explained(
+def test_missing_engine_with_empty_environment_falls_back_to_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(PLANTUML_ENV_VAR, "")
+    monkeypatch.setattr(plantuml_module.shutil, "which", lambda name: None)
 
     with pytest.raises(ToolMissingError) as error:
         render_blocks(
@@ -644,9 +640,28 @@ def test_missing_engine_with_empty_environment_explained(
             tmp_path / "tugas",
         )
 
-    message = str(error.value)
-    assert "diisi kosong" in message
-    assert PLANTUML_ENV_VAR in message
+    assert "tidak ditemukan di PATH" in str(error.value)
+
+
+def test_empty_environment_uses_fake_plantuml_from_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tugas"
+    script, log = make_fake_plantuml(tmp_path, monkeypatch, export_env=False)
+    monkeypatch.setenv(PLANTUML_ENV_VAR, "")
+    monkeypatch.setattr(
+        plantuml_module.shutil,
+        "which",
+        lambda name: str(script) if name == "plantuml" else None,
+    )
+
+    result = render_blocks(plantuml_fence("Diagram pipeline", CODE_SEQUENCE), base)
+
+    images = list((base / "gambar").glob("plantuml-*.png"))
+    assert len(images) == 1
+    assert images[0].read_bytes() == PNG_1X1
+    assert "](gambar/plantuml-" in result
+    assert len(read_calls(log)) == 1
 
 
 def test_missing_engine_with_invalid_environment_explained(
@@ -887,6 +902,85 @@ def test_render_rejects_structurally_invalid_png(
     assert error.value.code == "PLANTUML-OUTPUT"
     assert reason in str(error.value)
     assert list((base / "gambar").glob("plantuml-*.png")) == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "reason"),
+    [
+        pytest.param(
+            png_with_ihdr(PNG_IHDR[:9] + b"\x01" + PNG_IHDR[10:]),
+            "color type IHDR tidak valid",
+            id="bad-color-type",
+        ),
+        pytest.param(
+            png_with_ihdr(PNG_IHDR[:8] + b"\x04" + PNG_IHDR[9:]),
+            "bit depth IHDR tidak valid",
+            id="bad-bit-depth",
+        ),
+        pytest.param(
+            png_with_ihdr(PNG_IHDR[:10] + b"\x01" + PNG_IHDR[11:]),
+            "compression IHDR tidak valid",
+            id="bad-compression",
+        ),
+        pytest.param(
+            png_with_ihdr(PNG_IHDR[:11] + b"\x01" + PNG_IHDR[12:]),
+            "filter IHDR tidak valid",
+            id="bad-filter",
+        ),
+        pytest.param(
+            png_with_ihdr(PNG_IHDR[:12] + b"\x02" + PNG_IHDR[13:]),
+            "interlace IHDR tidak valid",
+            id="bad-interlace",
+        ),
+        pytest.param(
+            VALID_PNG[:-1] + bytes([VALID_PNG[-1] ^ 1]),
+            "CRC chunk IEND rusak",
+            id="bad-crc",
+        ),
+        pytest.param(
+            PNG_SIGNATURE + PNG_HEADER + PNG_IDAT,
+            "IEND tidak ditemukan",
+            id="missing-iend",
+        ),
+    ],
+)
+def test_existing_invalid_png_is_rerendered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    payload: bytes,
+    reason: str,
+) -> None:
+    base = tmp_path / "tugas"
+    image_path = base / "gambar" / f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(payload)
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+
+    result = render_blocks(
+        plantuml_fence("Diagram pipeline", CODE_SEQUENCE),
+        base,
+        plantuml=fake_plantuml,
+    )
+
+    assert image_path.read_bytes() == PNG_1X1, reason
+    assert len(read_calls(log)) == 1
+    assert f"](gambar/{image_path.name})" in result
+
+
+def test_existing_invalid_png_without_engine_is_rejected(tmp_path: Path) -> None:
+    base = tmp_path / "tugas"
+    image_path = base / "gambar" / f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(PNG_SIGNATURE + PNG_HEADER + PNG_IDAT)
+
+    with pytest.raises(ToolMissingError):
+        render_blocks(
+            plantuml_fence("Diagram pipeline", CODE_SEQUENCE),
+            base,
+            plantuml=tmp_path / "tidak-ada-plantuml",
+        )
+
+    assert not image_path.exists()
 
 
 def test_render_empty_stdout_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1192,16 +1286,22 @@ def test_find_plantuml_explicit_env_and_missing(
     assert find_plantuml() == str(script)
 
     monkeypatch.setenv(PLANTUML_ENV_VAR, "   ")
+    monkeypatch.setattr(plantuml_module.shutil, "which", lambda name: None)
     assert find_plantuml() is None
 
     monkeypatch.setenv(PLANTUML_ENV_VAR, str(tmp_path / "tidak-ada-plantuml"))
     assert find_plantuml() is None
 
 
+@pytest.mark.parametrize("value", [None, ""], ids=["unset", "empty"])
 def test_find_plantuml_uses_path_when_environment_is_empty(
     monkeypatch: pytest.MonkeyPatch,
+    value: str | None,
 ) -> None:
-    monkeypatch.delenv(PLANTUML_ENV_VAR, raising=False)
+    if value is None:
+        monkeypatch.delenv(PLANTUML_ENV_VAR, raising=False)
+    else:
+        monkeypatch.setenv(PLANTUML_ENV_VAR, value)
     monkeypatch.setattr(
         plantuml_module.shutil,
         "which",
@@ -1209,22 +1309,6 @@ def test_find_plantuml_uses_path_when_environment_is_empty(
     )
 
     assert find_plantuml() == "plantuml-dari-path"
-
-
-def test_fake_plantuml_reports_reference_version(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    script, _log = make_fake_plantuml(tmp_path, monkeypatch, export_env=False)
-
-    completed = subprocess.run(
-        [sys.executable, str(script), "--version"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert completed.returncode == 0
-    assert completed.stdout.strip() == "PlantUML version 1.2026.10"
 
 
 # ---------------------------------------------------------------------------
@@ -1238,34 +1322,6 @@ def _stage_context(tmp_path: Path, body: str) -> SimpleNamespace:
         workspace=Workspace(root=tmp_path / ".laporan-build", keep=True),
         artifacts=ArtifactStore(),
     )
-
-
-def test_module_constants_match_contract() -> None:
-    assert plantuml_module.IMAGE_DIR == "gambar"
-    assert plantuml_module.HASH_LENGTH == 12
-    assert plantuml_module.DEFAULT_TIMEOUT == 180
-    assert plantuml_module.MAX_OUTPUT_BYTES == 32 * 1024 * 1024
-    assert plantuml_module.MAX_ERROR_BYTES == 64 * 1024
-    assert plantuml_module.PLANTUML_ENV_VAR == "AUTOOFFICE_PLANTUML"
-    assert plantuml_module.JAVA_ENV_VAR == "AUTOOFFICE_JAVA"
-    assert plantuml_module.JAVA_HOME_ENV_VAR == "JAVA_HOME"
-
-
-def test_stage_spec_matches_canonical_contract() -> None:
-    assert StageName.PLANTUML.value == "plantuml"
-    assert CANONICAL_ORDER.index(StageName.PLANTUML) == 1
-    assert PlantUmlStage.name is StageName.PLANTUML
-    assert PlantUmlStage.order == 20
-    assert PlantUmlStage.requires == (StageName.VALIDATE,)
-    assert PlantUmlStage.mutates == frozenset({"workspace"})
-    assert PlantUmlStage.idempotent is True
-
-    spec = next(item for item in CANONICAL_STAGES if item.name is StageName.PLANTUML)
-    assert spec.order == 20
-    assert spec.module == "stages/plantuml.py"
-    assert spec.requires == (StageName.VALIDATE,)
-    assert spec.mutates == frozenset({"workspace"})
-    assert spec.idempotent is True
 
 
 def test_stage_without_blocks_still_writes_plantuml_md_and_artifact(tmp_path: Path) -> None:

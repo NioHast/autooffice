@@ -698,7 +698,10 @@ def _digest_from_hash(
 
 
 def _cache_png_is_valid(path: Path) -> bool:
-    """Validasi PNG cache; entri rusak dihapus agar dirender ulang."""
+    """Validasi PNG cache; symlink dan entri rusak dihapus agar dirender ulang."""
+    if path.is_symlink():
+        _discard_cache_entry(path)
+        return False
     if not path.is_file():
         return False
     try:
@@ -765,6 +768,9 @@ def _cache_mtime(path: Path) -> int:
 
 
 def _read_cache_metadata(path: Path) -> dict[str, object] | None:
+    """Baca metadata cache; symlink selalu ditolak tanpa diikuti."""
+    if path.is_symlink():
+        return None
     try:
         if path.stat().st_size > MAX_CACHE_METADATA_BYTES:
             return None

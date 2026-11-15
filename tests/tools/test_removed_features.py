@@ -17,14 +17,14 @@ dev = ["pytest==9.2.0"]
 google = ["google-auth-oauthlib==1.5.0"]
 """
 
-MERMAID_FORBIDDEN_PATHS: tuple[str, ...] = (
-    "src/autooffice/deck/media/mermaid.py",
-    "src/autooffice/docx/stages/mermaid.py",
-    "tests/deck/media/test_mermaid.py",
-    "tests/deck/media/test_mermaid_security.py",
-    "tests/docx/test_mermaid_docx.py",
-    "docs/user/mermaid.md",
-    "docs/contracts/mermaid.md",
+LISTED_RULE_IDS: tuple[str, ...] = (
+    "import",
+    "path",
+    "mermaid-source",
+    "font-dir",
+    "dependency",
+    "extra",
+    "contract",
 )
 
 
@@ -127,42 +127,36 @@ def test_forbidden_path_is_detected(tmp_path: Path, relative: str) -> None:
 
 
 def test_forbidden_path_fails_the_cli(tmp_path: Path) -> None:
-    _make_forbidden_path(tmp_path, "tools/install_fonts.py")
+    _make_forbidden_path(tmp_path, check_removed_features.FORBIDDEN_PATHS[0])
 
     assert check_removed_features.main([str(tmp_path)]) == 1
 
 
-def test_plus_jakarta_sans_is_a_forbidden_path() -> None:
-    assert "src/autooffice/assets/fonts/plus-jakarta-sans" in check_removed_features.FORBIDDEN_PATHS
-
-
-def test_plus_jakarta_sans_font_directory_fails(tmp_path: Path) -> None:
-    _make_forbidden_path(tmp_path, "src/autooffice/assets/fonts/plus-jakarta-sans")
-
-    findings = _violations(tmp_path)
-
-    assert [item.rule for item in findings] == ["forbidden-path"]
-    assert findings[0].file == "src/autooffice/assets/fonts/plus-jakarta-sans"
-    assert check_removed_features.main([str(tmp_path)]) == 1
-
-
-@pytest.mark.parametrize("relative", MERMAID_FORBIDDEN_PATHS)
-def test_mermaid_path_is_a_forbidden_path(relative: str) -> None:
-    assert relative in check_removed_features.FORBIDDEN_PATHS
-
-
-@pytest.mark.parametrize("relative", MERMAID_FORBIDDEN_PATHS)
-def test_mermaid_path_is_detected(tmp_path: Path, relative: str) -> None:
+def test_forbidden_font_directory_is_reported_once(tmp_path: Path) -> None:
+    relative = next(
+        path
+        for path in check_removed_features.FORBIDDEN_PATHS
+        if path.startswith(f"{check_removed_features.FONT_ASSETS_DIRECTORY}/")
+    )
     _make_forbidden_path(tmp_path, relative)
 
     findings = _violations(tmp_path)
 
-    assert [item.file for item in findings if item.rule == "forbidden-path"] == [relative]
+    assert [item.rule for item in findings] == ["forbidden-path"]
+    assert findings[0].file == relative
     assert check_removed_features.main([str(tmp_path)]) == 1
 
 
-@pytest.mark.parametrize("name", ["diagram.mmd", "diagram.MMD"])
-def test_mermaid_source_file_fails(tmp_path: Path, name: str) -> None:
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        check_removed_features.MERMAID_SOURCE_SUFFIX,
+        check_removed_features.MERMAID_SOURCE_SUFFIX.upper(),
+    ],
+    ids=["lower", "upper"],
+)
+def test_mermaid_source_file_fails(tmp_path: Path, suffix: str) -> None:
+    name = f"diagram{suffix}"
     _write(tmp_path, f"diagrams/{name}", "flowchart LR\n  A --> B\n")
 
     findings = _violations(tmp_path)
@@ -175,15 +169,17 @@ def test_mermaid_source_file_fails(tmp_path: Path, name: str) -> None:
 
 @pytest.mark.parametrize("directory", [".git", ".venv", "dist"])
 def test_mermaid_source_in_skipped_directory_passes(tmp_path: Path, directory: str) -> None:
-    _write(tmp_path, f"{directory}/history/diagram.mmd", "flowchart LR\n")
+    name = f"diagram{check_removed_features.MERMAID_SOURCE_SUFFIX}"
+    _write(tmp_path, f"{directory}/history/{name}", "flowchart LR\n")
 
     assert _violations(tmp_path) == ()
 
 
 def test_mermaid_suffix_mentioned_as_text_passes(tmp_path: Path) -> None:
-    _write(tmp_path, "docs/dev/notes.md", "Simpan sumber diagram sebagai `diagram.mmd`.\n")
-    _write(tmp_path, "archive/history/lessons.md", "Berkas `.mmd` sudah dihapus.\n")
-    _write(tmp_path, "src/autooffice/notes.py", 'SOURCE_SUFFIX = ".mmd"\n')
+    suffix = check_removed_features.MERMAID_SOURCE_SUFFIX
+    _write(tmp_path, "docs/dev/notes.md", f"Simpan sumber diagram sebagai `diagram{suffix}`.\n")
+    _write(tmp_path, "archive/history/lessons.md", f"Berkas `{suffix}` sudah dihapus.\n")
+    _write(tmp_path, "src/autooffice/notes.py", f'SOURCE_SUFFIX = "{suffix}"\n')
 
     assert _violations(tmp_path) == ()
 
@@ -192,7 +188,8 @@ def test_mermaid_source_is_reported_in_json(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _write(tmp_path, "diagram.mmd", "flowchart LR\n")
+    name = f"diagram{check_removed_features.MERMAID_SOURCE_SUFFIX}"
+    _write(tmp_path, name, "flowchart LR\n")
 
     code = check_removed_features.main(["--format", "json", str(tmp_path)])
     payload = json.loads(capsys.readouterr().out)
@@ -203,22 +200,23 @@ def test_mermaid_source_is_reported_in_json(
 
 
 def test_unexpected_font_directory_fails(tmp_path: Path) -> None:
-    _write(tmp_path, "src/autooffice/assets/fonts/open-sans/OpenSans-Regular.ttf", "")
+    relative = f"{check_removed_features.FONT_ASSETS_DIRECTORY}/open-sans"
+    _write(tmp_path, f"{relative}/OpenSans-Regular.ttf", "")
 
     findings = _violations(tmp_path)
 
     assert [item.rule for item in findings] == ["forbidden-font"]
-    assert findings[0].file == "src/autooffice/assets/fonts/open-sans"
-    assert "liberation-sans" in findings[0].message
+    assert findings[0].file == relative
+    assert min(check_removed_features.ALLOWED_FONT_DIRECTORIES) in findings[0].message
     assert check_removed_features.main([str(tmp_path)]) == 1
 
 
 def test_allowed_font_directory_passes(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "src/autooffice/assets/fonts/liberation-sans/LiberationSans-Regular.ttf",
-        "",
+    allowed = min(check_removed_features.ALLOWED_FONT_DIRECTORIES)
+    relative = (
+        f"{check_removed_features.FONT_ASSETS_DIRECTORY}/{allowed}/LiberationSans-Regular.ttf"
     )
+    _write(tmp_path, relative, "")
 
     assert _violations(tmp_path) == ()
     assert check_removed_features.main([str(tmp_path)]) == 0
@@ -232,7 +230,9 @@ def test_repository_font_directories_match_allowlist() -> None:
     assert names == set(check_removed_features.ALLOWED_FONT_DIRECTORIES)
 
 
-def test_windows_extra_is_detected(tmp_path: Path) -> None:
+def test_forbidden_extra_and_dependency_are_detected(tmp_path: Path) -> None:
+    extra = check_removed_features.FORBIDDEN_EXTRAS[0]
+    dependency = check_removed_features.FORBIDDEN_DEPENDENCIES[0]
     _write(
         tmp_path,
         "pyproject.toml",
@@ -240,7 +240,7 @@ def test_windows_extra_is_detected(tmp_path: Path) -> None:
         'name = "sample"\n'
         "\n"
         "[project.optional-dependencies]\n"
-        'windows = ["pywin32==306"]\n',
+        f'{extra} = ["{dependency}==306"]\n',
     )
 
     rules = {item.rule for item in _violations(tmp_path)}
@@ -249,20 +249,22 @@ def test_windows_extra_is_detected(tmp_path: Path) -> None:
     assert check_removed_features.main([str(tmp_path)]) == 1
 
 
-def test_pypdf_dependency_is_detected(tmp_path: Path) -> None:
+def test_forbidden_dependency_is_detected(tmp_path: Path) -> None:
+    dependency = check_removed_features.FORBIDDEN_DEPENDENCIES[-1]
     _write(
         tmp_path,
         "pyproject.toml",
-        '[project]\nname = "sample"\ndependencies = ["pypdf>=6"]\n',
+        f'[project]\nname = "sample"\ndependencies = ["{dependency}>=6"]\n',
     )
 
     findings = _violations(tmp_path)
 
     assert [item.rule for item in findings] == ["forbidden-dependency"]
-    assert "pypdf" in findings[0].message
+    assert dependency in findings[0].message
 
 
 def test_import_linter_contract_is_detected(tmp_path: Path) -> None:
+    contract_module = check_removed_features.FORBIDDEN_CONTRACT_MODULE
     _write(
         tmp_path,
         "pyproject.toml",
@@ -272,13 +274,13 @@ def test_import_linter_contract_is_detected(tmp_path: Path) -> None:
         'name = "docx tanpa pdf"\n'
         'type = "forbidden"\n'
         'source_modules = ["autooffice.docx"]\n'
-        'forbidden_modules = ["autooffice.pdf"]\n',
+        f'forbidden_modules = ["{contract_module}"]\n',
     )
 
     findings = _violations(tmp_path)
 
     assert [item.rule for item in findings] == ["forbidden-contract"]
-    assert "autooffice.pdf" in findings[0].message
+    assert contract_module in findings[0].message
 
 
 def test_json_format_reports_violations(
@@ -296,34 +298,25 @@ def test_json_format_reports_violations(
     assert payload["violations"][0]["rule"] == "forbidden-import"
 
 
-def test_list_prints_targets(capsys: pytest.CaptureFixture[str]) -> None:
+def test_list_reports_declared_rules_and_targets(capsys: pytest.CaptureFixture[str]) -> None:
     code = check_removed_features.main(["--list"])
 
     output = capsys.readouterr().out
     assert code == 0
-    for target in (
-        "autooffice.pdf",
-        "win32com",
-        "pythoncom",
-        "pywin32",
-        "src/autooffice/pdf",
-        "src/autooffice/deck/media/mermaid.py",
-        "src/autooffice/docx/stages/mermaid.py",
-        "src/autooffice/assets/fonts/plus-jakarta-sans",
-        "tests/visual",
-        "tests/deck/media/test_mermaid.py",
-        "tests/deck/media/test_mermaid_security.py",
-        "tests/docx/test_mermaid_docx.py",
-        "docs/user/mermaid.md",
-        "docs/contracts/mermaid.md",
-        "tools/install_fonts.py",
-        "mermaid-source",
-        ".mmd",
-        "pypdf",
-        "windows",
-        "liberation-sans",
-    ):
+    declared_targets = (
+        *check_removed_features.FORBIDDEN_IMPORT_ROOTS,
+        *check_removed_features.FORBIDDEN_PATHS,
+        check_removed_features.MERMAID_SOURCE_SUFFIX,
+        check_removed_features.FONT_ASSETS_DIRECTORY,
+        *sorted(check_removed_features.ALLOWED_FONT_DIRECTORIES),
+        *check_removed_features.FORBIDDEN_DEPENDENCIES,
+        *check_removed_features.FORBIDDEN_EXTRAS,
+        check_removed_features.FORBIDDEN_CONTRACT_MODULE,
+    )
+    for target in declared_targets:
         assert target in output
+    for rule in LISTED_RULE_IDS:
+        assert rule in output
 
 
 def test_missing_root_returns_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

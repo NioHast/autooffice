@@ -67,6 +67,7 @@ def doctor_report(targets: tuple[str, ...] | None) -> DoctorReport:
     pandoc_version = _tool_version(pandoc)
     plantuml = _find_plantuml()
     plantuml_release = _plantuml_release(plantuml)
+    plantuml_ok = plantuml is not None and plantuml_release is not None
     font_assets_ok, font_assets_detail = _font_assets_status()
     google_ok, google_detail = _google_status()
     workspace_ok = os.access(Path.cwd(), os.W_OK)
@@ -91,7 +92,7 @@ def doctor_report(targets: tuple[str, ...] | None) -> DoctorReport:
         ),
         DoctorCheck(
             name="plantuml",
-            ok=plantuml is not None,
+            ok=plantuml_ok,
             required=False,
             detail=_plantuml_detail(plantuml, plantuml_release),
         ),
@@ -181,7 +182,10 @@ def _plantuml_detail(executable: Path | None, release: str | None) -> str:
         return "tidak ditemukan; diperlukan hanya untuk diagram PlantUML"
     if release:
         return f"{release} - {executable}"
-    return str(executable)
+    from autooffice.deck.media.plantuml import MIN_PLANTUML_VERSION
+
+    minimum = ".".join(str(part) for part in MIN_PLANTUML_VERSION)
+    return f"{executable} (versi tidak terbaca / butuh {minimum})"
 
 
 def _find_tool(name: str) -> str | None:

@@ -11,27 +11,39 @@ from autooffice.cli import doctor
 from autooffice.deck.media.plantuml import PlantUmlError
 from autooffice.design import fonts
 
+CHECK_NAMES = ("python", "pandoc", "plantuml", "font-assets", "google", "workspace")
+
+
+def _status(
+    *,
+    pandoc: bool,
+    plantuml: bool,
+    google: bool = True,
+    font_assets: bool = True,
+) -> dict[str, bool]:
+    """Status ``ok`` yang diharapkan untuk tool set tertentu."""
+    return {
+        "python": True,
+        "pandoc": pandoc,
+        "plantuml": plantuml,
+        "font-assets": font_assets,
+        "google": google,
+        "workspace": True,
+    }
+
 
 def _patch_offline(
     monkeypatch: pytest.MonkeyPatch,
     *,
     tools: dict[str, str] | None = None,
-    plantuml_release: str | None = "1.2026.10",
-    plantuml_error: PlantUmlError | None = None,
+    plantuml_release: str = "1.2026.10",
+    plantuml_version_error: PlantUmlError | None = None,
     font_assets_status: tuple[bool, str] = (True, "aset font siap"),
     google_status: tuple[bool, str] | None = (True, "google siap"),
 ) -> None:
+    """Isolasi doctor dari tool terpasang, PlantUML nyata, dan jaringan."""
     available = tools or {}
-    executable = available.get("plantuml")
-
-    def fake_find_plantuml() -> Path | None:
-        return Path(executable) if executable else None
-
-    def fake_plantuml_version(_executable: Path) -> str:
-        if plantuml_error is not None:
-            raise plantuml_error
-        assert plantuml_release is not None
-        return plantuml_release
+    plantuml = Path(available["plantuml"]) if "plantuml" in available else None
 
     monkeypatch.setattr(doctor, "_find_tool", lambda name: available.get(name))
     monkeypatch.setattr(
@@ -39,12 +51,19 @@ def _patch_offline(
         "_tool_version",
         lambda command: f"{command} 1.0" if command else None,
     )
-    monkeypatch.setattr(plantuml_module, "find_plantuml", fake_find_plantuml)
-    monkeypatch.setattr(plantuml_module, "plantuml_version", fake_plantuml_version)
-    if hasattr(doctor, "find_plantuml"):
-        monkeypatch.setattr(doctor, "find_plantuml", fake_find_plantuml)
-    if hasattr(doctor, "plantuml_version"):
-        monkeypatch.setattr(doctor, "plantuml_version", fake_plantuml_version)
+    monkeypatch.setattr(doctor, "_find_plantuml", lambda: plantuml)
+    if plantuml_version_error is None:
+        monkeypatch.setattr(
+            doctor,
+            "_plantuml_release",
+            lambda found: plantuml_release if found is not None else None,
+        )
+    else:
+
+        def fail(_executable: Path) -> str:
+            raise plantuml_version_error
+
+        monkeypatch.setattr(plantuml_module, "plantuml_version", fail)
     monkeypatch.setattr(doctor, "_font_assets_status", lambda: font_assets_status)
     if google_status is not None:
         monkeypatch.setattr(doctor, "_google_status", lambda: google_status)
@@ -52,37 +71,61 @@ def _patch_offline(
 
 
 @pytest.mark.parametrize(
-    ("targets", "required"),
+    ("targets", "tools", "required", "ok"),
     [
-        (None, {"python", "workspace", "pandoc", "font-assets"}),
-        (("docx",), {"python", "workspace", "pandoc"}),
-        (("pptx",), {"python", "workspace", "font-assets"}),
-        (("slides",), {"python", "workspace", "font-assets", "google"}),
-        (
+        pytest.param(
+            None,
+            {"pandoc": "pandoc", "plantuml": "/opt/plantuml"},
+            {"python", "workspace", "pandoc", "font-assets"},
+            _status(pandoc=True, plantuml=True),
+            id="default-targets",
+        ),
+        pytest.param(
+            ("docx",),
+            {"pandoc": "pandoc"},
+            {"python", "workspace", "pandoc"},
+            _status(pandoc=True, plantuml=False),
+            id="docx",
+        ),
+        pytest.param(
+            ("pptx",),
+            {"plantuml": "/opt/plantuml"},
+            {"python", "workspace", "font-assets"},
+            _status(pandoc=False, plantuml=True),
+            id="pptx",
+        ),
+        pytest.param(
+            ("slides",),
+            {},
+            {"python", "workspace", "font-assets", "google"},
+            _status(pandoc=False, plantuml=False),
+            id="slides",
+        ),
+        pytest.param(
             ("docx", "pptx", "slides"),
-            {
-                "python",
-                "workspace",
-                "pandoc",
-                "font-assets",
-                "google",
-            },
+            {"pandoc": "pandoc", "plantuml": "/opt/plantuml"},
+            {"python", "workspace", "pandoc", "font-assets", "google"},
+            _status(pandoc=True, plantuml=True),
+            id="all-targets",
         ),
     ],
 )
-def test_doctor_required_checks_follow_targets(
+def test_doctor_required_checks_and_status_follow_targets(
     monkeypatch: pytest.MonkeyPatch,
     targets: tuple[str, ...] | None,
+    tools: dict[str, str],
     required: set[str],
+    ok: dict[str, bool],
 ) -> None:
-    _patch_offline(monkeypatch, tools={"pandoc": "pandoc", "plantuml": "/opt/plantuml"})
+    _patch_offline(monkeypatch, tools=tools)
 
     report = doctor.doctor_report(targets)
 
+    assert tuple(check.name for check in report.checks) == CHECK_NAMES
     assert {check.name for check in report.checks if check.required} == required
+    assert {check.name: check.ok for check in report.checks} == ok
     assert report.ok is True
     assert report.targets == targets
-    assert {"word", "powerpoint", "pywin32"} & {check.name for check in report.checks} == set()
 
 
 def test_doctor_plantuml_check_reports_version_and_path(
@@ -115,23 +158,32 @@ def test_doctor_missing_plantuml_is_optional(
     assert report.ok is True
 
 
-def test_doctor_plantuml_version_failure_reports_path(
+@pytest.mark.parametrize(
+    "message",
+    ["versi tidak terbaca", "PlantUML 1.2025.9 terlalu lama"],
+    ids=["unreadable", "too-old"],
+)
+def test_doctor_plantuml_unusable_version_reports_path_and_minimum(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    message: str,
 ) -> None:
     executable = tmp_path / "plantuml.jar"
     _patch_offline(
         monkeypatch,
         tools={"plantuml": str(executable)},
-        plantuml_error=PlantUmlError("versi tidak terbaca"),
+        plantuml_version_error=PlantUmlError(message, code="PLANTUML-VERSION"),
     )
 
     report = doctor.doctor_report(("pptx",))
 
     check = next(check for check in report.checks if check.name == "plantuml")
-    assert check.ok is True
+    assert check.ok is False
     assert check.required is False
-    assert check.detail == str(executable)
+    assert str(executable) in check.detail
+    assert "versi tidak terbaca" in check.detail
+    minimum = ".".join(str(part) for part in plantuml_module.MIN_PLANTUML_VERSION)
+    assert f"butuh {minimum}" in check.detail
     assert report.ok is True
 
 

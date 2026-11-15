@@ -46,6 +46,7 @@ CRITICAL_MODULES: tuple[str, ...] = (
     "autooffice.deck.copy.rules.patterns",
     "autooffice.deck.charts.spec",
     "autooffice.deck.transcript.parser",
+    "autooffice.deck.media.plantuml",
 )
 
 ADAPTER_PATTERNS: tuple[str, ...] = (

@@ -1,9 +1,11 @@
 """Tes branch keamanan renderer PlantUML: PNG, cache, proses, dan batas output."""
 
 import base64
+import ctypes
 import io
 import json
 import os
+import signal
 import struct
 import subprocess
 import sys
@@ -50,6 +52,7 @@ from autooffice.deck.media.plantuml import (
     _wait_for_exit,
     _write_atomic_bytes,
     _write_cache_metadata,
+    find_plantuml,
     plantuml_version,
     render_plantuml,
 )
@@ -162,6 +165,66 @@ def write_source(tmp_path: Path, name: str = "flow.puml", text: str = SOURCE_TEX
     source = tmp_path / name
     source.write_text(text, encoding="utf-8")
     return source
+
+
+def make_directory_symlink(link: Path, target: Path) -> None:
+    """Buat symlink direktori; Windows memakai junction bila symlink ditolak."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except OSError as error:
+        if os.name != "nt":
+            pytest.skip(f"symlink direktori tidak didukung: {error}")
+        command = os.environ.get("COMSPEC", "cmd.exe")
+        completed = subprocess.run(
+            [command, "/c", "mklink", "/J", str(link), str(target)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()
+            pytest.skip(
+                "symlink direktori dan junction tidak dapat dibuat: "
+                f"symlink={error}; junction={detail or 'tanpa output'}"
+            )
+
+
+def remove_directory_symlink(link: Path) -> None:
+    """Hapus symlink atau junction direktori tanpa menyentuh targetnya."""
+    try:
+        if link.is_symlink():
+            link.unlink()
+        elif link.is_junction():
+            os.rmdir(link)
+    except OSError:
+        return
+
+
+def terminate_process(pid: int) -> None:
+    """Hentikan proses uji; aman dipanggil untuk PID yang sudah berhenti."""
+    if os.name == "nt":
+        process_terminate = 0x0001
+        handle = ctypes.windll.kernel32.OpenProcess(process_terminate, False, pid)
+        if not handle:
+            return
+        try:
+            ctypes.windll.kernel32.TerminateProcess(handle, 1)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+        return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:
+        return
+
+
+def read_process_id(path: Path) -> int | None:
+    """Baca PID yang ditulis proses uji; None bila berkas belum ada atau rusak."""
+    try:
+        return int(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return None
 
 
 @pytest.mark.parametrize(
@@ -1110,6 +1173,22 @@ def test_run_captured_closes_job_when_assignment_fails(
     assert closed == [11, None]
 
 
+def test_run_captured_closes_job_handle_after_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kernel = _fake_kernel(create=7, open=11, assign=1)
+    process = _FakeProcess()
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module, "_spawn_captured", lambda _command: process)
+
+    result = _run_captured(["plantuml"], timeout=1)
+
+    assert result.returncode == 0
+    assert kernel.AssignProcessToJobObject.calls == [((7, 11), {})]
+    assert kernel.CloseHandle.calls == [((11,), {}), ((7,), {})]
+
+
 def test_spawn_captured_uses_posix_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1194,6 +1273,31 @@ def test_create_windows_job_returns_handle(
     assert _create_windows_job() == 1
 
 
+def test_create_windows_job_sets_kill_on_job_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kernel = _fake_kernel(create=7, configure=1)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
+
+    assert _create_windows_job() == 7
+
+    assert kernel.CreateJobObjectW.calls == [((None, None), {})]
+    assert len(kernel.SetInformationJobObject.calls) == 1
+    arguments, keywords = kernel.SetInformationJobObject.calls[0]
+    assert keywords == {}
+    assert arguments[0] == 7
+    assert arguments[1] == plantuml_module._JOB_OBJECT_EXTENDED_LIMIT_INFORMATION
+    information = arguments[2]._obj
+    assert isinstance(information, plantuml_module._JobExtendedLimitInformation)
+    assert (
+        information.basic_limit_information.limit_flags
+        == plantuml_module._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    )
+    assert information.basic_limit_information.limit_flags == 0x00002000
+    assert arguments[3] == ctypes.sizeof(plantuml_module._JobExtendedLimitInformation)
+
+
 def test_close_windows_job_ignores_none_and_closes_handle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1223,6 +1327,9 @@ def test_assign_process_to_job_closes_handle(
     monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
     assert plantuml_module._assign_process_to_job(1, 2) is True
+    expected_access = plantuml_module._PROCESS_SET_QUOTA | plantuml_module._PROCESS_TERMINATE
+    assert kernel.OpenProcess.calls == [((expected_access, 0, 2), {})]
+    assert kernel.AssignProcessToJobObject.calls == [((1, 2), {})]
     assert kernel.CloseHandle.calls == [((2,), {})]
 
 
@@ -1446,6 +1553,28 @@ def test_secure_flag_blocks_include_directive(
     assert list(cache.glob("plantuml-*.json")) == []
 
 
+@pytest.mark.integration
+def test_real_plantuml_rejects_include_with_secure_mode(tmp_path: Path, theme) -> None:
+    """Engine asli harus menolak ``!include`` dan tidak meninggalkan PNG."""
+    executable = find_plantuml()
+    if executable is None:
+        pytest.skip("PlantUML tidak tersedia; set AUTOOFFICE_PLANTUML atau pasang plantuml di PATH")
+    included = tmp_path / "other.puml"
+    included.write_text("@startuml\nAlice -> Bob: included\n@enduml\n", encoding="utf-8")
+    source = write_source(tmp_path, text="@startuml\n!include other.puml\n@enduml\n")
+    out = tmp_path / "flow.png"
+    cache = tmp_path / "cache"
+
+    with pytest.raises(PlantUmlError) as error:
+        render_plantuml(source, out, theme=theme, cache_dir=cache)
+
+    assert error.value.code == "PLANTUML-RENDER"
+    assert "cannot include" in str(error.value)
+    assert not out.exists()
+    assert list(cache.glob("plantuml-*.png")) == []
+    assert list(cache.glob("plantuml-*.json")) == []
+
+
 @pytest.mark.parametrize(
     ("key", "value"),
     [
@@ -1587,13 +1716,12 @@ def test_render_rejects_output_symlink_to_directory(
     directory = tmp_path / "outside-dir"
     directory.mkdir()
     out = tmp_path / "flow.png"
+    make_directory_symlink(out, directory)
     try:
-        out.symlink_to(directory, target_is_directory=True)
-    except OSError as error:
-        pytest.skip(f"symlink tidak didukung: {error}")
-
-    with pytest.raises(PlantUmlError, match="berupa file") as error:
-        render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+        with pytest.raises(PlantUmlError, match="berupa file") as error:
+            render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+    finally:
+        remove_directory_symlink(out)
 
     assert error.value.code == "PLANTUML-OUTPUT"
 
@@ -1663,7 +1791,7 @@ def test_cache_metadata_symlink_is_removed_without_touching_target(
     try:
         metadata.symlink_to(sentinel)
     except OSError as error:
-        pytest.skip(f"symlink tidak didukung: {error}")
+        pytest.skip(f"symlink file tidak didukung: {error}")
 
     result = _find_cached_png(
         cache,
@@ -1675,6 +1803,111 @@ def test_cache_metadata_symlink_is_removed_without_touching_target(
     assert result is None
     assert not metadata.exists()
     assert sentinel.read_text(encoding="utf-8") == "{"
+
+
+def test_render_does_not_copy_symlinked_valid_cache_png(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    target = tmp_path / "valid-target.png"
+    target.write_bytes(MINIMAL_PNG)
+    digest = plantuml_module.cache_digest(source, theme=theme, plantuml_version="1.2026.10")
+    cache_path = cache / f"plantuml-{digest}.png"
+    try:
+        cache_path.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink file tidak didukung: {error}")
+    _write_cache_metadata(
+        cache_path,
+        {
+            "format": CACHE_FORMAT,
+            "digest": digest,
+            "source_sha256": plantuml_module._source_sha256(source),
+            "theme": _theme_fingerprint(theme),
+            "plantuml_version": "1.2026.10",
+            "options": _render_options(theme.colors.background),
+        },
+    )
+    out = tmp_path / "flow.png"
+
+    render_plantuml(source, out, theme=theme, cache_dir=cache)
+
+    assert out.read_bytes() == PNG_1X1
+    assert target.read_bytes() == MINIMAL_PNG
+    assert not cache_path.is_symlink()
+    assert cache_path.read_bytes() == PNG_1X1
+
+
+def test_find_cached_png_rejects_symlinked_valid_png(tmp_path: Path, theme) -> None:
+    fingerprint = _theme_fingerprint(theme)
+    background = theme.colors.background
+    source_hash = "a" * 64
+    target = tmp_path / "valid-target.png"
+    target.write_bytes(MINIMAL_PNG)
+    cache_path = tmp_path / "plantuml-abc.png"
+    try:
+        cache_path.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink file tidak didukung: {error}")
+    _write_cache_metadata(
+        cache_path,
+        {
+            "format": CACHE_FORMAT,
+            "digest": "abc",
+            "source_sha256": source_hash,
+            "theme": fingerprint,
+            "plantuml_version": "1.2026.10",
+            "options": _render_options(background),
+        },
+    )
+
+    result = _find_cached_png(
+        tmp_path,
+        source_hash=source_hash,
+        theme_fingerprint=fingerprint,
+        background=background,
+    )
+
+    assert result is None
+    assert target.read_bytes() == MINIMAL_PNG
+
+
+def test_find_cached_png_rejects_symlinked_valid_metadata(tmp_path: Path, theme) -> None:
+    fingerprint = _theme_fingerprint(theme)
+    background = theme.colors.background
+    source_hash = "a" * 64
+    cache_path = tmp_path / "plantuml-abc.png"
+    cache_path.write_bytes(MINIMAL_PNG)
+    payload = {
+        "format": CACHE_FORMAT,
+        "digest": "abc",
+        "source_sha256": source_hash,
+        "theme": fingerprint,
+        "plantuml_version": "1.2026.10",
+        "options": _render_options(background),
+    }
+    target = tmp_path / "valid-target.json"
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    metadata = cache_path.with_suffix(".json")
+    try:
+        metadata.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink file tidak didukung: {error}")
+
+    result = _find_cached_png(
+        tmp_path,
+        source_hash=source_hash,
+        theme_fingerprint=fingerprint,
+        background=background,
+    )
+
+    assert result is None
+    assert json.loads(target.read_text(encoding="utf-8")) == payload
 
 
 TREE_PLANTUML = """\
@@ -1691,21 +1924,19 @@ if "--version" in sys.argv:
 child_code = (
     "import os, pathlib, time; "
     "pathlib.Path(os.environ['FAKE_PLANTUML_CHILD_READY']).write_text('siap'); "
-    "time.sleep(60)"
+    "time.sleep(5)"
 )
 child = subprocess.Popen([sys.executable, "-c", child_code])
 pathlib.Path(os.environ["FAKE_PLANTUML_CHILD_PID"]).write_text(
     str(child.pid), encoding="utf-8"
 )
-time.sleep(60)
+time.sleep(5)
 """
 
 
 def process_running(pid: int) -> bool:
     """True bila proses masih hidup, tanpa mengirim sinyal mematikan."""
     if os.name == "nt":
-        import ctypes
-
         synchronize = 0x00100000
         handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
         if not handle:
@@ -1724,6 +1955,16 @@ def process_running(pid: int) -> bool:
 
 
 def wait_for_process_exit(pid: int, *, timeout: float = 10.0) -> bool:
+    """Tunggu proses berhenti; Windows memakai satu wait bersinyal."""
+    if os.name == "nt":
+        synchronize = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
+        if not handle:
+            return True
+        try:
+            return ctypes.windll.kernel32.WaitForSingleObject(handle, int(timeout * 1000)) == 0
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if not process_running(pid):
@@ -1732,6 +1973,7 @@ def wait_for_process_exit(pid: int, *, timeout: float = 10.0) -> bool:
     return False
 
 
+@pytest.mark.integration
 def test_timeout_terminates_child_process_tree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1747,12 +1989,20 @@ def test_timeout_terminates_child_process_tree(
     monkeypatch.setattr(plantuml_module, "DEFAULT_TIMEOUT", 2.0)
     source = write_source(tmp_path)
     out = tmp_path / "flow.png"
+    child_pid: int | None = None
 
-    with pytest.raises(PlantUmlError, match="melebihi batas waktu"):
-        render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+    try:
+        with pytest.raises(PlantUmlError, match="melebihi batas waktu"):
+            render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
 
-    assert pid_file.exists()
-    assert ready_file.exists()
-    child_pid = int(pid_file.read_text(encoding="utf-8"))
-    assert wait_for_process_exit(child_pid), f"child process {child_pid} masih hidup"
-    assert not out.exists()
+        assert pid_file.exists()
+        assert ready_file.exists()
+        child_pid = read_process_id(pid_file)
+        assert child_pid is not None
+        assert wait_for_process_exit(child_pid), f"child process {child_pid} masih hidup"
+        assert not out.exists()
+    finally:
+        if child_pid is None:
+            child_pid = read_process_id(pid_file)
+        if child_pid is not None:
+            terminate_process(child_pid)

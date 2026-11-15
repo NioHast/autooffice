@@ -811,3 +811,20 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
 - Resolusi: engine diagram diganti PlantUML 1.2026.10 + Java 21; renderer `deck/media/plantuml.py` dan stage DOCX `stages/plantuml.py`; StageName `PLANTUML`; sumber `.puml`; fence `{.plantuml}`; cache `cache/plantuml`; `-secure`, Smetana, dpi 192, stdin/stdout `-pipe`; doctor check `plantuml`; guard `removed-features` menolak path Mermaid dan `.mmd`; dokumen/ADR 0014 diperbarui; Mermaid dihapus.
 - Catatan/verifikasi: gate 14 langkah PASS; `3445 passed, 9 deselected`; coverage 90,95%; acceptance demo deck `1 passed` dengan PlantUML nyata; build PPTX 24 slide 0 temuan; DOCX dengan diagram PNG tertanam; dua render identik (deterministik); `removed-features`/no-legacy 0.
 - File yang berubah: `src/**`, `tests/**`, `tools/**`, `docs/**`, `examples/**`, `README.md`, `AGENTS.md`, `pyproject.toml`, `uv.lock`, `pytest.ini`, `AUTO_OFFICE_EXECUTION_LOG.md`.
+
+## 2026-11-15 - Perbaikan audit test PlantUML
+
+- Masalah: audit manual menemukan `-secure` hanya diuji terhadap fake, smoke nyata selalu ter-skip, flag Job Object tidak diassert, cache symlink valid bisa lolos, dan validasi cache/PNG DOCX lebih lemah dari deck; `deck/media/plantuml` juga belum masuk critical coverage.
+- Resolusi:
+  - Test nyata `-secure`/`!include` ditambahkan; smoke memakai `find_plantuml`; flag dan hak akses Job Object diassert.
+  - Cache symlink ditolak; validasi PNG/cache DOCX disetarakan dengan deck, termasuk paritas env kosong; doctor menandai versi PlantUML yang tidak terbaca.
+  - `autooffice.deck.media.plantuml` masuk `CRITICAL_MODULES`; test duplikat digabung/dihapus dan test perilaku pengganti ditambah.
+  - Versi paket dinaikkan ke `2.0.1` pada metadata, dokumentasi, test versi, dan lock.
+- Catatan/verifikasi: gate PASS; `3449 passed, 8 deselected`; coverage 90,92%; critical PlantUML 100%; test media nyata 4 integration lulus. `uv lock` memperbarui autooffice v2.0.0 -> v2.0.1; targeted version test `43 passed`; `check_docs` 0 broken.
+- File yang berubah:
+  - `AUTO_OFFICE_EXECUTION_LOG.md`, `pyproject.toml`, `uv.lock`, `tools/quality/check_coverage.py`
+  - `src/autooffice/__init__.py`, `src/autooffice/cli/doctor.py`, `src/autooffice/deck/media/plantuml.py`, `src/autooffice/docx/stages/plantuml.py`
+  - `tests/cli/test_cli.py`, `tests/cli/test_cli_lazy.py`, `tests/cli/test_doctor.py`, `tests/cli/test_doctor_checks.py`
+  - `tests/contract/test_f0_scaffold.py`, `tests/deck/media/test_plantuml.py`, `tests/deck/media/test_plantuml_security.py`
+  - `tests/deck/render/pptx/test_diagram.py`, `tests/docx/test_plantuml_docx.py`, `tests/tools/test_coverage_policy.py`, `tests/tools/test_removed_features.py`
+  - `docs/dev/learn/00-start-here.md`, `docs/dev/packaging.md`

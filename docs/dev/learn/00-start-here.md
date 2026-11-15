@@ -238,7 +238,7 @@ uv run autooffice --version
 uv run autooffice doctor
 ```
 
-Cara memeriksa: `--version` harus mencetak `autooffice 2.0.0` atau versi paket
+Cara memeriksa: `--version` harus mencetak `autooffice 2.0.1` atau versi paket
 yang lebih baru. Pada `doctor`, baris Python harus menunjukkan versi 3.15 atau
 lebih baru, baris Pandoc harus menemukan executable, dan baris `plantuml`
 menunjukkan engine PlantUML yang ditemukan. Tidak ada baris Word atau COM.
