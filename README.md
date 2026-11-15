@@ -7,6 +7,26 @@ Pandoc lalu merapikan package Word; pipeline deck memakai DeckIR, layout grid
 dapat disinkronkan ke Google Slides. AutoOffice tidak membangun PDF: PDF
 diekspor manual dari Word atau PowerPoint setelah review.
 
+## Status proyek
+
+Ini adalah proyek pribadi. Tidak ada distribusi resmi, tidak ada dukungan, dan
+tidak ada jaminan kompatibilitas API maupun versi.
+
+AutoOffice adalah CLI deterministik yang dapat dioperasikan oleh AI agent. Tool
+ini tidak memanggil model bahasa, tidak membutuhkan agent untuk berjalan, dan
+tidak bergantung pada layanan eksternal selain Google Slides yang bersifat
+opsional.
+
+Fitur sengaja spesifik untuk kebutuhan penulisan tertentu, termasuk format
+UNDIP MSI dan deck internal. Silakan fork dan sesuaikan dengan kebutuhan
+masing-masing. Karena proyek tidak memiliki jalur rilis resmi, perubahan besar
+dari luar tidak dijamin akan diterima atau dipertahankan.
+
+- Tidak dipublikasikan ke PyPI; instalasi dari source.
+- Prasyarat: Python 3.15, `uv`, Pandoc, dan `mmdc` untuk diagram.
+- Lisensi kode MIT; aset Liberation Sans memakai SIL OFL 1.1.
+- Tag `vX.Y.Z` adalah penanda milestone internal, bukan janji SemVer.
+
 ## Prasyarat
 
 - **Python 3.15** dan **uv**. Jalankan `uv sync --extra dev` sekali dari akar

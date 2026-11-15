@@ -38,6 +38,8 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 | [dev/packaging.md](dev/packaging.md) | Entry point, package data, dan pemakaian repo-local. |
 | [dev/repo-map.md](dev/repo-map.md) | Peta direktori dan tanggung jawab berkas. |
 | [dev/contributing.md](dev/contributing.md) | Alur kontribusi, tes, dan aturan perubahan. |
+| [dev/agent-rules.md](dev/agent-rules.md) | Checklist aturan agent dari kesalahan historis dan mekanisme penegakannya. |
+| [dev/release.md](dev/release.md) | Prosedur rilis: gate, versi, tag, aset arsip, dan restore. |
 | [dev/security.md](dev/security.md) | Batas keamanan resource input tidak tepercaya. |
 | [dev/f3-cleanup.md](dev/f3-cleanup.md) | Status pembersihan legacy F3, verifikasi, dan tautan ke ADR 0011. |
 | [dev/testing.md](dev/testing.md) | Golden invariant dan cara menjalankan tes. |

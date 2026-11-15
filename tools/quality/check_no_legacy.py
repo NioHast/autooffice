@@ -117,6 +117,7 @@ ALLOWED_FILES: frozenset[str] = frozenset(
 )
 
 ALLOWED_DIRECTORIES: tuple[str, ...] = (
+    "archive/autooffice-history/",
     "docs/contracts/",
     "docs/decisions/",
     "docs/dev/archive/",

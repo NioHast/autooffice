@@ -76,6 +76,8 @@ Kontrak internal lama sudah dihapus. Acuan aktif berada di
 | Dokumen | Isi |
 | --- | --- |
 | [contributing.md](contributing.md) | Alur kontribusi, tes, dan aturan perubahan. |
+| [agent-rules.md](agent-rules.md) | Checklist aturan agent dari kesalahan historis dan mekanisme penegakannya. |
+| [release.md](release.md) | Prosedur rilis: gate, versi, tag, aset arsip, dan restore. |
 | [testing.md](testing.md) | Golden invariant dan cara menjalankan tes. |
 | [performance.md](performance.md) | Tes performa deck besar, marker `slow`, dan batas waktu. |
 | [visual-testing.md](visual-testing.md) | Status harness visual PPTX setelah penghapusan COM. |

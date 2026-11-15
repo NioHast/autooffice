@@ -1,5 +1,48 @@
 # AGENTS.md
 
+## Invariant proyek
+
+Aturan berikut mengikat semua perubahan. Checklist rinci ada di
+[docs/dev/agent-rules.md](docs/dev/agent-rules.md), prosedur rilis di
+[docs/dev/release.md](docs/dev/release.md), dan arsip sejarah di
+`archive/autooffice-history/`.
+
+- Produk hanya DOCX dan PPTX/Slides. Tidak ada target `pdf` atau `all`; PDF
+  diekspor manual dari Word atau PowerPoint.
+- Tidak ada COM, `pywin32`, `pypdf`, PowerShell, atau dependensi Windows-only.
+- Theme PPTX memakai `Arial` tanpa embedding. Pengukuran layout memakai
+  `Liberation Sans` bundled di
+  `src/autooffice/assets/fonts/liberation-sans/`; jangan menambah font lain
+  atau meng-embed font.
+- Semua perubahan wajib lolos `uv run python tools/quality/gate.py`. Jangan
+  commit atau push bila gate gagal.
+- Setiap topik yang selesai wajib menambah entri di
+  `AUTO_OFFICE_EXECUTION_LOG.md` berisi masalah, resolusi, dan verifikasi.
+  Penulisan entri dilakukan scribe atau orchestrator.
+- Branch permanen hanya `main`. Branch kerja sementara dibuat dari `main` dan
+  dihapus setelah merge.
+- Tag rilis `vX.Y.Z` satu per rilis. Tag `pre-pdf-removal` dan
+  `backup/main-before-msg-rewrite` permanen dan tidak boleh dihapus.
+- Jangan rewrite history. Bila terpaksa, buat arsip baru dan catat di
+  `archive/autooffice-history/README.md`.
+- Jangan menambah aturan yang hanya hidup di dokumen: tegakkan lewat gate atau
+  test.
+- Jangan tinggalkan referensi ke fitur, path, package, atau alat yang sudah
+  dihapus, dan jangan menulis nama fase, task, atau plan di kode atau dokumen
+  aktif. Dokumentasi aktif hanya menjelaskan perilaku saat ini.
+- Sumber kebenaran adalah `document.md`, `deck.yaml`, dan aset sumbernya.
+  DOCX dan PPTX adalah artefak build dan tidak boleh disunting langsung.
+- Permukaan resmi hanya package `autooffice`, `tools/quality/`, dan
+  `tools/mutation/`. Jangan menambah entry point, path, atau dependency baru
+  tanpa memperbarui `pyproject.toml` dan `uv.lock`.
+- Input wajib gagal keras. Tidak ada fallback senyap, nilai default tersembunyi,
+  atau jalur alternatif untuk input yang hilang atau tidak valid.
+- Test harus menguji perilaku nyata di boundary eksternal dan packaging/wheel
+  diverifikasi terpisah, bukan hanya test unit hijau. Perubahan visual wajib
+  punya golden test.
+- Font dan aset lain wajib punya hash serta divalidasi isinya. Gate harus
+  menolak reintroduksi fitur yang dihapus.
+
 ## DOCX authoring
 
 - Sumber kebenaran: `document.md`, `references.bib`, `istilah.tsv`, dan `gambar/`;
@@ -86,6 +129,15 @@ manual dari Word atau PowerPoint; lihat
 - Jangan commit atau push jika gate gagal.
 - Perbarui test dan docs yang terdampak.
 - Jangan mengubah file di luar scope tanpa izin.
+
+## Alur kerja
+
+1. Buat branch kerja dari `main`; jangan bekerja langsung di `main`.
+2. Jalankan `uv run python tools/quality/gate.py` sampai lulus.
+3. Commit, merge ke `main`, lalu hapus branch kerja.
+4. Rilis: bump versi, commit `chore: release X.Y.Z`, buat annotated tag
+   `vX.Y.Z`, push commit dan tag, lalu ekspor arsip rilis sesuai
+   [docs/dev/release.md](docs/dev/release.md).
 
 ## Invarian engineering
 

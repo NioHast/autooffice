@@ -129,6 +129,8 @@ def test_existing_legacy_paths_are_violations(tmp_path: Path) -> None:
     [
         "AUTO_OFFICE_PLAN.md",
         "AUTO_OFFICE_EXECUTION_LOG.md",
+        "archive/autooffice-history/lessons.jsonl",
+        "archive/autooffice-history/eval-cases.md",
         "docs/dev/archive/lama.md",
         "docs/dev/decisions/0001-lama.md",
         "docs/decisions/0011-f3-cleanup.md",
@@ -151,6 +153,23 @@ def test_historical_and_guard_paths_are_allowed(tmp_path: Path, relative: str) -
     )
 
     assert _violations(tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "archive/lama.md",
+        "archive/other/eval-cases.md",
+        "archive/autooffice-history-lama/lessons.jsonl",
+        "archives/autooffice-history/lessons.jsonl",
+    ],
+)
+def test_history_allowance_is_scoped_to_one_archive_directory(
+    tmp_path: Path, relative: str
+) -> None:
+    _write(tmp_path, relative, "from docgen import build\n")
+
+    assert {item.rule for item in _violations(tmp_path)} == {"docgen-import"}
 
 
 def test_one_finding_per_line(tmp_path: Path) -> None:
