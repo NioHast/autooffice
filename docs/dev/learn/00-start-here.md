@@ -237,7 +237,7 @@ uv run autooffice --version
 uv run autooffice doctor
 ```
 
-Cara memeriksa: `--version` harus mencetak `autooffice 0.1.0` atau versi paket
+Cara memeriksa: `--version` harus mencetak `autooffice 1.0.0` atau versi paket
 yang lebih baru. Pada `doctor`, baris Python harus menunjukkan versi 3.15 atau
 lebih baru dan baris Pandoc harus menemukan executable. Tidak ada baris Word
 atau COM.
