@@ -95,8 +95,9 @@ masih diekspor sebagai nama lama, tetapi kode baru memakai
 | `names.py` | Namespace, tag, style, dan konstanta OOXML. |
 | `paragraphs.py` | `document_body`, `body_children`, style/level heading, teks paragraf, hapus child, atribut integer. |
 | `runs.py` | `build_run`, `make_run`, `append_text_run`, `clone_run`, `copy_rpr`, `strip_bold_from_rpr`. |
-| `numbering.py` | `roman_to_int`, `chapter_number`, `to_roman`, `format_roman`. |
-| `heading_numbering.py` | Iterasi heading, nomor H1/H2/H3, heading unnumbered, bookmark heading. |
+| `numbering.py` | `roman_to_int`, `to_roman`. |
+| `native_numbering.py` | `numbering.xml`, `w:numPr` style Heading1-3, verifikasi plumbing. |
+| `heading_numbering.py` | Iterasi heading, heading unnumbered (`numId=0`), bookmark heading. |
 | `page.py` | `PAGE_SIZES`, `page_size`, `content_width`, `PageError`. |
 | `styles.py` | Style paragraf, karakter, tabel, dan page layout. |
 | `sections.py` | Section break, margin, header, footer. |
@@ -171,7 +172,8 @@ field = insert_field(
 
 `FieldPosition` memiliki `paragraph`, `before`, `end_paragraph`, dan `rpr`.
 Field selalu ditulis lengkap: `begin`, `instrText`, `separate`, hasil, lalu
-`end`. Pipeline tidak menulis `w:dirty` dan tidak mengarang hasil field.
+`end`. `w:dirty="true"` hanya ditulis bila diminta eksplisit (field
+`STYLEREF` header); pipeline tidak mengarang hasil field.
 
 Helper tipis di atasnya:
 
@@ -187,16 +189,16 @@ Helper tipis di atasnya:
 ### Halaman, nomor, dan heading
 
 ```python
-from autooffice.docx.package.numbering import chapter_number
+from autooffice.docx.package.numbering import to_roman
 from autooffice.docx.package.page import content_width, page_size
 
-print(chapter_number("BAB IV"))
+print(to_roman(4))
 print(page_size("A4", "portrait"))
 print(content_width(document_body(package)))
 ```
 
-- `chapter_number` menerima `BAB IV`, `BAB 4`, atau `4.` dan mengembalikan
-  integer atau `None`.
+- `to_roman`/`roman_to_int` mengonversi angka Romawi. Pembacaan nomor bab
+  dari teks sudah dihapus; nomor heading adalah list label native Word.
 - `page_size` mengembalikan `(lebar, tinggi)` dalam twip. Nama yang tidak
   dikenal tidak punya fallback dan menimbulkan `KeyError`.
 - `content_width` menghitung lebar dari `w:sectPr`. Section atau atribut yang
@@ -219,7 +221,10 @@ print(report.numbered)
 print([heading.text for heading in iter_headings(package)])
 ```
 
-Penomoran heading Markdown sebelum Pandoc ada di
+`apply_heading_numbering` tidak menulis nomor; ia hanya memasang override
+`numId=0` pada heading tak bernomor. Nomor dihasilkan
+`native_numbering.py` lewat `w:numPr` style dan `word/numbering.xml`.
+Persiapan heading Markdown (uppercase H1 dan `w:br`) ada di
 `src/autooffice/docx/markdown/headings.py`, bukan di lapisan DOCX.
 
 ## Field dan siklus Word
@@ -236,9 +241,13 @@ Field yang ditulis pipeline:
 | `PAGEREF` | Rujukan nomor halaman. |
 | `PAGE` | Nomor halaman di header/footer. |
 | `NUMPAGES` | Jumlah halaman bila diperlukan. |
+| `STYLEREF "heading 1" \n` | Nomor bab di header body. |
+| `STYLEREF "heading 1"` | Judul bab di baris kedua header body. |
 
-Python menulis instruksi dan hasil cache awal. Word yang menghitung hasil
-final, termasuk entri TOC dan nomor halaman. AutoOffice tidak memanggil Word,
+Python menulis instruksi field; cache hasil hanya diisi untuk PAGE (nilai awal
+`1`) dan TOC/SEQ yang memang punya nilai awal. Hasil `STYLEREF` dibiarkan
+kosong sampai Word memperbaruinya. Word yang menghitung hasil final, termasuk
+entri TOC dan nomor halaman. AutoOffice tidak memanggil Word,
 sehingga field belum final setelah build. TOC yang baru bisa tampil kosong
 sampai pengguna membuka DOCX di Word dan menekan Ctrl+A lalu F9.
 

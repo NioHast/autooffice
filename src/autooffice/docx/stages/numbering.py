@@ -32,7 +32,14 @@ from ..package.names import (
 from ..package.package import DocumentPackage
 from ..package.paragraphs import int_attribute
 from ..package.runs import strip_bold_from_rpr
-from ..package.xml import ensure_ppr, get_or_add, iter_paragraphs, qn, tree_digest
+from ..package.xml import (
+    LVL_ORDER,
+    ensure_ppr,
+    get_or_add,
+    iter_paragraphs,
+    qn,
+    tree_digest,
+)
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 W_ILVL = qn("w:ilvl")
@@ -66,24 +73,6 @@ W_ABSTRACT_NUM = qn("w:abstractNum")
 W_ABSTRACT_NUM_ID = qn("w:abstractNumId")
 W_NUM = qn("w:num")
 W_LVL = qn("w:lvl")
-
-LVL_ORDER = tuple(
-    qn(tag)
-    for tag in (
-        "w:start",
-        "w:numFmt",
-        "w:lvlRestart",
-        "w:pStyle",
-        "w:isLgl",
-        "w:suff",
-        "w:lvlText",
-        "w:lvlPicBulletId",
-        "w:legacy",
-        "w:lvlJc",
-        "w:pPr",
-        "w:rPr",
-    )
-)
 
 
 class NumberingError(DocgenError):

@@ -1,18 +1,8 @@
-"""Tes unit helper kanonis nomor bab dan angka Romawi DOCX."""
+"""Tes unit helper angka Romawi dan penghapusan parsing nomor bab dari teks."""
 
 import pytest
 
-from autooffice.docx.markdown.headings import (
-    NumberingSpec,
-    format_chapter_number,
-    roman,
-)
-from autooffice.docx.package.numbering import (
-    chapter_number,
-    format_roman,
-    roman_to_int,
-    to_roman,
-)
+from autooffice.docx.package.numbering import roman_to_int, to_roman
 
 ROMAN_CASES: tuple[tuple[str, int | None], ...] = (
     ("I", 1),
@@ -27,42 +17,10 @@ ROMAN_CASES: tuple[tuple[str, int | None], ...] = (
     ("IIII", 4),
 )
 
-CHAPTER_CASES: tuple[tuple[str, int | None], ...] = (
-    ("BAB IV", 4),
-    ("BAB 4", 4),
-    ("4. Metode", 4),
-    ("BAB IX TINJAUAN", 9),
-    ("BAB IV.1 Metode", 4),
-    ("4.1 Metode", None),
-    ("DAFTAR PUSTAKA", None),
-    ("", None),
-)
-
 
 @pytest.mark.parametrize(("token", "expected"), ROMAN_CASES)
 def test_roman_to_int(token: str, expected: int | None) -> None:
     assert roman_to_int(token) == expected
-
-
-@pytest.mark.parametrize(("text", "expected"), CHAPTER_CASES)
-def test_chapter_number(text: str, expected: int | None) -> None:
-    assert chapter_number(text) == expected
-
-
-def test_chapter_number_none_returns_none() -> None:
-    assert chapter_number(None) is None
-
-
-def test_legacy_numbering_not_exported_anymore() -> None:
-    """Hanya ``docx.numbering`` yang boleh mendefinisikan helper nomor bab."""
-
-    from autooffice.docx.package import captions, layout
-
-    assert not hasattr(layout, "roman_to_int")
-    assert not hasattr(layout, "chapter_number")
-    assert not hasattr(captions, "chapter_number")
-    assert not hasattr(captions, "_roman_to_int")
-    assert not hasattr(captions, "_chapter_number")
 
 
 @pytest.mark.parametrize(
@@ -78,8 +36,7 @@ def test_legacy_numbering_not_exported_anymore() -> None:
         (-1, ""),
     ),
 )
-def test_format_roman(value: int, expected: str) -> None:
-    assert format_roman(value) == expected
+def test_to_roman(value: int, expected: str) -> None:
     assert to_roman(value) == expected
 
 
@@ -88,7 +45,17 @@ def test_roman_roundtrip() -> None:
         assert roman_to_int(to_roman(value)) == value
 
 
-@pytest.mark.parametrize("value", (1, 4, 9, 14, 40, 1994))
-def test_format_roman_matches_markdown_headings(value: int) -> None:
-    assert format_roman(value) == roman(value)
-    assert format_chapter_number(value, NumberingSpec("BAB_ROMAN")) == f"BAB {format_roman(value)}"
+def test_text_based_chapter_number_helpers_are_removed() -> None:
+    """Nomor bab dihitung dari urutan heading, bukan dari teks ``BAB I``."""
+
+    from autooffice.docx import markdown
+    from autooffice.docx.package import captions, layout, numbering
+
+    for name in ("chapter_number", "format_roman", "CHAPTER_RE", "ARABIC_CHAPTER_RE"):
+        assert not hasattr(numbering, name), f"numbering masih punya {name}"
+    for name in ("NumberingSpec", "HeadingNumberer", "format_chapter_number", "roman"):
+        assert not hasattr(markdown, name), f"markdown masih punya {name}"
+    assert not hasattr(layout, "roman_to_int")
+    assert not hasattr(layout, "chapter_number")
+    assert not hasattr(captions, "chapter_number")
+    assert not hasattr(captions, "_chapter_number")

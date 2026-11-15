@@ -28,7 +28,7 @@ document.md
   +-- validate             front matter, aset, caption Markdown
   +-- plantuml             blok PlantUML menjadi PNG di workspace
   +-- style_reference      reference.docx turunan dari format.yaml
-  +-- front_matter         sampul, template, abstrak, nomor heading
+  +-- front_matter         sampul, template, abstrak, finalisasi heading Markdown
   +-- pandoc               Markdown menjadi DOCX
   |
   +-- package DOCX di memori

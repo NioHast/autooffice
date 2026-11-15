@@ -483,3 +483,18 @@ def test_part_operation_errors(tmp_path: Path) -> None:
 
     with pytest.raises(PartNotFoundError):
         package.remove_relationship(DOCUMENT_PART, "rIdMissing")
+
+
+def test_new_part_zip_timestamp_is_deterministic(tmp_path: Path) -> None:
+    source = _build_docx(tmp_path / "source.docx")
+    package = DocumentPackage.load(source)
+    package.set_part(
+        "word/header1.xml",
+        b'<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>',
+    )
+    output = tmp_path / "out.docx"
+    package.save(output)
+
+    with zipfile.ZipFile(output) as archive:
+        info = archive.getinfo("word/header1.xml")
+        assert info.date_time == (2020, 1, 1, 0, 0, 0)

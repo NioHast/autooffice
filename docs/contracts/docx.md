@@ -6,9 +6,9 @@ Pemilik kontrak: DOCX owner; pembekuan F0 oleh integration owner.
 
 ## Tujuan
 
-Kontrak ini membekukan migrasi pipeline DOCX baseline ke `autooffice.docx`
-tanpa perubahan perilaku dokumen. Yang berubah hanya namespace, entry point,
-nama satu flag, lokasi kode, dan dokumentasi.
+Kontrak ini membekukan pipeline DOCX baseline ke `autooffice.docx`. Perilaku
+dokumen yang terlihat dipertahankan; mekanisme internal dapat berubah bila
+dicatat ADR, termasuk numbering heading native Word pada ADR 0015.
 
 ## Invarian parity baseline DOCX
 
@@ -20,8 +20,11 @@ nama satu flag, lokasi kode, dan dokumentasi.
    untuk dokumen target. Part non-target harus byte-identik setelah
    normalisasi timestamp dan metadata.
 5. Stage finalisasi menghasilkan TOC, daftar, caption, tabel, code,
-   equation, numbering, dan page number seperti baseline DOCX. Field native
-   ditulis beserta instruksinya, tetapi hasil field tidak diisi otomatis.
+   equation, numbering, dan page number seperti baseline DOCX. Nomor heading
+   memakai list label native Word (`w:numPr` + `word/numbering.xml`), bukan
+   teks; tampilan baseline dipertahankan. Field native ditulis beserta
+   instruksinya, tetapi hasil field tidak diisi otomatis. Keputusan ini
+   dicatat di [ADR 0015](../decisions/0015-native-heading-numbering.md).
 6. Manifest Adeu tetap deterministik di `.laporan/manifest.json` dan bookmark
    tetap `pNNNN`.
 7. `report_name` wajib dan aman sebagai nama berkas. Output default:

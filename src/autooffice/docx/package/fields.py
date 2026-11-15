@@ -8,8 +8,9 @@ satunya scanner marker field untuk modul DOCX serta stage. Stage TOC memakai
 
 Field kompleks selalu ditulis lengkap: ``begin`` -> ``instrText`` ->
 ``separate`` -> hasil -> ``end``. Word/LibreOffice yang mengisi hasil;
-pipeline tidak menulis cache nomor halaman palsu dan tidak menulis
-``w:dirty``.
+pipeline tidak menulis cache nomor halaman palsu. ``w:dirty="true"`` hanya
+ditulis bila pemanggil memintanya secara eksplisit (mis. field ``STYLEREF``
+di header body); field TOC dan nomor halaman tidak memakainya.
 
 Referensi: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing?view=openxml-3.0.1
 """
@@ -562,6 +563,8 @@ def insert_field(
     switches: Sequence[str],
     position: FieldPosition,
     result: str = "",
+    *,
+    dirty: bool = False,
 ) -> Field:
     """Sisipkan field kompleks lengkap pada posisi paragraf yang eksplisit.
 
@@ -569,9 +572,10 @@ def insert_field(
     tepat satu spasi di awal dan akhir instruksi. ``position`` menentukan
     paragraf run awal, anchor ``before`` opsional, paragraf run ``end``
     opsional, dan template ``rPr``. Urutan XML selalu ``begin``,
-    ``instrText``, ``separate``, hasil, lalu ``end``; ``w:dirty`` tidak
-    pernah ditulis. ``FieldError`` dilempar untuk posisi atau switch yang
-    tidak valid.
+    ``instrText``, ``separate``, hasil, lalu ``end``. ``dirty=True`` menulis
+    ``w:dirty="true"`` pada ``fldChar begin`` agar Word memperbarui hasil
+    field saat dokumen dibuka; nilai default tidak menulis atribut itu.
+    ``FieldError`` dilempar untuk posisi atau switch yang tidak valid.
     """
 
     instruction = _instruction_text(switches)
@@ -587,6 +591,10 @@ def insert_field(
         raise FieldError("Hasil field harus berupa string")
 
     begin_run = _field_run(rpr=position.rpr, fld_char="begin")
+    if dirty:
+        marker = begin_run.find(W_FLDCHAR)
+        if marker is not None:
+            marker.set(W + "dirty", "true")
     instruction_run = _field_run(rpr=position.rpr, instr=instruction)
     separate_run = _field_run(rpr=position.rpr, fld_char="separate")
     head: list[etree._Element] = [begin_run, instruction_run, separate_run]
@@ -634,17 +642,12 @@ def _normalized_text(paragraph: etree._Element) -> str:
 def _is_body_chapter(paragraph: etree._Element) -> bool:
     if paragraph.tag != W_P:
         return False
-    if paragraph_style_id(paragraph) != "Heading1":
+    from .heading_numbering import is_numbered_heading
+    from .layout import is_chapter_heading
+
+    if not is_chapter_heading(paragraph_style_id(paragraph)):
         return False
-    text = _normalized_text(paragraph)
-    return (
-        re.match(
-            r"^(?:BAB\s+(?:[IVXLCDM]+|\d+)(?=\b|\s)|\d+\.(?=\s|$))",
-            text,
-            re.IGNORECASE,
-        )
-        is not None
-    )
+    return is_numbered_heading(paragraph)
 
 
 def _remove_element(element: etree._Element) -> None:
@@ -901,7 +904,7 @@ def insert_toc(
     (sebelum sibling berikutnya) alih-alih membuang anchor lebih dulu.
     ``caption`` mengubah instruksi
     menjadi ``TOC \c "..."`` untuk daftar gambar/tabel. Bila ``before``
-    tidak diberikan, TOC diletakkan sebelum Heading1 ``BAB ...`` pertama,
+    tidak diberikan, TOC diletakkan sebelum Heading1 bernomor pertama,
     atau di akhir body sebelum ``w:sectPr``.
 
     ``gap_after_title`` (default benar) menambahkan satu paragraf kosong

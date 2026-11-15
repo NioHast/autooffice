@@ -27,9 +27,8 @@ from ..config import Format, FrontMatterItem, Structure
 from ..document import Document
 from ..errors import DocgenError
 from ..markdown.headings import (
-    NumberingSpec,
     balance_title,
-    number_markdown_headings,
+    finalize_markdown_headings,
     parse_heading,
 )
 from ..package.page import PAGE_SIZES, page_size
@@ -437,10 +436,11 @@ def _mark_appendix_unnumbered(markdown: str) -> str:
     """Tandai Heading 1 ``Lampiran`` dan turunannya sebagai unnumbered.
 
     ``# Lampiran`` adalah back matter yang mengikuti
-    ``structure.back_matter.appendices``. Tanpa penanda ``{-}``, numberer
-    Markdown akan memberinya nomor bab berikutnya (mis. ``BAB VI``) sebelum
-    stage ``sections`` sempat mengenalinya sebagai back matter. Heading 2/3
-    di bawah Lampiran juga tidak boleh mewarisi nomor subbab bab terakhir.
+    ``structure.back_matter.appendices``. Marker ``{-}``/``.unnumbered``
+    membuat ``finalize_markdown_headings`` tidak meng-uppercase judul
+    Lampiran; DOCX kemudian memasang override ``numId=0`` sehingga Lampiran
+    tidak mendapat label ``BAB``. Heading 2/3 di bawah Lampiran juga tidak
+    boleh mewarisi numbering subbab bab terakhir.
     """
 
     def with_marker(parsed: Any, line: str) -> str:
@@ -492,14 +492,9 @@ def render_front_matter(
     tanpa logo.
     """
 
-    spec = NumberingSpec(
-        body=structure.numbering.body,  # type: ignore[arg-type]
-        sub_dot=structure.numbering.sub_dot,
-        subsub_dot=structure.numbering.subsub_dot,
-    )
-    numbered_body = number_markdown_headings(
+    final_body = finalize_markdown_headings(
         _mark_appendix_unnumbered(body),
-        spec,
+        body=structure.numbering.body,
     )
 
     resolved_logo = format.assets.logo if logo is None else logo
@@ -516,7 +511,7 @@ def render_front_matter(
         if block:
             blocks.append(block)
 
-    blocks.append(numbered_body)
+    blocks.append(final_body)
     return "\n\n".join(block.strip("\n") for block in blocks if block.strip()) + "\n"
 
 

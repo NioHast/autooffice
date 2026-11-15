@@ -29,7 +29,7 @@ from . import DocxError
 from .names import W_SECTPR, W
 from .page import PAGE_SIZES
 from .page import page_size as resolve_page_size
-from .xml import PPR_ORDER, RPR_ORDER, SECTPR_ORDER, get_or_add
+from .xml import PPR_ORDER, RPR_ORDER, SECTPR_ORDER, get_or_add, sha256_c14n
 
 # ``names.py`` sengaja tidak mengekspor setiap tag yang hanya dipakai styles.
 # Konstanta lokal di bawah memakai namespace yang sama tanpa menambah nama
@@ -175,6 +175,80 @@ def get_style_element(package: object, style_id: str) -> etree._Element:
             key=style_id,
         )
     return style
+
+
+def _style_name(style: etree._Element) -> str | None:
+    name = style.find(W_NAME)
+    if name is None:
+        return None
+    value = name.get(_qname("val"))
+    return None if value is None else str(value)
+
+
+def _resolve_style_element(package: object, name: str) -> etree._Element:
+    requested = name.strip()
+    if not requested:
+        raise StyleError(
+            "nama style untuk STYLEREF tidak boleh kosong",
+            code="STYLE-MISSING",
+            key=name,
+        )
+    folded = requested.casefold()
+    styles = _style_elements(_styles_root(package))
+    for style in styles:
+        style_id = style.get(W_STYLE_ID)
+        if style_id and style_id.casefold() == folded:
+            return style
+    for style in styles:
+        canonical = _style_name(style)
+        if canonical and canonical.casefold() == folded:
+            return style
+    raise StyleError(
+        f"style '{name}' untuk STYLEREF tidak ditemukan di word/styles.xml",
+        code="STYLE-MISSING",
+        key=name,
+    )
+
+
+def resolve_style_name(
+    package: object,
+    name: str,
+    *,
+    paragraph_only: bool = False,
+    heading_only: bool = False,
+) -> str:
+    """Nama style kanonis untuk ``styleId`` atau nama tampilan di Word.
+
+    Pencocokan ``styleId`` lebih dulu, lalu ``w:name``; keduanya tidak peka
+    huruf besar/kecil. ``paragraph_only`` menolak character/table style, dan
+    ``heading_only`` mewajibkan ``w:outlineLvl`` agar ``STYLEREF`` tidak
+    menunjuk style non-heading. Nilai yang tidak ditemukan melempar
+    :class:`StyleError` berkode ``STYLE-MISSING``.
+    """
+
+    style = _resolve_style_element(package, name)
+    style_id = style.get(W_STYLE_ID) or name
+    declared_type = style.get(W_TYPE)
+    if paragraph_only and declared_type != "paragraph":
+        raise StyleError(
+            f"style '{name}' bertipe {declared_type!r}, bukan paragraph; "
+            "header_style_ref membutuhkan paragraph style",
+            code="STYLE-TYPE",
+            key=name,
+        )
+    if heading_only:
+        ppr = style.find(W_PPR_TAG)
+        heading_style = (ppr is not None and ppr.find(W + "outlineLvl") is not None) or (
+            style_id.startswith("Heading") and style_id[7:].isdigit()
+        )
+        if not heading_style:
+            raise StyleError(
+                f"style '{name}' bukan heading style (tidak punya w:outlineLvl); "
+                "header_style_ref membutuhkan style heading",
+                code="STYLE-TYPE",
+                key=name,
+            )
+    return _style_name(style) or style_id
 
 
 def _find_style(root: etree._Element, style_id: str) -> etree._Element | None:
@@ -334,6 +408,130 @@ def patch_style(
         rpr_drops=rpr_drops,
     )
     package.set_xml("word/styles.xml", root)  # type: ignore[attr-defined]
+
+
+def _insert_container_child(
+    container: etree._Element,
+    child: etree._Element,
+    order: Sequence[str],
+) -> None:
+    """Sisipkan ``child`` pada urutan anak container yang benar."""
+
+    index = _order_index(order).get(_local(child.tag), len(order))
+    for existing in container:
+        if not isinstance(existing.tag, str):
+            continue
+        existing_index = _order_index(order).get(_local(existing.tag))
+        if existing_index is not None and existing_index > index:
+            container.insert(container.index(existing), child)
+            return
+    container.append(child)
+
+
+def _ensure_paragraph_style(package: object, style_id: str) -> etree._Element:
+    style = _find_style(_styles_root(package), style_id)
+    if style is None:
+        raise StyleError(
+            f"style '{style_id}' tidak ditemukan di word/styles.xml",
+            code="STYLE-MISSING",
+            key=style_id,
+        )
+    declared = style.get(W_TYPE)
+    if declared is not None and declared != "paragraph":
+        raise StyleError(
+            f"style '{style_id}' bertipe {declared!r}, bukan 'paragraph'",
+            code="STYLE-TYPE",
+            key=style_id,
+        )
+    return style
+
+
+def set_style_numbering(
+    package: object,
+    style_id: str,
+    *,
+    num_id: int,
+    level: int | None = None,
+) -> bool:
+    """Pasang ``w:numPr`` pada ``w:pPr`` style paragraf.
+
+    ``level`` ``None`` menulis hanya ``w:numId`` (dipakai ``numId=0`` untuk
+    mematikan numbering). Nilai ``num_id``/``level`` yang tidak valid melempar
+    ``StyleError``. Mengembalikan ``True`` bila XML berubah.
+    """
+
+    if not isinstance(num_id, int) or isinstance(num_id, bool) or num_id < 0:
+        raise StyleError(
+            f"numId style tidak valid: {num_id!r}",
+            code="STYLE-NUMBERING",
+            key=style_id,
+        )
+    if level is not None and (not isinstance(level, int) or level < 0 or level > 8):
+        raise StyleError(
+            f"level numbering style tidak valid: {level!r}",
+            code="STYLE-NUMBERING",
+            key=style_id,
+        )
+    style = _ensure_paragraph_style(package, style_id)
+    ppr = style.find(W_PPR_TAG)
+    if ppr is None:
+        ppr = etree.Element(W_PPR_TAG)
+        _insert_style_child(style, ppr)
+    num_pr = ppr.find(W + "numPr")
+    created = num_pr is None
+    if num_pr is None:
+        num_pr = etree.Element(W + "numPr")
+        _insert_container_child(ppr, num_pr, PPR_ORDER)
+    before = sha256_c14n(num_pr)
+
+    ilvl = num_pr.find(W + "ilvl")
+    if level is None:
+        if ilvl is not None:
+            num_pr.remove(ilvl)
+    else:
+        if ilvl is None:
+            ilvl = etree.Element(W + "ilvl")
+            num_pr.insert(0, ilvl)
+        ilvl.set(W + "val", str(level))
+    num_element = num_pr.find(W + "numId")
+    if num_element is None:
+        num_element = etree.SubElement(num_pr, W + "numId")
+    num_element.set(W + "val", str(num_id))
+
+    changed = created or before != sha256_c14n(num_pr)
+    if changed:
+        package.set_xml("word/styles.xml", _styles_root(package))  # type: ignore[attr-defined]
+    return changed
+
+
+def style_numbering(
+    package: object,
+    style_id: str,
+) -> tuple[int | None, int | None] | None:
+    """Kembalikan ``(level, numId)`` milik style, atau ``None`` tanpa numPr."""
+
+    style = _find_style(_styles_root(package), style_id)
+    if style is None:
+        raise StyleError(
+            f"style '{style_id}' tidak ditemukan di word/styles.xml",
+            code="STYLE-MISSING",
+            key=style_id,
+        )
+    ppr = style.find(W_PPR_TAG)
+    if ppr is None:
+        return None
+    num_pr = ppr.find(W + "numPr")
+    if num_pr is None:
+        return None
+    ilvl = num_pr.find(W + "ilvl")
+    num_element = num_pr.find(W + "numId")
+    level = None
+    if ilvl is not None and ilvl.get(W + "val") is not None:
+        level = int(ilvl.get(W + "val"))
+    num_id = None
+    if num_element is not None and num_element.get(W + "val") is not None:
+        num_id = int(num_element.get(W + "val"))
+    return level, num_id
 
 
 # ---------------------------------------------------------------------------
@@ -872,6 +1070,9 @@ __all__ = [
     "get_style_element",
     "patch_style",
     "read_style_ids",
+    "resolve_style_name",
+    "set_style_numbering",
     "style_exists",
+    "style_numbering",
     "verify_style_contract",
 ]

@@ -133,6 +133,21 @@ PPR_ORDER: tuple[str, ...] = (
     "pPrChange",
 )
 
+LVL_ORDER: tuple[str, ...] = (
+    "start",
+    "numFmt",
+    "lvlRestart",
+    "pStyle",
+    "isLgl",
+    "suff",
+    "lvlText",
+    "lvlPicBulletId",
+    "legacy",
+    "lvlJc",
+    "pPr",
+    "rPr",
+)
+
 SECTPR_ORDER: tuple[str, ...] = (
     "headerReference",
     "footerReference",
@@ -600,6 +615,7 @@ def is_on(element: etree._Element | None) -> bool:
 
 __all__ = [
     "A_NS",
+    "LVL_ORDER",
     "PPR_ORDER",
     "RPR_ORDER",
     "R_NS",

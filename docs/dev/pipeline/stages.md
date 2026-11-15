@@ -10,7 +10,7 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | 10 | `validate` | `autooffice/docx/stages/validate.py` | - | Caption tabel dan alt text gambar. |
 | 20 | `plantuml` | `autooffice/docx/stages/plantuml.py` | workspace | Blok PlantUML menjadi PNG. |
 | 30 | `style_reference` | `autooffice/docx/stages/style_reference.py` | workspace, cache | `reference.docx` turunan dari `format.yaml`. |
-| 35 | `front_matter` | `autooffice/docx/stages/front_matter.py` | workspace | Sampul, template, abstrak, nomor heading. |
+| 35 | `front_matter` | `autooffice/docx/stages/front_matter.py` | workspace | Sampul, template, abstrak, finalisasi heading Markdown (uppercase + `w:br`); nomor heading ditulis Word dari `numbering.xml`. |
 | 40 | `pandoc` | `autooffice/docx/stages/pandoc.py` | package | Markdown menjadi DOCX. |
 | 50 | `sections` | `autooffice/docx/stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, nomor heading DOCX. |
 | 60 | `code` | `autooffice/docx/stages/code.py` | `word/document.xml` | Blok kode menjadi tabel 1x1. |

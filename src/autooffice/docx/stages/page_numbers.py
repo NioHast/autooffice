@@ -2,19 +2,31 @@
 
 Stage ini menulis ``w:pgNumType`` per section, membuat part header/footer
 baru beserta relationship dan content type, lalu mengisi field ``PAGE``
-native. Tidak ada probe tersembunyi untuk ``docx-pagenum``; Word/LibreOffice
-yang mengisi nilai field saat dokumen dibuka.
+native. Header body dapat memuat field ``STYLEREF`` untuk judul bab bila
+``page.header_style_ref`` diisi. Tidak ada probe tersembunyi untuk
+``docx-pagenum``; Word/LibreOffice yang mengisi nilai field saat dokumen
+dibuka.
 """
 
 import time
 
 from lxml import etree
 
+from ..config import PageFormat
 from ..errors import StageError
 from ..package.fields import FieldKind, FieldPosition, insert_field, iter_fields_in_part
+from ..package.heading_numbering import is_unnumbered
 from ..package.names import R_ID, W, local_name
+from ..package.native_numbering import paragraph_numbering
 from ..package.package import DOCUMENT_PART, DocumentPackage
-from ..package.runs import copy_rpr
+from ..package.page import page_size
+from ..package.paragraphs import (
+    ParagraphError,
+    body_children,
+    document_body,
+    heading_level,
+)
+from ..package.runs import build_run, copy_rpr
 from ..package.sections import (
     Section,
     SectionError,
@@ -29,6 +41,7 @@ from ..package.sections import (
     set_part_xml,
     set_title_page,
 )
+from ..package.styles import StyleError, resolve_style_name
 from ..package.xml import sha256_c14n, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
@@ -103,6 +116,133 @@ def empty_part(kind: str) -> etree._Element:
     return root
 
 
+def _header_tab_position(page: PageFormat | None) -> int | None:
+    """Posisi tab kanan header dari geometri ``PageFormat``, dalam twip.
+
+    Nilai adalah lebar konten (lebar halaman dikurangi margin kiri/kanan dan
+    gutter). ``None`` dikembalikan bila geometri tidak lengkap; header tetap
+    ditulis tanpa tab stop eksplisit.
+    """
+
+    if page is None:
+        return None
+    try:
+        width, _height = page_size(page.size, page.orientation)
+        left = int(page.margins.left)
+        right = int(page.margins.right)
+        gutter = int(page.gutter)
+    except AttributeError, KeyError, TypeError, ValueError:
+        return None
+    position = width - left - right - gutter
+    return position if position > 0 else None
+
+
+def _section_heading_starts_with_break(package: object, section: Section) -> bool:
+    """True bila H1 pertama di section sudah membawa line break sebelum judul."""
+
+    try:
+        children = body_children(document_body(package))  # type: ignore[arg-type]
+    except AttributeError, ParagraphError:
+        return False
+    for child in children[section.start : section.end]:
+        if child.tag != W + "p" or heading_level(child) != 1:
+            continue
+        for node in child:
+            if not isinstance(node.tag, str) or node.tag == W + "pPr":
+                continue
+            if node.tag == W + "br":
+                return True
+            if node.tag == W + "r":
+                if node.find(W + "br") is not None:
+                    return True
+                if node.find(W + "t") is not None:
+                    return False
+            if node.tag in {
+                W + "bookmarkStart",
+                W + "bookmarkEnd",
+                W + "proofErr",
+                W + "commentRangeStart",
+                W + "commentRangeEnd",
+            }:
+                continue
+            return False
+        return False
+    return False
+
+
+def body_header_part(
+    *,
+    style_name: str,
+    tab_pos: int | None,
+    size_half_points: int,
+    title_break: bool = True,
+) -> etree._Element:
+    r"""Part header body berisi field ``STYLEREF`` dan field ``PAGE``.
+
+    Dua field ``STYLEREF`` dipakai karena heading memakai numbering native
+    Word:
+
+    - ``STYLEREF "<style>" \n`` mengembalikan label nomor paragraf
+      (``BAB II``); tanpa switch ini Word mengembalikan teks judul saja.
+    - ``STYLEREF "<style>"`` mengembalikan teks judul. Teks heading H1
+      diawali ``w:br`` (dari raw inline Markdown), sehingga hasilnya menjadi
+      baris kedua header: nomor di baris pertama, judul di baris kedua.
+
+    Kombinasi ini menghasilkan ``BAB II`` + baris baru + ``TINJAUAN
+    PUSTAKA``, sama seperti header literal sebelumnya. ``\s`` tidak dipakai:
+    pengukuran Word 16 menunjukkan ``\s`` hanya menghasilkan ``II`` tanpa
+    ``BAB``, sedangkan ``\n`` menghasilkan ``BAB II`` utuh.
+
+    ``w:dirty="true"`` pada ``fldChar begin`` membuat Word memperbarui hasil
+    field saat membuka dokumen. ``PAGE`` tetap dipertahankan agar nomor
+    halaman body tidak hilang. Bila ``tab_pos`` tersedia, nomor halaman
+    diletakkan di tab kanan; tanpa geometri, header tetap rata kanan.
+    """
+
+    root = _root("header")
+    paragraph = etree.SubElement(root, W + "p")
+    ppr = etree.SubElement(paragraph, W + "pPr")
+    if tab_pos is not None:
+        tabs = etree.SubElement(ppr, W + "tabs")
+        tab_stop = etree.SubElement(tabs, W + "tab")
+        tab_stop.set(W + "val", "right")
+        tab_stop.set(W + "pos", str(tab_pos))
+    spacing = etree.SubElement(ppr, W + "spacing")
+    spacing.set(W + "after", "0")
+    spacing.set(W + "line", "240")
+    spacing.set(W + "lineRule", "auto")
+    indent = etree.SubElement(ppr, W + "ind")
+    indent.set(W + "firstLine", "0")
+    jc = etree.SubElement(ppr, W + "jc")
+    jc.set(W + "val", "left" if tab_pos is not None else "right")
+    rpr = _run_properties(
+        hidden=False,
+        size_half_points=size_half_points,
+    )
+    ppr.append(copy_rpr(rpr))
+    insert_field(
+        ["STYLEREF", f'"{style_name}"', "\\n"],
+        FieldPosition(paragraph=paragraph, rpr=rpr),
+        "",
+        dirty=True,
+    )
+    if title_break:
+        break_run = build_run(rpr=rpr)
+        etree.SubElement(break_run, W + "br")
+        paragraph.append(break_run)
+    insert_field(
+        ["STYLEREF", f'"{style_name}"'],
+        FieldPosition(paragraph=paragraph, rpr=rpr),
+        "",
+        dirty=True,
+    )
+    tab_run = build_run(rpr=rpr)
+    etree.SubElement(tab_run, W + "tab")
+    paragraph.append(tab_run)
+    insert_field(["PAGE"], FieldPosition(paragraph=paragraph, rpr=rpr), "1")
+    return root
+
+
 def _ensure_part(
     package: object,
     *,
@@ -164,26 +304,62 @@ def _configure_front_matter(
     return part_changed or tree_digest(section.sect_pr) != before
 
 
+def _section_has_unnumbered_chapter(package: object, section: Section) -> bool:
+    """True bila section memuat H1 bernomor 0/unnumbered.
+
+    STYLEREF ``
+    `` menghasilkan ``0`` untuk heading tanpa numbering. Section
+    seperti itu memakai header PAGE-only agar header tidak pernah menampilkan
+    "0"; detail ada di ADR 0015.
+    """
+
+    try:
+        children = body_children(document_body(package))  # type: ignore[arg-type]
+    except AttributeError, ParagraphError:
+        return False
+    for child in children[section.start : section.end]:
+        if child.tag != W + "p" or heading_level(child) != 1:
+            continue
+        numbering = paragraph_numbering(child)
+        if numbering is not None and numbering[1] == 0:
+            return True
+        if numbering is None and is_unnumbered(child):
+            return True
+    return False
+
+
 def _configure_body(
     package: object,
     section: Section,
     *,
     start: int | None,
+    header_style_ref: str | None = None,
+    header_tab_pos: int | None = None,
 ) -> bool:
     """Konfigurasi header/footer dan format nomor untuk section body.
 
     Mengembalikan ``True`` bila part header/footer atau ``sectPr`` berubah.
+    ``header_style_ref`` ``None`` mempertahankan header body tanpa judul bab;
+    nilai berisi nama style menghasilkan field ``STYLEREF`` di header default.
     ``SectionError`` dari helper part diteruskan ke pemanggil.
     """
 
     before = tree_digest(section.sect_pr)
     refs = section_header_footer(section)
 
-    header_root = page_part(
-        "header",
-        align="right",
-        size_half_points=BODY_HEADER_SIZE_HALF_POINTS,
-    )
+    if header_style_ref is None or _section_has_unnumbered_chapter(package, section):
+        header_root = page_part(
+            "header",
+            align="right",
+            size_half_points=BODY_HEADER_SIZE_HALF_POINTS,
+        )
+    else:
+        header_root = body_header_part(
+            style_name=header_style_ref,
+            tab_pos=header_tab_pos,
+            size_half_points=BODY_HEADER_SIZE_HALF_POINTS,
+            title_break=not _section_heading_starts_with_break(package, section),
+        )
     header_id, changed_header = _ensure_part(
         package, kind="header", rel_id=refs.header, root=header_root
     )
@@ -317,10 +493,31 @@ class PageNumbersStage(BaseStage):
             )
 
         before_document = tree_digest(package.xml(DOCUMENT_PART))
+        page = getattr(getattr(ctx, "format", None), "page", None)
+        requested_style = getattr(page, "header_style_ref", None)
+        header_style_ref: str | None = None
+        if requested_style:
+            try:
+                header_style_ref = resolve_style_name(
+                    package,
+                    str(requested_style),
+                    paragraph_only=True,
+                    heading_only=True,
+                )
+            except StyleError as exc:
+                raise StageError(
+                    self.name.value,
+                    str(exc),
+                    cause=exc,
+                    code="STAGE-HEADER-STYLE",
+                ) from exc
+        header_tab_pos = _header_tab_position(page) if header_style_ref else None
         front_seen = 0
         body_seen = 0
         changed = False
-        sections = iter_sections(package)
+        structure = getattr(ctx, "structure", None)
+        body_titles = tuple(str(chapter.title) for chapter in getattr(structure, "body", ()) or ())
+        sections = iter_sections(package, body_titles=body_titles)
         try:
             for section in sections:
                 if section.kind == "cover":
@@ -338,7 +535,17 @@ class PageNumbersStage(BaseStage):
                     front_seen += 1
                 else:
                     start = 1 if body_seen == 0 else None
-                    changed = _configure_body(package, section, start=start) or changed
+                    section_style = header_style_ref if section.kind == "body" else None
+                    changed = (
+                        _configure_body(
+                            package,
+                            section,
+                            start=start,
+                            header_style_ref=section_style,
+                            header_tab_pos=header_tab_pos if section_style else None,
+                        )
+                        or changed
+                    )
                     body_seen += 1
             if remove_unused_header_footer_parts(package):
                 changed = True
@@ -371,6 +578,7 @@ __all__ = [
     "BODY_HEADER_SIZE_HALF_POINTS",
     "FRONT_FOOTER_SIZE_HALF_POINTS",
     "PageNumbersStage",
+    "body_header_part",
     "empty_part",
     "page_part",
 ]

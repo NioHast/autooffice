@@ -11,7 +11,13 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..config import Format
+from ..config.highlight import PANDOC_HIGHLIGHT_STYLES
 from ..package import DocumentPackage
+from ..package.native_numbering import (
+    NumberingSpec,
+    ensure_heading_numbering,
+    verify_heading_numbering,
+)
 from ..package.styles import (
     StyleError,
     StyleSpec,
@@ -51,6 +57,11 @@ _CODE_STYLE_TYPES: Mapping[str, str] = {
     "HTMLCode": "character",
     "HTMLPreformatted": "paragraph",
 }
+
+# Style karakter token syntax highlighting yang ditulis Pandoc saat blok kode
+# memakai highlighting. Daftar ini diukur dari Pandoc 3.13: tanpa deklarasi di
+# reference turunan, Pandoc mengimpor seluruh style token ini sendiri sehingga
+# `word/styles.xml` tidak lagi ditentukan oleh `format.yaml`.
 
 _COVER_STYLES: tuple[str, ...] = (
     "CoverTitle",
@@ -269,6 +280,39 @@ def _code_spec(style_id: str, format_spec: Format) -> StyleSpec:
     )
 
 
+def _highlight_specs(format_spec: Format) -> dict[str, StyleSpec]:
+    """Style karakter token syntax highlighting dari ``format_spec.code``.
+
+    Semua style token Pandoc selalu dideklarasikan agar Pandoc tidak pernah
+    mengimpornya. Properti berasal dari ``code.highlight``; token tanpa entri
+    mewarisi ``VerbatimChar`` sehingga tetap memakai font/warna kode format.
+    """
+
+    configured = format_spec.code.highlight
+    specs: dict[str, StyleSpec] = {}
+    for style_id in PANDOC_HIGHLIGHT_STYLES:
+        token = configured.get(style_id)
+        rpr: dict[str, object] = {}
+        if token is not None:
+            if token.bold:
+                rpr["b"] = True
+                rpr["bCs"] = True
+            if token.italic:
+                rpr["i"] = True
+                rpr["iCs"] = True
+            if token.color is not None:
+                rpr["color"] = {"val": token.color}
+        specs[style_id] = StyleSpec(
+            style_id=style_id,
+            style_type="character",
+            based_on="VerbatimChar",
+            rpr=rpr,
+            name=style_id,
+            custom=True,
+        )
+    return specs
+
+
 def _hyperlink_spec() -> StyleSpec:
     return StyleSpec(
         style_id="Hyperlink",
@@ -421,6 +465,7 @@ def style_specs_for_format(
     )
     for style_id in _CODE_STYLE_TYPES:
         specs[style_id] = _code_spec(style_id, format_spec)
+    specs.update(_highlight_specs(format_spec))
     specs["Hyperlink"] = _hyperlink_spec()
     specs["Bibliography"] = _bibliography_spec(format_spec)
     specs["Figure"] = _figure_spec(format_spec)
@@ -443,11 +488,14 @@ def build_reference_docx(
     format_spec: Format | None = None,
     *,
     format: Format | None = None,
+    numbering: NumberingSpec | None = None,
 ) -> Path:
     """Hasilkan derived reference dari ``source`` tanpa menimpa source.
 
     Output boleh berada di workspace/cache. Fungsi ini deterministik: input
-    dan format yang sama menghasilkan payload ZIP yang sama.
+    dan format yang sama menghasilkan payload ZIP yang sama. ``numbering``
+    menulis definisi numbering native dan ``w:numPr`` pada style heading;
+    ``None`` memakai skema default ``BAB_ROMAN`` bertitik.
     """
 
     format_spec = _resolve_format_arg(format_spec, format)
@@ -479,6 +527,12 @@ def build_reference_docx(
     package = DocumentPackage.load(source_path)
     specs = style_specs_for_format(format_spec)
     apply_style_specs(package, specs)
+    numbering_spec = numbering or NumberingSpec()
+    ensure_heading_numbering(
+        package,
+        numbering_spec,
+        toc_heading_style=format_spec.toc_heading.heading_style,
+    )
     page = format_spec.page
     apply_page_layout(
         package,
@@ -495,6 +549,11 @@ def build_reference_docx(
         gutter=page.gutter,
     )
     verify_style_contract(package, specs)
+    verify_heading_numbering(
+        package,
+        numbering_spec,
+        toc_heading_style=format_spec.toc_heading.heading_style,
+    )
     package.save(output_path)
     after = _digest(source_path)
     if before != after:
@@ -511,12 +570,31 @@ def verify_reference_docx(
     format_spec: Format | None = None,
     *,
     format: Format | None = None,
+    numbering: NumberingSpec | None = None,
 ) -> None:
-    """Verifikasi derived reference terhadap spec format."""
+    """Verifikasi derived reference terhadap spec format dan numbering."""
 
     format_spec = _resolve_format_arg(format_spec, format)
     package = DocumentPackage.load(Path(path))
     verify_style_contract(package, style_specs_for_format(format_spec))
+    verify_heading_numbering(
+        package,
+        numbering or NumberingSpec(),
+        toc_heading_style=format_spec.toc_heading.heading_style,
+    )
+
+
+def _structure_numbering(structure: object | None) -> NumberingSpec | None:
+    """``NumberingSpec`` dari ``structure.numbering`` bila tersedia."""
+
+    numbering = getattr(structure, "numbering", None)
+    if numbering is None:
+        return None
+    return NumberingSpec(
+        body=str(getattr(numbering, "body", "BAB_ROMAN")),
+        sub_dot=bool(getattr(numbering, "sub_dot", True)),
+        subsub_dot=bool(getattr(numbering, "subsub_dot", True)),
+    )
 
 
 class StyleReferenceStage(BaseStage):
@@ -538,7 +616,12 @@ class StyleReferenceStage(BaseStage):
         output = workspace.path(DEFAULT_REFERENCE_NAME)
         output.parent.mkdir(parents=True, exist_ok=True)
         before = _digest(output) if output.is_file() else None
-        build_reference_docx(source, output, format_spec)
+        build_reference_docx(
+            source,
+            output,
+            format_spec,
+            numbering=_structure_numbering(getattr(ctx, "structure", None)),
+        )
         after = _digest(output)
         ctx.reference_docx = output  # type: ignore[attr-defined]
         artifacts = getattr(ctx, "artifacts", None)
@@ -591,6 +674,7 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "DEFAULT_REFERENCE_NAME",
+    "PANDOC_HIGHLIGHT_STYLES",
     "TERM_STYLES",
     "StyleReferenceStage",
     "build_reference_docx",

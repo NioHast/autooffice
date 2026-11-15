@@ -13,10 +13,10 @@ from autooffice.docx.package.heading_numbering import (
     NumberingSpec,
     apply_heading_numbering,
     heading_bookmark_name,
-    heading_text,
     is_unnumbered,
     iter_headings,
 )
+from autooffice.docx.package.native_numbering import paragraph_numbering
 from autooffice.docx.package.package import (
     CONTENT_TYPES_PART,
     DOCUMENT_PART,
@@ -570,7 +570,7 @@ def test_sections_stage_rejects_unknown_size(tmp_path: Path) -> None:
     assert "A5" in str(excinfo.value)
 
 
-def test_sections_stage_numbers_plain_headings_before_splitting(
+def test_sections_stage_splits_sections_for_numbered_headings(
     tmp_path: Path,
 ) -> None:
     document = _document(
@@ -590,8 +590,11 @@ def test_sections_stage_numbers_plain_headings_before_splitting(
     assert result.status == "ok"
     assert result.metrics["headings_numbered"] == 2
     headings = [heading for heading in iter_headings(package)]
-    assert heading_text(headings[1].paragraph).startswith("BAB I")
-    assert heading_text(headings[2].paragraph).startswith("1.1.")
+    assert headings[1].text == "Pendahuluan"
+    assert headings[2].text == "Latar Belakang"
+    assert paragraph_numbering(headings[0].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[1].paragraph) is None
+    assert paragraph_numbering(headings[2].paragraph) is None
     sections = iter_sections(package)
     assert [section.kind for section in sections] == [
         "cover",
@@ -628,11 +631,78 @@ def test_sections_stage_arabic_dotted_body_starts_at_chapter(
         "body",
     ]
     headings = [heading for heading in iter_headings(package)]
-    assert heading_text(headings[1].paragraph) == "1. PENDAHULUAN"
+    assert headings[1].text == "Pendahuluan"
     body_start = next(index for index, section in enumerate(sections) if section.kind == "body")
     assert sections[body_start].start == headings[1].paragraph.getparent().index(
         headings[1].paragraph
     )
+
+
+def test_sections_stage_unknown_front_matter_name_is_unnumbered(
+    tmp_path: Path,
+) -> None:
+    document = _document(
+        _paragraph("Sampul", style="CoverTitle")
+        + _paragraph("Catatan Awal", style="Heading1")
+        + _paragraph("Pendahuluan", style="Heading1")
+    )
+    package = DocumentPackage.load(_write_package(tmp_path, document))
+    ctx = _fake_ctx(
+        package,
+        numbering=SimpleNamespace(body="BAB_ROMAN", sub_dot=True, subsub_dot=True),
+    )
+    ctx.structure.body = [SimpleNamespace(title="Pendahuluan")]
+
+    SectionsStage().run(ctx)
+
+    headings = iter_headings(package)
+    assert headings[0].text == "Catatan Awal"
+    assert headings[1].text == "Pendahuluan"
+    assert paragraph_numbering(headings[0].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[1].paragraph) is None
+    assert [section.kind for section in iter_sections(package, body_titles=("Pendahuluan",))] == [
+        "cover",
+        "front_matter",
+        "body",
+    ]
+
+
+def test_sections_stage_mid_body_unnumbered_heading_does_not_reset(
+    tmp_path: Path,
+) -> None:
+    document = _document(
+        _paragraph("Sampul", style="CoverTitle")
+        + _paragraph("Pendahuluan", style="Heading1")
+        + _paragraph("Latar Belakang", style="Heading2")
+        + _paragraph("Catatan", style="Heading1")
+        + _paragraph("Sub Catatan", style="Heading2")
+        + _paragraph("Pembahasan", style="Heading1")
+    )
+    package = DocumentPackage.load(_write_package(tmp_path, document))
+    ctx = _fake_ctx(
+        package,
+        numbering=SimpleNamespace(body="BAB_ROMAN", sub_dot=True, subsub_dot=True),
+    )
+    ctx.structure.body = [
+        SimpleNamespace(title="Pendahuluan"),
+        SimpleNamespace(title="Pembahasan"),
+    ]
+
+    SectionsStage().run(ctx)
+
+    headings = iter_headings(package)
+    assert [heading.text for heading in headings] == [
+        "Pendahuluan",
+        "Latar Belakang",
+        "Catatan",
+        "Sub Catatan",
+        "Pembahasan",
+    ]
+    assert paragraph_numbering(headings[0].paragraph) is None
+    assert paragraph_numbering(headings[1].paragraph) is None
+    assert paragraph_numbering(headings[2].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[3].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[4].paragraph) is None
 
 
 def test_golden_toc_field_count_for_section_boundary() -> None:
@@ -645,7 +715,7 @@ def test_golden_toc_field_count_for_section_boundary() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Heading numbering
+# Heading numbering: override numId=0, bukan menulis teks
 # ---------------------------------------------------------------------------
 
 
@@ -663,7 +733,7 @@ def _heading_runs(*runs: tuple[str, str]) -> str:
     return output
 
 
-def test_apply_heading_numbering_chapter_roman_and_inline_formatting(
+def test_apply_heading_numbering_keeps_text_and_inline_formatting(
     tmp_path: Path,
 ) -> None:
     document = _document(
@@ -678,36 +748,30 @@ def test_apply_heading_numbering_chapter_roman_and_inline_formatting(
     )
     package = DocumentPackage.load(_write_package(tmp_path, document))
 
-    report = apply_heading_numbering(
-        package,
-        NumberingSpec(body="BAB_ROMAN", sub_dot=True, subsub_dot=True),
-    )
+    report = apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
 
-    assert report.changed is True
+    assert report.changed is False
     assert report.numbered == 5
     headings = iter_headings(package)
-    assert heading_text(headings[0].paragraph).startswith("BAB I")
-    assert "PENDAHULUAN LANJUTAN" in heading_text(headings[0].paragraph)
-    assert heading_text(headings[1].paragraph).startswith("1.1.")
-    assert heading_text(headings[2].paragraph).startswith("1.1.1.")
-    assert heading_text(headings[3].paragraph).startswith("BAB II")
-    assert heading_text(headings[4].paragraph).startswith("2.1.")
+    assert headings[0].text == "Pendahuluan Lanjutan"
+    assert headings[1].text == "Latar Belakang"
+    assert headings[2].text == "Ruang Lingkup"
+    assert headings[3].text == "Tinjauan"
+    assert headings[4].text == "Teori"
+    assert all(paragraph_numbering(heading.paragraph) is None for heading in headings)
 
     first = headings[0].paragraph
     assert first.find(".//" + qn("w:b")) is not None
     assert first.find(".//" + qn("w:i")) is not None
-    assert first.find(".//" + qn("w:br")) is not None
+    assert first.find(".//" + qn("w:br")) is None
 
     before = sha256_c14n(package.xml(DOCUMENT_PART))
-    second = apply_heading_numbering(
-        package,
-        NumberingSpec(body="BAB_ROMAN", sub_dot=True, subsub_dot=True),
-    )
+    second = apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
     assert second.changed is False
     assert sha256_c14n(package.xml(DOCUMENT_PART)) == before
 
 
-def test_apply_heading_numbering_arabic_dotted(tmp_path: Path) -> None:
+def test_apply_heading_numbering_arabic_dotted_keeps_text(tmp_path: Path) -> None:
     document = _document(
         _paragraph("Pendahuluan", style="Heading1")
         + _paragraph("Latar Belakang", style="Heading2")
@@ -721,42 +785,29 @@ def test_apply_heading_numbering_arabic_dotted(tmp_path: Path) -> None:
     )
 
     headings = iter_headings(package)
-    assert heading_text(headings[0].paragraph) == "1. PENDAHULUAN"
-    assert heading_text(headings[0].paragraph, include_number=False) == "PENDAHULUAN"
-    assert headings[0].number == "1."
-    separators = [node for node in headings[0].paragraph.iter(qn("w:t")) if node.text == " "]
-    assert len(separators) == 1
-    assert separators[0].get(qn("xml:space")) == "preserve"
-    assert heading_text(headings[1].paragraph).startswith("1.1\t")
-    assert heading_text(headings[2].paragraph).startswith("1.1.1.")
-
-    before = sha256_c14n(package.xml(DOCUMENT_PART))
-    second = apply_heading_numbering(
-        package,
-        NumberingSpec(body="ARABIC_DOTTED", sub_dot=False, subsub_dot=True),
-    )
-    assert second.changed is False
-    assert sha256_c14n(package.xml(DOCUMENT_PART)) == before
+    assert headings[0].text == "Pendahuluan"
+    assert headings[1].text == "Latar Belakang"
+    assert headings[2].text == "Ruang Lingkup"
+    assert headings[0].paragraph.find(".//" + qn("w:numPr")) is None
 
 
-def test_apply_heading_numbering_h2_before_h1_is_not_zero(tmp_path: Path) -> None:
+def test_apply_heading_numbering_h2_before_h1_gets_numid_zero(tmp_path: Path) -> None:
     document = _document(
         _paragraph("Awal", style="Heading2") + _paragraph("Pendahuluan", style="Heading1")
     )
     package = DocumentPackage.load(_write_package(tmp_path, document))
 
-    report = apply_heading_numbering(
-        package,
-        NumberingSpec(body="BAB_ROMAN"),
-    )
+    report = apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
 
     headings = iter_headings(package)
-    assert heading_text(headings[0].paragraph) == "Awal"
-    assert heading_text(headings[1].paragraph).startswith("BAB I")
+    assert headings[0].text == "Awal"
+    assert headings[1].text == "Pendahuluan"
+    assert paragraph_numbering(headings[0].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[1].paragraph) is None
     assert report.skipped_without_chapter == 1
 
 
-def test_apply_heading_numbering_skips_front_matter_and_explicit_marker(
+def test_apply_heading_numbering_front_matter_and_explicit_marker(
     tmp_path: Path,
 ) -> None:
     document = _document(
@@ -769,15 +820,15 @@ def test_apply_heading_numbering_skips_front_matter_and_explicit_marker(
     assert is_unnumbered(iter_headings(package)[0].paragraph) is True
     assert is_unnumbered(iter_headings(package)[1].paragraph) is True
 
-    report = apply_heading_numbering(
-        package,
-        NumberingSpec(body="BAB_ROMAN"),
-    )
+    report = apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
 
     headings = iter_headings(package)
-    assert heading_text(headings[0].paragraph) == "KATA PENGANTAR"
-    assert heading_text(headings[1].paragraph) == "{-}Judul Bebas"
-    assert heading_text(headings[2].paragraph).startswith("BAB I")
+    assert headings[0].text == "KATA PENGANTAR"
+    assert headings[1].text == "{-}Judul Bebas"
+    assert headings[2].text == "Pendahuluan"
+    assert paragraph_numbering(headings[0].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[1].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[2].paragraph) is None
     assert report.unnumbered == 2
     assert report.numbered == 1
 
@@ -793,15 +844,15 @@ def test_apply_heading_numbering_h2_under_unnumbered_h1(tmp_path: Path) -> None:
     )
     package = DocumentPackage.load(_write_package(tmp_path, document))
 
-    report = apply_heading_numbering(
-        package,
-        NumberingSpec(body="BAB_ROMAN"),
-    )
+    report = apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
 
     headings = iter_headings(package)
-    assert heading_text(headings[1].paragraph).startswith("1.1.")
-    assert heading_text(headings[3].paragraph) == "Ucapan"
-    assert heading_text(headings[5].paragraph) == "Rujukan"
+    assert headings[1].text == "Latar Belakang"
+    assert headings[3].text == "Ucapan"
+    assert headings[5].text == "Rujukan"
+    assert paragraph_numbering(headings[1].paragraph) is None
+    assert paragraph_numbering(headings[3].paragraph) == (None, 0)
+    assert paragraph_numbering(headings[5].paragraph) == (None, 0)
     assert report.numbered == 2
     assert report.unnumbered == 4
 
@@ -813,5 +864,5 @@ def test_heading_bookmark_name_is_stable(tmp_path: Path) -> None:
     package = DocumentPackage.load(_write_package(tmp_path, document))
     apply_heading_numbering(package, NumberingSpec(body="BAB_ROMAN"))
     headings = iter_headings(package)
-    assert heading_bookmark_name(headings[0]) == "_TocBAB_I"
-    assert heading_bookmark_name(headings[1]) == "_Toc1_1"
+    assert heading_bookmark_name(headings[0]) == "_TocPendahuluan"
+    assert heading_bookmark_name(headings[1]) == "_TocLatar_Belakang"

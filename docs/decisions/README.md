@@ -26,6 +26,7 @@ setelah F0 wajib memiliki ADR.
 | [0012-chart-kind-preset.md](0012-chart-kind-preset.md) | `SlotSpec.chart_kind` mengikat kind chart pada slot preset `bars`, `line`, dan `donut`. | diterima |
 | [0013-remove-pdf-arial.md](0013-remove-pdf-arial.md) | Hapus PDF/COM/`pywin32`, field DOCX manual, Arial tanpa embedding, layout Liberation Sans. | diterima |
 | [0014-plantuml.md](0014-plantuml.md) | PlantUML 1.2026.10, Java 21, Smetana, PNG, `-secure`, cache, dan sumber `.puml` menggantikan Mermaid. | diterima |
+| [0015-native-heading-numbering.md](0015-native-heading-numbering.md) | Numbering heading native Word: `w:numPr` style + `numbering.xml`, override `numId=0`, `STYLEREF \n`, caption tetap `SEQ`. | diterima |
 
 ## Aturan ADR
 

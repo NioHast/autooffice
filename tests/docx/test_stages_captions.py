@@ -124,15 +124,38 @@ def test_caption_number_resets_per_chapter(docs, tmp_path):
     ]
 
 
-def test_heading_arabic_dotted_gives_chapter_four_number(tmp_path):
+def test_heading_ordinal_not_text_drives_chapter_number(tmp_path):
     document = Document()
-    document.add_paragraph("4. Metode", style="Heading 1")
+    document.add_paragraph("Satu", style="Heading 1")
+    document.add_paragraph("Dua", style="Heading 1")
+    document.add_paragraph("Tiga", style="Heading 1")
+    document.add_paragraph("Empat", style="Heading 1")
     document.styles.add_style("TableCaption", WD_STYLE_TYPE.PARAGRAPH)
     document.styles.add_style("ImageCaption", WD_STYLE_TYPE.PARAGRAPH)
     document.add_paragraph("Tabel 1.1 Data", style="TableCaption")
     document.add_paragraph("Gambar 1.1 Diagram", style="ImageCaption")
 
-    source = tmp_path / "arabic.docx"
+    source = tmp_path / "ordinal.docx"
+    document.save(source)
+    package = DocumentPackage.load(source)
+
+    report = apply_captions(package)
+    output = tmp_path / "out.docx"
+    package.save(output)
+
+    assert report.chapter_headings == 4
+    assert caption_texts(output, "TableCaption") == ["Tabel 4.1 Data"]
+    assert caption_texts(output, "ImageCaption") == ["Gambar 4.1 Diagram"]
+
+
+def test_chapter_title_counts_as_chapter_for_captions(tmp_path):
+    document = Document()
+    heading = document.add_paragraph("BAB IV TINJAUAN")
+    heading.style = document.styles.add_style("ChapterTitle", WD_STYLE_TYPE.PARAGRAPH)
+    document.styles.add_style("ImageCaption", WD_STYLE_TYPE.PARAGRAPH)
+    document.add_paragraph("Gambar 1.1 Diagram", style="ImageCaption")
+
+    source = tmp_path / "chapter-title.docx"
     document.save(source)
     package = DocumentPackage.load(source)
 
@@ -141,8 +164,26 @@ def test_heading_arabic_dotted_gives_chapter_four_number(tmp_path):
     package.save(output)
 
     assert report.chapter_headings == 1
-    assert caption_texts(output, "TableCaption") == ["Tabel 4.1 Data"]
-    assert caption_texts(output, "ImageCaption") == ["Gambar 4.1 Diagram"]
+    assert caption_texts(output, "ImageCaption") == ["Gambar 1.1 Diagram"]
+
+
+def test_caption_number_follows_inserted_chapter(tmp_path):
+    document = Document()
+    first = document.add_paragraph("Satu", style="Heading 1")
+    document.styles.add_style("ImageCaption", WD_STYLE_TYPE.PARAGRAPH)
+    document.add_paragraph("Gambar 1.1 Diagram", style="ImageCaption")
+    first.insert_paragraph_before("Nol", style="Heading 1")
+
+    source = tmp_path / "inserted-chapter.docx"
+    document.save(source)
+    package = DocumentPackage.load(source)
+
+    report = apply_captions(package)
+    output = tmp_path / "out.docx"
+    package.save(output)
+
+    assert report.chapter_headings == 2
+    assert caption_texts(output, "ImageCaption") == ["Gambar 2.1 Diagram"]
 
 
 def test_old_prefix_removed_and_idempotent(docs, tmp_path):
@@ -299,8 +340,8 @@ def test_caption_generic_style(docs, tmp_path):
     package.save(output)
 
     assert caption_texts(output, "Caption") == [
-        "Gambar 4.1 Diagram generik",
-        "Tabel 4.1 Data generik",
+        "Gambar 1.1 Diagram generik",
+        "Tabel 1.1 Data generik",
         "Paragraf biasa, bukan caption.",
     ]
 
@@ -321,7 +362,7 @@ def test_caption_with_field_prefix_skipped(docs, tmp_path):
     assert len(captions) == 2
     assert captions[0]._p.find(".//" + qn("w:fldSimple")) is not None
     assert captions[0].text == "Gambar 1. Diagram field"
-    assert captions[1].text == "Gambar 5.2 Diagram literal"
+    assert captions[1].text == "Gambar 1.2 Diagram literal"
 
 
 # ---------------------------------------------------------------------------

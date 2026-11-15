@@ -17,8 +17,9 @@ DOCX. Stage tidak menyentuh ZIP secara langsung. Semua mutasi terjadi pada
 | `names.py` | Namespace, tag, style, dan konstanta lain. |
 | `paragraphs.py` | Akses `w:body`, child langsung, style dan level heading, teks paragraf, hapus child, atribut integer. |
 | `runs.py` | Pembuatan, penyalinan, dan pembersihan `w:r`/`w:rPr`. |
-| `numbering.py` | Konversi angka Romawi dan nomor bab. |
-| `heading_numbering.py` | Penomoran heading DOCX: iterasi, nomor H1/H2/H3, unnumbered, nama bookmark. |
+| `numbering.py` | Konversi angka Romawi (`roman_to_int`, `to_roman`). |
+| `native_numbering.py` | Numbering native Word: `numbering.xml`, `w:numPr` style Heading1-3, verifikasi plumbing. |
+| `heading_numbering.py` | Iterasi heading, heading unnumbered, override `numId=0`, nama bookmark. |
 | `page.py` | Konstanta/helper ukuran halaman, `content_width`, dan `PageError`. |
 | `styles.py` | Style paragraf, karakter, tabel, dan page layout. |
 | `sections.py` | Section break, margin, ukuran halaman, header/footer. |
@@ -35,13 +36,13 @@ DOCX. Stage tidak menyentuh ZIP secara langsung. Semua mutasi terjadi pada
 `paragraphs.py`, bukan `sections.py`. `sections.py` memakai helper tersebut untuk
 mengenali heading batas section, tetapi tidak memiliki penomoran heading:
 `apply_heading_numbering` dan `is_unnumbered` ada di `heading_numbering.py`.
-Modul itu memakai `numbering.py` untuk angka Romawi dan tidak menyentuh
-section, header/footer, atau geometri halaman. Rincian ada di
+Modul itu tidak menyentuh section, header/footer, atau geometri halaman.
+Nomor heading dihasilkan Word dari `native_numbering.py`. Rincian ada di
 [paragraphs.md](paragraphs.md), [sections.md](sections.md), dan
 [numbering.md](numbering.md).
 
-Penomoran heading Markdown sebelum Pandoc bukan tanggung jawab lapisan DOCX;
-modulnya ada di `src/autooffice/docx/markdown/headings.py`.
+Persiapan heading Markdown sebelum Pandoc (uppercase H1 dan `w:br`) ada di
+`src/autooffice/docx/markdown/headings.py`; nomor tidak ditulis di sana.
 
 ## Referensi resmi
 

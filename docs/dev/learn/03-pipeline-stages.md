@@ -74,7 +74,7 @@ package yang sama.
 | 30 | `style_reference` | `stages/style_reference.py` | workspace, cache | Hasilkan `reference.docx` turunan dari `format.yaml`. |
 | 35 | `front_matter` | `stages/front_matter.py` | workspace | Sampul, template, abstrak, penomoran heading, Markdown final. |
 | 40 | `pandoc` | `stages/pandoc.py` | package | Markdown final menjadi DOCX awal. |
-| 50 | `sections` | `stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, nomor heading DOCX. |
+| 50 | `sections` | `stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, override `numId=0`, verifikasi numbering. |
 | 60 | `code` | `stages/code.py` | `word/document.xml` | Blok kode menjadi tabel 1x1. |
 | 70 | `captions` | `stages/captions.py` | `word/document.xml` | Caption tabel/gambar, nomor bab, layout gambar. |
 | 80 | `normalize` | `stages/normalize.py` | `word/document.xml` | Spasi 1,5, justify, hapus bold body. |

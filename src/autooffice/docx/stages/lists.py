@@ -3,10 +3,14 @@ r"""Stage ``lists``: daftar tabel/gambar native dan field ``SEQ`` caption.
 Stage ini tidak menulis caption dari nol. Caption dan nomor bab sudah dibuat
 oleh stage ``captions``; stage ini mengganti angka urutan terakhir menjadi
 field ``SEQ`` agar Word dapat memperbarui daftar. Prefix bab literal
-dipertahankan dan switch ``\s 1`` dipakai karena heading pipeline memakai
-nomor literal, bukan ``w:numPr``. Stage juga memastikan style entri
-``TableofFigures`` flush left dengan tab leader dot selebar konten. Semua
-field daftar ditulis lewat :mod:`autooffice.docx.package.fields`.
+dipertahankan dan switch ``\s 1`` tetap dipakai: Word mereset counter ``SEQ``
+pada heading level 1, dan heading kini memakai numbering native ``w:numPr``
+(style ``Heading1``) sehingga level 1 tetap dikenali. Pengukuran Word 16 pada
+contoh tesis: setelah field diperbarui, caption tetap ``Tabel 2.1``,
+``Gambar 3.1``, dan ``Tabel 4.1`` (identik baseline). Stage juga memastikan
+style entri ``TableofFigures`` flush left dengan tab leader dot selebar
+konten. Semua field daftar ditulis lewat
+:mod:`autooffice.docx.package.fields`.
 """
 
 import re
