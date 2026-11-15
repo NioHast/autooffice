@@ -756,3 +756,20 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
   - Full suite: 3.223 passed. Acceptance + wheel `-m slow`: 2 passed.
   - Smoke build DOCX dan PPTX OK; PPTX tidak memuat font ter-embed.
 - File yang berubah: `src/autooffice/**`, `tests/**`, `tools/**`, `docs/**`, `pyproject.toml`, `uv.lock`, `README.md`, `AGENTS.md`, `AUTO_OFFICE_PLAN.md`, `AUTO_OFFICE_EXECUTION_LOG.md`.
+
+## 2026-11-15 - Arsip riwayat dan aturan agent
+
+- Masalah: pelajaran dari insiden sebelumnya hanya ada di log naratif tanpa pemetaan ke commit, sehingga sulit ditelusuri; agent baru tidak mewarisi aturan proyek dan berisiko mengulang kesalahan yang sama (target `pdf`/`all`, font ditanam ke PPTX, dokumen aktif menyebut perilaku lama, cleanup yang tidak tuntas sampai registry dan file).
+- Resolusi:
+  - Invarian proyek ditambahkan ke `AGENTS.md`: 7 invarian engineering, larangan, dan definition of done.
+  - `docs/dev/agent-rules.md` memuat 17 aturan agent; setiap aturan mencantumkan alasan dari insiden nyata dan mekanisme penegakan (gate, test, atau checker).
+  - `docs/dev/release.md` menetapkan prosedur rilis, ekspor arsip, restore dari bundle, dan aturan imutabilitas arsip.
+  - `archive/autooffice-history/` berisi `lessons.jsonl` dengan 48 lessons dan `eval-cases.md` dengan 16 eval case, plus `README.md` untuk cara pakai dan pemulihan.
+  - `tests/agent_eval/` menegakkan kontrak agent secara executable (23 fungsi test): target yang dihapus, larangan embedding font, dokumen usang, dan kepatuhan arsip.
+  - `tools/history/export_archive.py` menghasilkan bundle seluruh ref (`git bundle --all` + `verify`), snapshot log persis pada tag, `history-map.md`, salinan korpus (`agent-rules.md`, `lessons.jsonl`, `eval-cases.md`), dan `SHA256SUMS` yang diverifikasi ulang.
+  - `check_no_legacy` menambahkan `archive/autooffice-history/` ke direktori yang diizinkan; tidak ada direktori `archive/**` lain yang diizinkan.
+- Catatan/verifikasi:
+  - Gate 14 langkah PASS: `3252 passed, 9 deselected`; coverage global 90,68% (line 92,65%, branch 85,56%); 8 modul kritis 100%; docs 112 dokumen, 806 tautan, 29 TOC, 61 entri registry, Broken 0; test-quality 0; no-legacy 0; removed-features 0; python-style 0; ruff, mypy, import-linter, dan lock lulus.
+  - `uv run python tools/quality/check_docs.py` setelah entri ini: Broken 0.
+  - Release GitHub `v1.0.0` memuat aset arsip: `autooffice-v1.0.0.bundle` 4,3 MB, `AUTO_OFFICE_EXECUTION_LOG.md`, `history-map.md`, `agent-rules.md`, `lessons.jsonl`, `eval-cases.md`, dan `SHA256SUMS`; mirror privat ada di `NioHast/autooffice-history`.
+- File yang berubah: `AGENTS.md`, `README.md`, `docs/**`, `archive/**`, `tests/**`, `tools/**`.
