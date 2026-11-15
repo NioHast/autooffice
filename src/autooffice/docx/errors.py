@@ -18,7 +18,6 @@ class DocgenError(Exception):
 
     exit_code: int = 1
     default_code: str = "DOCGEN"
-    cleanup_ambiguous: bool = False
 
     def __init__(
         self,
@@ -27,14 +26,12 @@ class DocgenError(Exception):
         code: str | None = None,
         path: str | Path | None = None,
         key: str | None = None,
-        cleanup_ambiguous: bool = False,
     ) -> None:
         super().__init__(message)
         self.message = str(message)
         self.code = code or self.default_code
         self.path = Path(path) if path is not None else None
         self.key = key
-        self.cleanup_ambiguous = cleanup_ambiguous
 
     def format(self) -> str:
         """Format pesan yang siap dicetak CLI."""
@@ -92,14 +89,12 @@ class StageError(DocgenError):
         code: str | None = None,
         path: str | Path | None = None,
         key: str | None = None,
-        cleanup_ambiguous: bool = False,
     ) -> None:
         super().__init__(
             message,
             code=code,
             path=path,
             key=key,
-            cleanup_ambiguous=cleanup_ambiguous,
         )
         self.stage = stage
         self.cause = cause
@@ -141,18 +136,6 @@ class ExternalToolError(DocgenError):
     """Kegagalan perkakas eksternal."""
 
     default_code = "TOOL"
-
-
-class WordError(ExternalToolError):
-    """Kegagalan Microsoft Word."""
-
-    default_code = "WORD"
-
-
-class PdfError(ExternalToolError):
-    """Kegagalan pembuatan PDF."""
-
-    default_code = "PDF"
 
 
 class IdempotencyError(DocgenError):

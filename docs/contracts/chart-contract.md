@@ -28,7 +28,7 @@ State menyimpan `chart_id`, `tab_name`, `sheet_id`, dan `embedded_chart_id`.
   native dengan marker, `donut` menjadi doughnut chart native.
 - Google Slides: setiap chart block menjadi linked Sheets chart.
 - Chart tidak boleh menjadi gambar, screenshot, atau kumpulan shape.
-- Chart tidak boleh diubah menjadi gambar untuk PDF.
+- Chart tidak boleh diubah menjadi gambar.
 - Warna seri dan kategori donut berasal dari `chartSeries` yang lolos kontras 3:1.
 - Legend, gridline, axis, title, dan font berasal dari token.
 - Chart title native; alt manusia di `descr` dan key chart di metadata.

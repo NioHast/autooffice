@@ -7,7 +7,7 @@ CLI ada di [contracts/cli.md](../../contracts/cli.md).
 
 | Flag | Berlaku | Arti |
 | --- | --- | --- |
-| `--target` | wajib | Target dipisah koma: `docx,pdf` untuk `.md`; `pptx,pdf,slides` untuk `.yaml`; atau `all`. |
+| `--target` | wajib | Target dipisah koma: `docx` untuk `.md`; `pptx` atau `slides` untuk `.yaml`. |
 | `--out DIR` | semua | Direktori output final; harus direktori, bukan berkas. |
 | `--theme NAME` | `.yaml` | `indigo` atau `hitam`; menimpa `theme.name`. |
 | `--terms` | `.md` | Aktifkan check, apply, verify, dan review istilah. |
@@ -15,40 +15,39 @@ CLI ada di [contracts/cli.md](../../contracts/cli.md).
 | `--keep-intermediate` | semua | Pertahankan workspace dan intermediate DOCX/PPTX/staging. |
 | `--sync MODE` | `.yaml` + `slides` | `push` (default), `pull`, `diff`, atau `apply`. |
 
-Untuk platform tanpa Word, pilih `--target docx`. Target `all` tidak
-diturunkan otomatis menjadi DOCX.
+Tidak ada target `pdf` atau `all`.
 
 ## Aturan target
 
-| Input | `docx` | `pdf` | `pptx` | `slides` | `all` |
-| --- | --- | --- | --- | --- | --- |
-| `.md` | ya | ya, lewat DOCX | tidak | tidak | DOCX + PDF |
-| `.yaml` | tidak | ya, lewat PPTX | ya | ya | PPTX + PDF + Slides |
+| Input | `docx` | `pptx` | `slides` |
+| --- | --- | --- | --- |
+| `.md` | ya | tidak | tidak |
+| `.yaml` | tidak | ya | ya |
 
 - Target dipisah koma; spasi setelah koma boleh.
 - Duplikat dihapus dan urutan kanonik dipertahankan.
-- `all` tidak boleh digabung dengan target lain.
-- `pdf` untuk `.md` membangun DOCX lebih dulu; `pdf` untuk `.yaml` membangun
-  PPTX lebih dulu.
-- `slides` memerlukan extra `google` dan kredensial OAuth.
-- `all` untuk `.yaml` memerlukan Google; `pptx,pdf` adalah jalur offline.
+- `slides` memerlukan extra `google` dan kredensial OAuth. Tutorial ada di
+  [google-oauth.md](../../user/google-oauth.md).
+- `pptx` adalah jalur offline untuk deck.
+- DOCX memakai field native yang tidak diisi otomatis. Pengguna membuka DOCX
+  di Word, menekan Ctrl+A lalu F9, sebelum review atau ekspor PDF.
 
-## Target per platform DOCX
+## Target per platform
 
-| Platform | `docx` | `pdf` | `all` |
+| Platform | `docx` | `pptx` | `slides` |
 | --- | --- | --- | --- |
-| Windows dengan Word | DOCX, field diperbarui | PDF | DOCX dan PDF |
-| Windows tanpa Word | DOCX dengan peringatan | error | DOCX dapat tertulis, lalu error |
-| Linux | DOCX best-effort, field belum final | error | DOCX dapat tertulis, lalu error |
+| Windows | ya | ya | ya dengan Google OAuth |
+| Linux/macOS | ya | ya | ya dengan Google OAuth |
 
-`pdf` dan `all` untuk `.md` selalu membutuhkan Word karena PDF tidak dapat
-dihasilkan tanpa Word. Tidak ada fallback diam-diam yang menurunkan `all`
-menjadi DOCX.
+Build DOCX dan PPTX tidak memerlukan Office, COM, `pywin32`, atau font yang
+terpasang. PPTX memakai Arial tanpa embedding; layout diukur dengan Liberation
+Sans yang metrik-kompatibel Arial. PDF diekspor manual dari Word atau
+PowerPoint; lihat [Ekspor PDF Manual](../../user/pdf-export.md).
 
 ## Referensi resmi
 
-Label registry yang dipakai halaman ini: `Word COM object model (VBA
-reference)`. URL resminya ada di [registry referensi](../references.md).
+Label registry yang dipakai halaman ini: `Pandoc manual` dan `Mermaid CLI`.
+URL resminya ada di [registry referensi](../references.md).
 
 ## Halaman terkait
 
@@ -56,4 +55,4 @@ reference)`. URL resminya ada di [registry referensi](../references.md).
 - [outputs.md](outputs.md) untuk nama dan lokasi artefak.
 - [artifacts.md](artifacts.md) untuk efek `--keep-intermediate`.
 - [errors.md](errors.md) untuk kegagalan target.
-- [../pdf.md](../pdf.md) untuk Word, PowerPoint, dan embedding font.
+- [design system](../../learn/design-system.md) untuk Arial dan pengukuran.

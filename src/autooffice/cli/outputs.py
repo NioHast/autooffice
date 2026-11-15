@@ -39,15 +39,9 @@ class DocxOutputs:
     source: Path
     output_dir: Path
     docx: Path
-    pdf: Path
     manifest: Path
     terms: Path
     build_dir: Path
-
-    @property
-    def intermediate_docx(self) -> Path:
-        """DOCX intermediate untuk target PDF tanpa DOCX final."""
-        return self.build_dir / self.docx.name
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,18 +51,12 @@ class DeckOutputs:
     source: Path
     output_dir: Path
     pptx: Path
-    pdf: Path
     transcript: Path
     staging: Path
     state: Path
     cache: Path
     review_dir: Path
     build_dir: Path
-
-    @property
-    def intermediate_pptx(self) -> Path:
-        """PPTX intermediate untuk target PDF tanpa target PPTX final."""
-        return self.build_dir / f"{self.source.stem}.pptx"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +119,7 @@ def docx_outputs(
     report_name: str,
     out: Path | None = None,
 ) -> DocxOutputs:
-    """Bangun path DOCX/PDF, manifest, istilah, dan intermediate.
+    """Bangun path DOCX, manifest, istilah, dan intermediate.
 
     Nama final berasal dari ``report_name`` front matter. Manifest, istilah,
     dan ``.laporan-build`` tetap berada di samping dokumen sumber walaupun
@@ -150,7 +138,6 @@ def docx_outputs(
         source=source,
         output_dir=output_dir,
         docx=output_dir / f"{name}.docx",
-        pdf=output_dir / f"{name}.pdf",
         manifest=document_dir / ".laporan" / "manifest.json",
         terms=document_dir / ".laporan" / "istilah-baru.txt",
         build_dir=build_dir,
@@ -180,7 +167,6 @@ def deck_outputs(source: Path, out: Path | None = None) -> DeckOutputs:
         source=source,
         output_dir=output_dir,
         pptx=output_dir / f"{stem}.pptx",
-        pdf=output_dir / f"{stem}.pdf",
         transcript=output_dir / f"{stem}.transcript.md",
         staging=output_dir / f"{stem}.slides-upload.pptx",
         state=state_root / "state" / f"{stem}.json",
@@ -195,23 +181,17 @@ def planned_docx_files(
     targets: tuple[str, ...],
     *,
     terms: bool,
-    keep_intermediate: bool = False,
 ) -> tuple[Path, ...]:
     """Daftar file final yang akan ditulis build Markdown.
 
-    DOCX intermediate hanya dilaporkan untuk target PDF tanpa DOCX final dan
-    hanya bila ``--keep-intermediate`` mempertahankannya.
+    DOCX selalu dilaporkan karena target Markdown hanya menghasilkan DOCX.
     """
     paths: list[Path] = []
     if "docx" in targets:
         paths.append(outputs.docx)
-    if "pdf" in targets:
-        paths.append(outputs.pdf)
     paths.append(outputs.manifest)
     if terms:
         paths.append(outputs.terms)
-    if "pdf" in targets and "docx" not in targets and keep_intermediate:
-        paths.append(outputs.intermediate_docx)
     return _deduplicate(paths)
 
 
@@ -224,20 +204,15 @@ def planned_deck_files(
 ) -> tuple[Path, ...]:
     """Daftar artefak yang akan ditulis build deck pada target yang diminta.
 
-    Staging Slides dan PPTX intermediate PDF hanya masuk daftar bila
-    ``--keep-intermediate`` aktif. File review sync masuk daftar untuk mode
-    ``pull``, ``diff``, dan ``apply``.
+    Staging Slides hanya masuk daftar bila ``--keep-intermediate`` aktif. File
+    review sync masuk daftar untuk mode ``pull``, ``diff``, dan ``apply``.
     """
     paths: list[Path] = []
     if "pptx" in targets:
         paths.append(outputs.pptx)
-    if "pdf" in targets:
-        paths.append(outputs.pdf)
     sync_only = sync_mode in {"diff", "pull", "apply"}
     if not sync_only and (outputs.source.parent / "transcripts.md").is_file():
         paths.append(outputs.transcript)
-    if "pdf" in targets and "pptx" not in targets and keep_intermediate:
-        paths.append(outputs.intermediate_pptx)
     if "slides" in targets:
         sync_path = deck_sync_path(outputs, sync_mode)
         if sync_path is not None:

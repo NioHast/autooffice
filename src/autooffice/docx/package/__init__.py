@@ -82,8 +82,6 @@ from .fields import (  # noqa: E402
     iter_fields_in_paragraph,
     iter_fields_in_part,
     iter_fields_in_root,
-    strip_update_fields,
-    update_fields_enabled,
 )
 from .heading_numbering import (  # noqa: E402
     Heading,
@@ -262,8 +260,6 @@ __all__ = [
     "iter_fields_in_paragraph",
     "iter_fields_in_part",
     "iter_fields_in_root",
-    "strip_update_fields",
-    "update_fields_enabled",
     # Heading numbering API
     "Heading",
     "HeadingError",

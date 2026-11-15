@@ -35,7 +35,8 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 6 dan 7 (7.1 sampai 7.8);
 
 - Input: `DeckIR`, registry `LayoutSpec`, `Theme`, dan token spacing.
 - Output: satu `LayoutPlan` per build; build gagal bila daftar overflow tidak kosong.
-- Pengukuran tidak memakai browser, PowerPoint COM, atau Google Slides.
+- Pengukuran tidak memakai browser, Office COM, atau Google Slides. Metrik
+  Liberation Sans dipakai sebagai proksi Arial.
 
 ## Bentuk data
 
@@ -237,17 +238,17 @@ Klarifikasi custom F1-LAYOUT/F2-CUSTOM-GRID:
 Kebijakan v1 adalah fail atau flag, bukan shrink.
 
 - Text tidak memakai autofit, shrink, atau pengecilan font diam-diam.
-- Pengukuran memakai metrik Plus Jakarta Sans yang dibundel, lebar slot,
-  padding, dan line-height dari token.
+- Pengukuran memakai metrik Liberation Sans yang metrik-kompatibel Arial,
+  lebar slot, padding, dan line-height dari token.
 - Tabel, code block, dan row custom yang melewati area konten menggagalkan build.
 - Tidak ada ellipsis otomatis dan tidak ada pemotongan tanpa peringatan.
 - Pesan error menyebut slide ID, block ID, key, dan perkiraan overflow.
 
 Klarifikasi F1-LAYOUT:
 
-- Pengukuran teks memakai TTF Plus Jakarta Sans yang dibundel melalui Pillow.
-  Line-height dan tracking berasal dari `Theme.typography`; code memakai
-  `Theme.code`.
+- Pengukuran teks memakai metrik Liberation Sans melalui Pillow. Line-height
+  dan tracking berasal dari `Theme.typography`; code memakai `Theme.code`.
+  Hasil ukur diberlakukan sebagai ukuran Arial.
 - `SlideLayout.overflow_keys` diisi dalam urutan row dan slot. Overflow
   horizontal (teks atau sel yang lebih lebar dari area) dan overflow vertikal
   (row melewati batas bawah area konten) sama-sama masuk daftar tersebut.

@@ -79,8 +79,9 @@ report_name: "Tugas"
 | `keywords_en` | daftar atau teks | - | Hanya boleh jika `abstract_en` ada. |
 
 `report_name` wajib dan tidak memiliki nilai default. Nilai kosong atau hanya
-whitespace ditolak dengan `CFG-REQUIRED`. DOCX dan PDF memakai stem yang sama;
-tidak ada flag CLI `--report-name`, jadi ubah nilainya di front matter.
+whitespace ditolak dengan `CFG-REQUIRED`. DOCX memakai stem ini sebagai nama
+berkas; PDF manual memakai nama yang dipilih pengguna saat ekspor. Tidak ada
+flag CLI `--report-name`, jadi ubah nilainya di front matter.
 
 `author` menerima tiga bentuk:
 

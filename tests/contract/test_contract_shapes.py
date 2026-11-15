@@ -438,7 +438,7 @@ def _chart_palette() -> ChartPalette:
 
 def _typography() -> Typography:
     return Typography(
-        family="Plus Jakarta Sans",
+        family="Arial",
         weights=(400, 600, 700, 800),
         title_pt=30.0,
         body_pt=16.5,
@@ -752,8 +752,8 @@ def test_coverage_report_not_ok_when_any_finding_exists(report: CoverageReport) 
 
 
 def test_output_target_members() -> None:
-    assert tuple(OutputTarget) == (OutputTarget.PPTX, OutputTarget.PDF, OutputTarget.SLIDES)
-    assert tuple(target.value for target in OutputTarget) == ("pptx", "pdf", "slides")
+    assert tuple(OutputTarget) == (OutputTarget.PPTX, OutputTarget.SLIDES)
+    assert tuple(target.value for target in OutputTarget) == ("pptx", "slides")
 
 
 def test_deck_and_key_manifest_are_constructible() -> None:

@@ -1,6 +1,9 @@
 # ADR 0004: Layout dan Rendering
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Font
+> Plus Jakarta Sans diganti Arial tanpa embedding, dan target PDF dihapus.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L05, L06, L08, L10, L12, L15

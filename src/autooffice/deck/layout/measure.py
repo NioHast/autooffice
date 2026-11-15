@@ -5,8 +5,9 @@ atau ellipsis. Line-height, tracking, padding, dan ukuran font berasal dari
 ``Theme``; ukuran font yang dipakai adalah ukuran asli, bukan ukuran turunan.
 
 Ukuran dan bobot role disalin dari renderer PPTX supaya layout dan render
-memakai kontrak tipografi yang sama. Code diukur dengan advance monospace
-konservatif karena family code bukan Plus Jakarta Sans.
+memakai kontrak tipografi yang sama. Teks diukur dengan metrik Liberation Sans
+yang kompatibel dengan Arial; code diukur dengan advance monospace konservatif
+karena family code bukan Arial.
 """
 
 from collections.abc import Mapping, Sequence
@@ -36,10 +37,8 @@ _ROLE_WEIGHTS = {
     "kicker": 700,
 }
 _FONT_BY_WEIGHT: tuple[tuple[int, str], ...] = (
-    (400, "PlusJakartaSans-Regular.ttf"),
-    (600, "PlusJakartaSans-SemiBold.ttf"),
-    (700, "PlusJakartaSans-Bold.ttf"),
-    (800, "PlusJakartaSans-ExtraBold.ttf"),
+    (400, "LiberationSans-Regular.ttf"),
+    (700, "LiberationSans-Bold.ttf"),
 )
 
 # Cascadia Mono/Consolas berada di sekitar 0.55-0.60 em. Nilai konservatif ini

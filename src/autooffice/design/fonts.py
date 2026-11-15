@@ -1,37 +1,34 @@
-"""Metadata font Plus Jakarta Sans yang dibundel AutoOffice."""
+"""Metadata font pengukuran Liberation Sans yang dibundel AutoOffice.
+
+Liberation Sans dipakai hanya untuk mengukur teks layout karena metriknya
+kompatibel dengan Arial. Renderer PPTX menulis family Arial dan tidak menanam
+font ke dalam paket.
+"""
 
 import hashlib
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
 
-FONT_FAMILY = "Plus Jakarta Sans"
 FONT_LICENSE = "SIL Open Font License 1.1"
-FONT_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "plus-jakarta-sans"
+FONT_FAMILY = "Arial"
+FONT_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "liberation-sans"
 LICENSE_FILE = "OFL.txt"
 FONT_FILES: tuple[str, ...] = (
-    "PlusJakartaSans-Regular.ttf",
-    "PlusJakartaSans-SemiBold.ttf",
-    "PlusJakartaSans-Bold.ttf",
-    "PlusJakartaSans-ExtraBold.ttf",
+    "LiberationSans-Regular.ttf",
+    "LiberationSans-Bold.ttf",
 )
 FONT_HASHES: Mapping[str, str] = MappingProxyType(
     {
-        "PlusJakartaSans-Regular.ttf": (
-            "bd6276d4060e3b1ebc45047469e0bb86b08f301ba681cdf1ceb6245ea10478d2"
+        "LiberationSans-Regular.ttf": (
+            "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8"
         ),
-        "PlusJakartaSans-SemiBold.ttf": (
-            "65dbcedb6596a41c30869729eb31cb57d1f5edfe365684314bba8a1994eaa4cb"
-        ),
-        "PlusJakartaSans-Bold.ttf": (
-            "5f5342ef76862b5b5365d1dff1a667629dfa484e388dd602552f647219c3870f"
-        ),
-        "PlusJakartaSans-ExtraBold.ttf": (
-            "7d60d21b5dec501c77437e80aabd539f1d7a7b0ac7d4ada361d4d42abc7c55ea"
+        "LiberationSans-Bold.ttf": (
+            "788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173"
         ),
     }
 )
-LICENSE_SHA256 = "995c7199cab65954f545996326755daee7b63cc6b42b06c13da1f9502ab08a99"
+LICENSE_SHA256 = "f45cc618951fffe1470140692086f7ca8a46ba81fe147cf8416bd63fb4849c61"
 ASSET_FILES: tuple[str, ...] = (*FONT_FILES, LICENSE_FILE)
 ASSET_HASHES: Mapping[str, str] = MappingProxyType({**FONT_HASHES, LICENSE_FILE: LICENSE_SHA256})
 

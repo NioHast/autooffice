@@ -67,7 +67,7 @@ Jangan memulai dari DOCX hasil build. Mulai dari sumber dan kontrak.
 - Tidak ada fallback diam-diam atau nilai default untuk input wajib.
 - Tidak ada monkey patch, workaround, atau dead code.
 - Jangan melemahkan tes atau mengubah golden hanya agar lulus.
-- Jangan commit artefak build, PDF besar, atau file sementara.
+- Jangan commit artefak build atau file sementara.
 
 ## Resep 1: mengubah konten atau metadata
 
@@ -205,7 +205,8 @@ Langkah:
 3. untuk `SEQ`, gunakan `insert_seq` atau helper caption;
 4. tambahkan tes di `tests/docx/test_toc.py`, `test_page_numbers.py`, atau
    `test_stages_captions.py` sesuai pemilik;
-5. jika menyentuh Word, tambahkan tes dengan marker `word` dan `windows`.
+5. jangan menambahkan marker Word atau Windows; field diuji sebagai struktur
+   native, bukan hasil yang dihitung Word.
 
 Contoh pemakaian:
 
@@ -223,7 +224,7 @@ Cara memeriksa:
 
 - instruksi field benar dan lengkap;
 - tidak ada `w:dirty` palsu;
-- hasil cache awal tidak diklaim sebagai hasil final Word;
+- hasil cache awal tidak diklaim sebagai hasil final field;
 - field TOC tetap berada di dalam `w:sdt`;
 - tes field lama tidak berubah tanpa alasan.
 
@@ -317,7 +318,7 @@ registry resminya `Adeu GitHub`, `Adeu PyPI`, `Adeu MCP server npm`,
 | Margin atau font salah | `data/formats/<id>/format.yml`, `docx/styles.py` |
 | Urutan bab salah | `data/structures/<id>/structure.yml`, `document.py` |
 | Caption tabel/gambar gagal | `stages/validate.py`, `stages/captions.py` |
-| TOC kosong | `stages/toc.py`, finalisasi Word, `structure.toc` |
+| TOC kosong | `stages/toc.py`, field manual Ctrl+A/F9, `structure.toc` |
 | Nomor halaman salah | `stages/page_numbers.py`, `docx/sections.py` |
 | Lebar konten error | `docx/page.py` (`content_width`) |
 | Field rusak | `docx/fields.py` |

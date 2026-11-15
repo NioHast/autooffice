@@ -1,6 +1,10 @@
 # ADR 0005: Satu Load dan Satu Save DOCX
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](../../decisions/0013-remove-pdf-arial.md).**
+> Stage `pdf` setelah save tidak lagi ada. Aturan satu load dan satu save untuk
+> DOCX tetap berlaku.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-09
 
 ## Konteks

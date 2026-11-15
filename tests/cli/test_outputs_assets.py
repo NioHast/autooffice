@@ -14,11 +14,9 @@ from autooffice.cli.outputs import (
     atomic_write_text,
     deck_asset_references,
     deck_outputs,
-    docx_outputs,
     ensure_directory,
     missing_deck_assets,
     planned_deck_files,
-    planned_docx_files,
     stage_deck_assets,
 )
 
@@ -48,15 +46,6 @@ def test_deck_outputs_rejects_source_without_stem() -> None:
 
     assert error.value.code == "CLI-INPUT-NAME"
     assert error.value.exit_code == 2
-
-
-def test_planned_docx_files_pdf_only_omits_docx(tmp_path: Path) -> None:
-    outputs = docx_outputs(tmp_path / "document.md", "Tugas")
-
-    assert planned_docx_files(outputs, ("pdf",), terms=False) == (
-        outputs.pdf,
-        outputs.manifest,
-    )
 
 
 def test_deck_asset_references_skip_blocks_without_string_fields() -> None:
@@ -337,10 +326,11 @@ def test_atomic_write_and_copy_report_temporary_file_failure(
 
 
 def test_planned_deck_files_deduplicate_shared_paths(tmp_path: Path) -> None:
+    (tmp_path / "transcripts.md").write_text("# transkrip\n", encoding="utf-8")
     outputs = deck_outputs(tmp_path / "deck.yaml")
-    duplicated = replace(outputs, pptx=outputs.pdf)
+    duplicated = replace(outputs, pptx=outputs.transcript)
 
-    assert planned_deck_files(duplicated, ("pptx", "pdf")) == (outputs.pdf,)
+    assert planned_deck_files(duplicated, ("pptx",)) == (outputs.transcript,)
 
 
 def test_deck_outputs_rejects_state_symlink_outside_deck(

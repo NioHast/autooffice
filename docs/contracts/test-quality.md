@@ -13,8 +13,8 @@ bermakna. Test adalah kontrak yang dapat dieksekusi, bukan pelengkap gate.
 
 1. Test tidak boleh bergantung pada network. Tidak ada akses HTTP, DNS,
    Google API, atau layanan eksternal di unit dan contract test.
-2. COM dan Google memakai fake di unit dan contract test. Jalur nyata hanya
-   dijalankan smoke final di Windows.
+2. Google memakai fake di unit dan contract test. Jalur nyata hanya smoke
+   manual terpisah.
 3. Tidak ada `time.sleep` untuk menunggu. Gunakan fake clock, event, atau
    mekanisme sinkronisasi yang deterministik.
 4. Waktu, locale, urutan dictionary, dan angka acak tidak boleh menentukan
@@ -48,9 +48,8 @@ bermakna. Test adalah kontrak yang dapat dieksekusi, bukan pelengkap gate.
 13. Baseline DOCX dibuat dari pipeline DOCX legacy sebelum kode lama dihapus.
     Fake Google berada di `src/autooffice/google/fake.py` atau
     `tests/fixtures/google/` dengan kontrak yang jelas.
-14. Visual test memakai lock COM yang sama dengan PDF. Threshold pixel dan
-    mask area wajib eksplisit. Perbedaan font atau versi PowerPoint
-    dilaporkan, bukan diabaikan.
+14. Visual test tidak memakai Office atau COM. Verifikasi visual PPTX dilakukan
+    manual; perbedaan font atau aplikasi pelihat dilaporkan, bukan diabaikan.
 15. `tools/quality/check_tests.py` memeriksa tidak ada test tanpa assertion,
     `assert True`, skip tanpa alasan, `time.sleep`, akses network, penulisan
     di luar `tmp_path`, state global tanpa cleanup, dan ketergantungan urutan.
@@ -94,8 +93,8 @@ Catatan F0: test bentuk ada di `tests/contract/test_contract_shapes.py` dan `tes
 | Tidak ada network dan sleep | `tools/quality/check_tests.py` (planned); review `tests/**`. |
 | Assertion perilaku | Checker AST dan review test. |
 | Determinisme golden | `tests/golden/**` (planned); golden update flag. |
-| Fake COM dan Google | `tests/pdf/**` (planned), `tests/google/**` (planned); bagian 12.8. |
+| Fake Google | `tests/google/**`. |
 | Isolasi `tmp_path` | Checker dan review fixture. |
-| Visual test eksplisit | `tests/visual/**` (planned); F3-ACCEPT. |
+| Verifikasi visual manual | Review PPTX dan PDF ekspor manual. |
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

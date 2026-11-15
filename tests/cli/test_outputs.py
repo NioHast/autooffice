@@ -21,7 +21,6 @@ def test_docx_outputs_example_uses_out_directory(tmp_path: Path) -> None:
     outputs = docx_outputs(source, "Laporan")
     assert outputs.output_dir == source.parent / "out"
     assert outputs.docx == source.parent / "out" / "Laporan.docx"
-    assert outputs.pdf == source.parent / "out" / "Laporan.pdf"
     assert outputs.manifest == source.parent / ".laporan" / "manifest.json"
     assert outputs.terms == source.parent / ".laporan" / "istilah-baru.txt"
     assert outputs.build_dir == source.parent / ".laporan-build"
@@ -39,7 +38,6 @@ def test_docx_outputs_out_overrides_only_final_artifacts(tmp_path: Path) -> None
     out = tmp_path / "custom"
     outputs = docx_outputs(source, "Laporan", out)
     assert outputs.docx == out / "Laporan.docx"
-    assert outputs.pdf == out / "Laporan.pdf"
     assert outputs.manifest == source.parent / ".laporan" / "manifest.json"
     assert outputs.build_dir == source.parent / ".laporan-build"
 
@@ -49,7 +47,6 @@ def test_deck_outputs_example_layout(tmp_path: Path) -> None:
     outputs = deck_outputs(source)
     assert outputs.output_dir == source.parent / "out"
     assert outputs.pptx == source.parent / "out" / "deck.pptx"
-    assert outputs.pdf == source.parent / "out" / "deck.pdf"
     assert outputs.transcript == source.parent / "out" / "deck.transcript.md"
     assert outputs.staging == source.parent / "out" / "deck.slides-upload.pptx"
     assert outputs.state == source.parent / ".autooffice" / "state" / "deck.json"
@@ -146,9 +143,8 @@ def test_report_name_allows_internal_dots(tmp_path: Path) -> None:
 
 def test_planned_docx_files_follow_targets_and_terms(tmp_path: Path) -> None:
     outputs = docx_outputs(tmp_path / "document.md", "Tugas")
-    assert planned_docx_files(outputs, ("docx", "pdf"), terms=True) == (
+    assert planned_docx_files(outputs, ("docx",), terms=True) == (
         outputs.docx,
-        outputs.pdf,
         outputs.manifest,
         outputs.terms,
     )
@@ -157,11 +153,10 @@ def test_planned_docx_files_follow_targets_and_terms(tmp_path: Path) -> None:
 def test_planned_deck_files_include_transcript_only_when_present(tmp_path: Path) -> None:
     source = tmp_path / "deck.yaml"
     outputs = deck_outputs(source)
-    assert planned_deck_files(outputs, ("pptx", "pdf")) == (outputs.pptx, outputs.pdf)
+    assert planned_deck_files(outputs, ("pptx",)) == (outputs.pptx,)
     (tmp_path / "transcripts.md").write_text("# transkrip\n", encoding="utf-8")
-    assert planned_deck_files(outputs, ("pptx", "pdf")) == (
+    assert planned_deck_files(outputs, ("pptx",)) == (
         outputs.pptx,
-        outputs.pdf,
         outputs.transcript,
     )
 
@@ -194,15 +189,6 @@ def test_planned_deck_files_rejects_unknown_sync_mode(tmp_path: Path) -> None:
 
     assert error.value.code == "CLI-SYNC-MODE"
     assert error.value.exit_code == 2
-
-
-def test_planned_deck_files_pdf_keep_intermediate(tmp_path: Path) -> None:
-    outputs = deck_outputs(tmp_path / "deck.yaml")
-    assert planned_deck_files(
-        outputs,
-        ("pdf",),
-        keep_intermediate=True,
-    ) == (outputs.pdf, outputs.intermediate_pptx)
 
 
 def test_atomic_write_and_copy(tmp_path: Path) -> None:

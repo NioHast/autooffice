@@ -99,7 +99,7 @@ Contoh ini menunjukkan bentuk kontrak, bukan kode final.
 - `DeckIR`, `SlideIR`, `BlockIR`, `KeyBinding`, dan `KeyManifest` immutable.
 - Koleksi memakai tuple atau mapping read-only; tidak ada list mutable bersama.
 - Tidak ada import dari `autooffice.deck.render`, `autooffice.google`,
-  `python-pptx`, atau Word COM di modul model.
+  `python-pptx`, atau Office COM di modul model.
 - `DeckIR` tidak memuat `LayoutPlan`, path output, ID Google, atau state build.
 - Satu `DeckIR` dan satu `KeyManifest` per build deck.
 - Satu `KeyBinding` per key; key duplikat ditolak sebelum IR dibuat.

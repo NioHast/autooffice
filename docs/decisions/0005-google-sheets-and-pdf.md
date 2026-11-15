@@ -1,6 +1,10 @@
 # ADR 0005: Google Sheets dan PDF
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Bagian
+> PDF DOCX/PPTX, COM, dan lock Office tidak lagi berlaku. Bagian Google
+> Sheets dan linked chart tetap berlaku.
+
+- Status: diterima; PDF/COM superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L09, L11, L14, L22

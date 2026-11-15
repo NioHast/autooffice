@@ -1,76 +1,33 @@
 # Visual Testing PPTX
 
-Harness ini adalah smoke test visual untuk renderer PPTX. Tujuannya membuktikan
-bahwa PowerPoint dapat membuka PPTX hasil `PptxRenderer` dan mengekspor setiap
-slide menjadi PNG. Pixel diff terhadap golden image belum dilakukan di tahap
-ini.
+Status: harness visual dihapus bersama jalur COM/PDF. AutoOffice tidak lagi
+mengekspor slide ke PNG lewat PowerPoint COM.
 
-## Prasyarat
+## Kondisi saat ini
 
-- Windows dengan Microsoft PowerPoint desktop terpasang.
-- `pywin32` tersedia di environment, misalnya lewat `uv sync --extra windows`.
-- Font Plus Jakarta Sans terpasang agar hasil visual mendekati artefak final.
+- Harness visual dan semua path terkait sudah dihapus.
+- Tidak ada `pywin32`, PowerPoint desktop, atau lock COM.
+- `pytest.ini` hanya mendaftarkan marker `unit`, `integration`, `packaging`,
+  dan `slow`.
 
-Di non-Windows, tanpa `pywin32`, atau tanpa PowerPoint, `render_slides`
-melempar `PdfUnavailableError`. Test menangkap error itu dan melakukan skip
-dengan alasan eksplisit, bukan skip diam-diam. Gate visual final dapat
-menaikkan perilaku ini menjadi gagal.
+## Verifikasi visual pengganti
 
-## API
+Verifikasi visual dilakukan manual:
 
-`tools/visual/render_pptx.py` menyediakan:
+1. Build PPTX dengan `uv run autooffice build deck.yaml --target pptx`.
+2. Buka PPTX di PowerPoint, Google Slides, atau LibreOffice.
+3. Periksa layout, overflow, chart, tabel, dan gambar.
+4. Bila perlu, ekspor PDF manual dan review hasilnya. Lihat
+   [Ekspor PDF Manual](../user/pdf-export.md).
 
-```python
-from pathlib import Path
+Verifikasi otomatis yang tersedia adalah invariant struktur PPTX di
+`tests/deck/render/pptx/` dan golden part, bukan screenshot atau pixel diff.
+Font PPTX adalah Arial tanpa embedding; di lingkungan tanpa Arial, aplikasi
+dapat melakukan substitusi. Karena itu pixel diff lintas mesin tidak menjadi
+target gate.
 
-from tools.visual.render_pptx import render_slides
+## Halaman terkait
 
-pngs = render_slides(Path("deck.pptx"), Path("out"), width=1280, height=720)
-```
-
-Perilaku `render_slides(pptx, out_dir, *, width=1280, height=720)`:
-
-- validasi path PPTX dan direktori output;
-- membuka PPTX secara read-only lewat COM PowerPoint;
-- mengekspor setiap slide dengan `Slide.Export` ke `slide-001.png`,
-  `slide-002.png`, dan seterusnya;
-- menutup presentasi, quit PowerPoint, lalu membersihkan PID PowerPoint yang
-  dibuat automation;
-- mengembalikan tuple path PNG absolut setelah memastikan setiap berkas ada
-  dan tidak kosong.
-
-Harness memakai ulang `com_lock`, `com_apartment`, watchdog, dan
-`PowerPointProcessTracker` dari `autooffice.pdf.com`. Lock COM sama dengan
-ekspor PDF, sehingga Word dan PowerPoint tidak berjalan bersamaan. Detail
-guard ada di [COM Word dan PowerPoint](com.md).
-
-## Test
-
-```bash
-uv run pytest tests/visual -q
-```
-
-Test membangun deck dua slide lewat `PptxRenderer`, merender PNG 1280x720,
-lalu memeriksa:
-
-- jumlah PNG sama dengan jumlah slide;
-- ukuran setiap PNG 1280x720;
-- berkas PNG tidak kosong;
-- piksel tidak seragam, memakai Pillow.
-
-## Batas smoke test
-
-- Belum membandingkan gambar dengan golden PNG.
-- Pixel diff, threshold, dan mask area adalah langkah berikutnya.
-- Perbedaan versi PowerPoint atau font harus dilaporkan saat pixel diff
-  ditambahkan, bukan diabaikan.
-- Harness tidak memakai jaringan dan tidak menambahkan jeda tidur.
-- Renderer produksi tidak diubah oleh harness ini.
-
-## Verifikasi tambahan
-
-```bash
-uv run ruff check tools/visual tests/visual
-uv run mypy tools/visual tests/visual
-python tools/quality/check_docs.py
-```
+- [Testing](testing.md)
+- [Kontrak renderer PPTX](../contracts/pptx-renderer.md)
+- [Design system](../learn/design-system.md)

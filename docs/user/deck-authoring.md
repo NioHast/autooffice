@@ -243,7 +243,7 @@ gambar Markdown, tabel Markdown, HTML, dan em dash atau en dash ditolak.
 - `title`, `categories`, `series[].name`, `unit`, dan `alt` adalah plain text;
   Markdown ditolak atau diperlakukan literal.
 - Chart wajib native di PPTX dan linked Sheets chart di Google Slides. Chart
-  tidak pernah menjadi gambar, termasuk untuk PDF.
+  tidak pernah menjadi gambar.
 - Palet chart hanya punya empat slot warna. Bila butuh lebih dari empat,
   pecah menjadi beberapa chart atau sajikan sebagai tabel.
 - Contoh demo: `s06` (`bar`), `s07` (`line`), dan `s08` (`donut`).
@@ -338,7 +338,8 @@ push, pull, diff, dan apply teks. Notes bukan transkrip. Contoh demo: `s03` dan
 - Semua gambar dan diagram wajib punya `alt`.
 - Berkas yang tidak dipakai bukan error, tetapi dapat ditandai sebagai aset
   yatim oleh pemeriksa.
-- Font tidak boleh diambil dari path pengguna; font berasal dari package.
+- Font tidak boleh diambil dari path pengguna; font berasal dari theme
+  (`Arial`) dan pengukuran layout memakai Liberation Sans.
 
 ## Transkrip pembicara
 
@@ -417,25 +418,25 @@ Jalankan dari akar repo:
 uv run autooffice check examples/demo-deck/deck.yaml
 uv run autooffice build examples/demo-deck/deck.yaml --target pptx --dry-run
 uv run autooffice build examples/demo-deck/deck.yaml --target pptx
-uv run autooffice build examples/demo-deck/deck.yaml --target pptx,pdf
 uv run autooffice build examples/demo-deck/deck.yaml --target slides --sync diff
-uv run autooffice build examples/demo-deck/deck.yaml --target all
 uv run autooffice build examples/demo-deck/deck.yaml --target pptx --theme hitam
 ```
 
 - `check` memvalidasi schema, coverage, layout, copy, dan transkrip tanpa
   menulis output.
 - `--dry-run` mencetak rencana file dan target tanpa menulis file atau state.
-- `pptx,pdf` adalah jalur offline. `slides` dan `all` memerlukan extra
-  `google` serta kredensial OAuth.
+- `pptx` adalah jalur offline. `slides` memerlukan extra `google` serta
+  kredensial OAuth; tutorial ada di [google-oauth.md](google-oauth.md).
 - `--theme hitam` menimpa `theme.name`. `--out DIR` memindahkan artefak final.
 - `--sync push` adalah default; `pull`, `diff`, dan `apply` memerlukan state
   presentasi.
 - Untuk `examples/<nama>/`, output final ditulis ke `examples/<nama>/out/`:
-  `deck.pptx`, `deck.pdf`, dan `deck.transcript.md` bila transkrip ada.
+  `deck.pptx` dan `deck.transcript.md` bila transkrip ada.
 - State berada di `.autooffice/state/<stem>.json`; cache dan review berada di
   `.autooffice/cache/` dan `.autooffice/review/`, semuanya di samping YAML.
 - Intermediate berada di `.autooffice-build/<stem>/` di samping YAML.
+- PDF tidak dibangun. Setelah review, ekspor PDF manual dari PowerPoint; lihat
+  [pdf-export.md](pdf-export.md).
 
 Rincian target, flag, dan kode keluar ada di [CLI AutoOffice](cli.md).
 

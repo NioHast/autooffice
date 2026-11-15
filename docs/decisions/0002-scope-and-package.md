@@ -1,6 +1,9 @@
 # ADR 0002: Scope dan Package
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Matriks
+> target `pdf`/`all` dan ketergantungan Windows/Office tidak lagi berlaku.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L01, L02, L03, L13, L16, L20

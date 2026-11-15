@@ -20,7 +20,7 @@ bibliography: references.bib
 
 ## Latar Belakang
 
-Laporan akademik menuntut struktur, penomoran, dan sitasi yang konsisten. Penulisan langsung di pengolah kata sering membuat format berpindah saat dokumen disunting ulang. Pemisahan antara naskah dan presentasi mengurangi masalah tersebut: naskah ditulis dalam Markdown, lalu dikonversi oleh Pandoc [@pandoc2024] menjadi DOCX atau PDF.
+Laporan akademik menuntut struktur, penomoran, dan sitasi yang konsisten. Penulisan langsung di pengolah kata sering membuat format berpindah saat dokumen disunting ulang. Pemisahan antara naskah dan presentasi mengurangi masalah tersebut: naskah ditulis dalam Markdown, lalu dikonversi oleh Pandoc [@pandoc2024] menjadi DOCX. PDF dapat diekspor manual dari DOCX setelah review.
 
 Pendekatan ini juga memudahkan peninjauan melalui Git. Perubahan teks tampil sebagai diff baris, bukan sebagai berkas biner yang tidak terbaca. Aturan keluaran dapat diganti tanpa menulis ulang isi laporan.
 
@@ -71,10 +71,10 @@ flowchart LR
   C --> D[Pandoc]
   D --> E[Stage Python DOCX]
   E --> F[DOCX]
-  F --> G[PDF melalui Word]
+  F --> G[PDF manual]
 ```
 
-Pandoc menangani konversi dokumen [@pandoc2024], sedangkan stage Python bekerja pada paket Office Open XML [@iso2021openxml] untuk merapikan caption, persamaan, dan penomoran. Sumber Markdown yang sama dipakai untuk DOCX maupun PDF, sehingga isi laporan tidak perlu ditulis dua kali. PDF diekspor dari DOCX melalui Microsoft Word pada Windows.
+Pandoc menangani konversi dokumen [@pandoc2024], sedangkan stage Python bekerja pada paket Office Open XML [@iso2021openxml] untuk merapikan caption, persamaan, dan penomoran. Sumber Markdown yang sama dipakai untuk DOCX. PDF diekspor manual dari DOCX melalui Microsoft Word setelah pengguna memperbarui field dengan Ctrl+A lalu F9.
 
 # Penutup
 

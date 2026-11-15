@@ -27,7 +27,6 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 13.2 (F0-CONTRACTS) dan 3.2 sampai 3.5.
 | [coverage.md](coverage.md) | Coverage, exclusion, dan report. | 12.3, 12.11 |
 | [design-token.md](design-token.md) | Token, theme, font, dan kontras. | 11 |
 | [docx.md](docx.md) | DOCX API dan parity baseline DOCX. | 8.2 |
-| [pdf.md](pdf.md) | Word COM, ekspor PDF, timeout, dan cleanup. | 8.5, F2-PDF |
 | [documentation.md](documentation.md) | Gate dokumentasi dan TOC. | 12.9 |
 | [ownership.md](ownership.md) | File ownership dan lane map. | 14, 15.6 |
 | [test-quality.md](test-quality.md) | Test quality, golden, dan visual. | 12.1, 12.2, 12.10 |
@@ -61,7 +60,6 @@ cli.md
 coverage.md
 design-token.md
 docx.md
-pdf.md
 documentation.md
 ownership.md
 test-quality.md

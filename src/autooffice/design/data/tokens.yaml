@@ -22,7 +22,7 @@ colors:
 
 # Ukuran px sumber deck-studio: judul 40 px, body 22 px.
 typography:
-  family: "Plus Jakarta Sans"
+  family: "Arial"
   weights: [400, 600, 700, 800]
   title_pt: 30.0
   body_pt: 16.5

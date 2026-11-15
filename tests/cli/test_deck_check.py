@@ -14,7 +14,7 @@ def test_check_deck_all_types_is_clean_and_reports_coverage(
     all_types_deck_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    result = check_deck(all_types_deck_path, ("pptx", "pdf", "slides"))
+    result = check_deck(all_types_deck_path, ("pptx", "slides"))
 
     assert result.ok is True
     assert result.error_count == 0

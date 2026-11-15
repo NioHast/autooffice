@@ -1016,40 +1016,6 @@ def is_bold_exempt(field: Field) -> bool:
     }
 
 
-def _settings_root(package: object) -> etree._Element | None:
-    if not package.has_part(SETTINGS_PART):  # type: ignore[attr-defined]
-        return None
-    return package.xml(SETTINGS_PART)  # type: ignore[attr-defined]
-
-
-def update_fields_enabled(package: object) -> bool:
-    """True bila ``w:updateFields`` aktif di ``word/settings.xml``."""
-
-    root = _settings_root(package)
-    if root is None:
-        return False
-    element = root.find(W + "updateFields")
-    if element is None:
-        return False
-    value = element.get(W + "val")
-    if value is None:
-        return True
-    return value.strip().casefold() not in {"0", "false", "off", "no"}
-
-
-def strip_update_fields(package: object) -> bool:
-    """Hapus ``w:updateFields`` dari settings; field tidak diubah."""
-
-    root = _settings_root(package)
-    if root is None:
-        return False
-    removed = False
-    for element in list(root.findall(W + "updateFields")):
-        root.remove(element)
-        removed = True
-    return removed
-
-
 def ensure_no_blank_page_after_toc(package: DocumentPackage) -> int:
     """Bersihkan page-break kosong setelah setiap TOC ``w:sdt``."""
 
@@ -1097,6 +1063,4 @@ __all__ = [
     "iter_fields_in_paragraph",
     "iter_fields_in_part",
     "iter_fields_in_root",
-    "strip_update_fields",
-    "update_fields_enabled",
 ]

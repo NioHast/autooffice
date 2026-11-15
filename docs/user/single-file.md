@@ -79,32 +79,31 @@ luar direktori dokumen ditolak.
 ```bash
 uv run --project <repo> autooffice check document.md
 uv run --project <repo> autooffice build document.md --target docx
-uv run --project <repo> autooffice build document.md --target all
 ```
 
-`--target all` menghasilkan DOCX dan PDF, dan membutuhkan Microsoft Word di
-Windows. Di Debian gunakan `--target docx`; target PDF memerlukan Word COM dan
-tidak memiliki fallback diam-diam.
+DOCX memakai field native yang tidak diisi otomatis. Buka DOCX di Word, tekan
+Ctrl+A lalu F9, sebelum review atau ekspor PDF. PDF diekspor manual dari Word;
+lihat [pdf-export.md](pdf-export.md). Tidak ada target `pdf` atau `all`.
 
 ## Output
 
 ```text
 laporan/
 |-- Tugas.docx
-|-- Tugas.pdf            # hanya Windows dengan Word
 |-- .laporan/
 |   |-- manifest.json
 |   `-- istilah-baru.txt # hanya dengan --terms
 `-- .laporan-build/      # hanya dengan --keep-intermediate
 ```
 
-Nama berkas mengikuti `report_name` yang wajib diisi; DOCX dan PDF memakai
-stem yang sama. Tidak ada nama default. Output ditulis di samping
-`document.md`; tidak ada direktori `build/` atau `review/`.
+Nama berkas mengikuti `report_name` yang wajib diisi. Tidak ada nama default.
+Output ditulis di samping `document.md`; tidak ada direktori `build/` atau
+`review/`.
 
 ## Batasan
 
 - Tidak ada pemecahan bab ke berkas terpisah.
 - Tidak ada perintah `new` atau `list`; salin contoh atau buat berkas sendiri.
 - DOCX bukan sumber. Edit `document.md`, lalu build ulang.
-- PDF hanya di Windows dengan Word. Debian menghasilkan DOCX best-effort.
+- AutoOffice tidak memakai COM, `pywin32`, atau Office desktop. PDF hanya
+  dibuat oleh pengguna lewat ekspor manual di Word.

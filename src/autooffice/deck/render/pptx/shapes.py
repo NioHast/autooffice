@@ -22,7 +22,6 @@ from pptx.text.text import TextFrame, _Paragraph, _Run
 from pptx.util import Emu, Pt
 
 from autooffice.deck.layout.spec import PlacedBlock
-from autooffice.design.fonts import FONT_FAMILY
 from autooffice.errors import AutoOfficeError
 
 KEY_MARKER = "autooffice:key:"
@@ -50,14 +49,9 @@ _GENERIC_TYPEFFACES = frozenset(
     }
 )
 
-# Nama family TTF bundled: SemiBold dan ExtraBold adalah family terpisah,
-# sedangkan Bold adalah style dari family dasar (lihat name table aset).
-_BUNDLED_WEIGHT_TYPEFFACES = frozenset(
-    {
-        f"{FONT_FAMILY} SemiBold",
-        f"{FONT_FAMILY} ExtraBold",
-    }
-)
+# Family yang hanya memiliki face Regular/Bold sehingga bobot 600-800
+# dirender sebagai bold asli, bukan family turunan bernama.
+_BOLD_FACE_FAMILIES = frozenset({"arial", "liberation sans"})
 
 etree.register_namespace("aoo", KEY_EXTENSION_NS)
 
@@ -178,12 +172,13 @@ def rgb(color: str) -> RGBColor:
 def primary_typeface(family: str) -> str:
     """Ambil typeface pertama yang konkret dari stack font token."""
     candidates = [part.strip().strip("'\"") for part in family.split(",")]
-    for candidate in candidates:
-        if candidate and candidate.lower() not in _GENERIC_TYPEFFACES:
+    concrete = [candidate for candidate in candidates if candidate]
+    if not concrete:
+        raise PptxRenderError("Family font token tidak boleh kosong.")
+    for candidate in concrete:
+        if candidate.lower() not in _GENERIC_TYPEFFACES:
             return candidate
-    if candidates:
-        return candidates[0]
-    raise PptxRenderError("Family font token tidak boleh kosong.")
+    return concrete[0]
 
 
 def c_nv_pr(shape: BaseShape) -> etree._Element | None:
@@ -411,27 +406,22 @@ def configure_text_frame(
 
 
 def _weight_typeface(base: str, weight: int) -> tuple[str, bool, str | None]:
-    """Pilih typeface bobot bernama, atau fallback family dasar + bold.
+    """Petakan bobot run ke typeface family dasar dan flag bold.
 
-    ``Plus Jakarta Sans SemiBold`` dan ``Plus Jakarta Sans ExtraBold`` adalah
-    family TTF terpisah, jadi run-nya tidak boleh diberi ``bold`` sintetis.
-    Bila typeface turunan tidak tersedia, renderer memakai family dasar dengan
-    bold dan mengembalikan peringatan agar pemanggil dapat melaporkannya.
+    Family yang hanya punya face Regular/Bold, seperti Arial dan Liberation
+    Sans, memakai family dasar dengan ``bold=True`` untuk bobot 600 ke atas.
+    Family lain tetap memakai family dasar; peringatan hanya dikembalikan bila
+    face bobotnya tidak dapat dipastikan, supaya pemanggil dapat melaporkannya.
     """
-    if weight >= 800:
-        candidate = f"{base} ExtraBold"
-    elif weight >= 700:
-        return base, True, None
-    elif weight >= 600:
-        candidate = f"{base} SemiBold"
-    else:
+    if weight < 600:
         return base, False, None
-    if candidate in _BUNDLED_WEIGHT_TYPEFFACES:
-        return candidate, False, None
+    if base.casefold() in _BOLD_FACE_FAMILIES:
+        return base, True, None
     return (
         base,
         True,
-        f"font-weight: typeface '{candidate}' tidak tersedia; memakai '{base}' dengan bold=True.",
+        f"font-weight: face bobot {weight} untuk typeface '{base}' tidak tersedia; "
+        f"memakai '{base}' dengan bold=True.",
     )
 
 

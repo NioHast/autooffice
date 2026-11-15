@@ -26,7 +26,6 @@ repo.
 |   `-- autooffice/
 |       |-- cli/                 # entry point, target, output, check, doctor
 |       |-- common/              # helper lintas domain
-|       |-- design/              # token, theme, font, kontras
 |       |-- deck/
 |       |   |-- model/           # schema, compiler, DeckIR, key, coverage
 |       |   |-- layout/          # grid 12 kolom, preset, slot, overflow
@@ -46,8 +45,8 @@ repo.
 |       |   |-- command.py       # API build_docx
 |       |   `-- pipeline.py      # orkestrasi stage DOCX
 |       |-- google/              # Drive, Sheets, Slides, state, OAuth
-|       |-- pdf/                 # adapter COM Word dan PowerPoint
-|       `-- assets/fonts/        # Plus Jakarta Sans untuk PPTX/PDF
+|       |-- assets/fonts/        # Liberation Sans untuk pengukuran layout
+|       `-- design/              # token, theme Arial, pengukuran Liberation Sans
 |-- examples/
 |   |-- assignment-single/
 |   |-- proposal-single/
@@ -62,9 +61,7 @@ repo.
 |   `-- decisions/
 |-- tools/
 |   |-- quality/                 # gate dan checker
-|   |-- visual/                  # smoke render PPTX ke PNG
-|   |-- mutation/                # mutation testing manual
-|   `-- install_fonts.py
+|   `-- mutation/                # mutation testing manual
 `-- tests/
     |-- acceptance/
     |-- cli/
@@ -74,11 +71,9 @@ repo.
     |-- docx/
     |-- google/
     |-- packaging/
-    |-- pdf/
     |-- performance/
     |-- property/
     |-- tools/
-    |-- visual/
     `-- fixtures/
 ```
 
@@ -87,7 +82,7 @@ repo.
 | Path | Tanggung jawab |
 | --- | --- |
 | `src/autooffice/cli/main.py` | Parser `autooffice` dan handler `check`, `build`, `doctor`. |
-| `src/autooffice/cli/build.py` | Orkestrasi build Markdown dan deck, preflight lane, embedding font, PDF, dan Google. |
+| `src/autooffice/cli/build.py` | Orkestrasi build Markdown dan deck, preflight lane, dan Google. |
 | `src/autooffice/cli/targets.py` | Matriks target, parsing target, dan deteksi input `.md`/`.yaml`. |
 | `src/autooffice/cli/outputs.py` | Path output, workspace, state, cache, review, dan tulis atomic. |
 | `src/autooffice/docx/pipeline.py` | Urutan stage, `BuildOptions`, `StageContext`, output, manifest hook. |
@@ -104,18 +99,17 @@ repo.
 | `src/autooffice/deck/model/` | Compiler `deck.yaml`, DeckIR, key manifest, dan coverage plan. |
 | `src/autooffice/deck/layout/` | Grid, preset layout, custom rows, measurement, dan overflow. |
 | `src/autooffice/deck/render/pptx/` | Renderer PPTX native, table, chart, image, notes, dan validasi package. |
-| `src/autooffice/design/` | Token, theme `indigo`/`hitam`, font, dan kontras. |
+| `src/autooffice/design/` | Token, theme `indigo`/`hitam`, family Arial, pengukuran Liberation Sans, dan kontras. |
+| `src/autooffice/assets/fonts/` | Liberation Sans Regular/Bold untuk pengukuran layout; tidak ditanam ke PPTX. |
 | `src/autooffice/google/` | Autentikasi, Drive, Sheets, Slides, state, dan diff. |
-| `src/autooffice/pdf/` | Word/PowerPoint COM, ekspor PDF, dan embedding font. |
 | `examples/assignment-single/` | Contoh tiga bab, tabel, dan Mermaid. |
 | `examples/proposal-single/` | Contoh empat bab dan daftar isi. |
 | `examples/thesis-single/` | Contoh lengkap dengan front matter, gambar, kode, dan lampiran. |
 | `examples/demo-deck/` | Contoh deck YAML, transkrip, aset, dan diagram. |
 | `docs/user/` | Panduan pengguna dan penulis `document.md` serta `deck.yaml`. |
 | `docs/dev/` | Dokumentasi pengembang, pipeline, tes, dan gate. |
-| `tools/quality/` | `gate.py`, docs checker, test checker, coverage, Python style, dan no-legacy. |
-| `tools/install_fonts.py` | Installer font Plus Jakarta Sans per-user tanpa admin. |
-| `tests/` | Suite CLI, DOCX, deck, design, Google, PDF, performa, properti, dan visual. |
+| `tools/quality/` | `gate.py`, docs checker, test checker, coverage, Python style, identifiers, source-style, no-legacy, dan removed-features. |
+| `tests/` | Suite CLI, DOCX, deck, design, Google, performa, dan properti. |
 
 ## Data paket DOCX
 
@@ -147,11 +141,11 @@ docx/data/
 
 Artefak berikut ditulis di samping input atau di `examples/<name>/`:
 
-- DOCX/PDF: `<report_name>.docx`, `<report_name>.pdf`;
+- DOCX: `<report_name>.docx`;
 - manifest dan istilah: `.laporan/manifest.json`,
   `.laporan/istilah-baru.txt`, `.laporan/istilah-audit.md`;
 - workspace DOCX: `.laporan-build/`;
-- deck: `<stem>.pptx`, `<stem>.pdf`, `<stem>.transcript.md`,
+- deck: `<stem>.pptx`, `<stem>.transcript.md`,
   `<stem>.slides-upload.pptx`;
 - state deck: `.autooffice/state/`, `.autooffice/cache/`,
   `.autooffice/review/`;
@@ -162,7 +156,7 @@ Semua di-ignore Git. Jangan menyunting artefak ini sebagai sumber.
 
 ## Di luar cakupan
 
-Folder `tests/fixtures/golden/` menyimpan baseline DOCX dan invariant PDF.
-Fixture itu hanya untuk tes, bukan contoh penggunaan. Arsip historis berada di
+Folder `tests/fixtures/golden/` menyimpan baseline DOCX. Fixture itu hanya
+untuk tes, bukan contoh penggunaan. Arsip historis berada di
 `docs/dev/archive/`, dan kontrak adalah acuan implementasi, bukan panduan
 pengguna.

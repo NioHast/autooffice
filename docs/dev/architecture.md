@@ -37,9 +37,14 @@ document.md
   |     +-- Adeu hook (bookmark pNNNN dan manifest)
   |
   +-- save satu kali
-  +-- office               Word memperbarui field dan menyimpan DOCX
-  +-- pdf                  Word mengekspor PDF, Windows only
+  +-- manifest ditulis
+  +-- selesai (field native belum diisi)
 ```
+
+Pipeline tidak menjalankan Word atau aplikasi Office. Field `TOC`, `PAGEREF`,
+`SEQ`, dan `PAGE` ditulis sebagai field native beserta instruksinya, tetapi
+hasil field tidak diisi. Pengguna membuka DOCX di Word, menekan Ctrl+A lalu
+F9, sebelum review atau ekspor PDF manual.
 
 Urutan stage ditegakkan oleh `autooffice.docx.pipeline`. Stage tidak boleh
 memanggil `load` atau `save` package target. Kontrak API ada di
@@ -51,26 +56,27 @@ memanggil `load` atau `save` package target. Kontrak API ada di
 deck.yaml + transcripts.md
   |
   +-- compile              schema, key, DeckIR, coverage plan
-  +-- design               theme, token, font, kontras
+  +-- design               theme, token Arial, kontras
   +-- layout               preset atau custom rows, overflow, grid 12 kolom
   +-- copy checker         aturan prosa dan diagnosis
   +-- render PPTX          native shape, table, chart, image, notes
-  +-- embed font           Plus Jakarta Sans lewat PowerPoint COM
-  +-- pdf                  ekspor PowerPoint COM, Windows only
   +-- slides               sinkronisasi Google Slides
 ```
 
-Target `pptx` dan `pdf` adalah jalur offline di Windows. Target `slides`
-memerlukan extra `google` dan kredensial OAuth; mode sync `pull`, `diff`, dan
-`apply` juga memerlukan state yang valid. Kontrak renderer dan Google ada di
+Renderer menulis family `Arial` tanpa embedding font. Layout diukur dengan
+Liberation Sans yang metrik-kompatibel Arial. Target `pptx` adalah jalur
+offline yang berjalan di semua platform. Target `slides` memerlukan extra
+`google` dan kredensial OAuth; mode sync `pull`, `diff`, dan `apply` juga
+memerlukan state yang valid. Kontrak renderer dan Google ada di
 [contracts/README.md](../contracts/README.md).
 
 ## Invariant utama
 
 1. **Satu sumber konten.** Hanya `document.md` atau `deck.yaml` dan asetnya
-   yang menjadi sumber. DOCX, PPTX, PDF, dan Slides adalah artefak.
+   yang menjadi sumber. DOCX, PPTX, dan Slides adalah artefak. PDF adalah
+   hasil ekspor manual pengguna, bukan artefak build.
 2. **Satu load dan satu save DOCX.** `DocumentPackage` dimuat sekali setelah
-   Pandoc dan disimpan sekali sebelum `office`.
+   Pandoc dan disimpan sekali. Tidak ada pass Word setelah save.
 3. **Urutan kanonik.** Stage DOCX berjalan dengan urutan tetap dan guard
    keras. Stage yang salah urutan menggagalkan pipeline.
 4. **Part non-target byte-identik.** Stage hanya memutasi part yang
@@ -115,19 +121,24 @@ pada permukaan AutoOffice v1. Kontrak CLI ada di
 
 ## Platform
 
-| Platform | DOCX | PDF DOCX | PPTX | PDF deck | Slides |
-| --- | --- | --- | --- | --- | --- |
-| Windows + Office desktop | ya | ya dengan Word | ya dengan PowerPoint | ya dengan PowerPoint | ya dengan Google OAuth |
-| Linux/macOS | best-effort | tidak | tidak (final butuh PowerPoint) | tidak | ya dengan Google OAuth |
+| Platform | DOCX | PPTX | Slides |
+| --- | --- | --- | --- |
+| Windows | ya | ya | ya dengan Google OAuth |
+| Linux/macOS | ya | ya | ya dengan Google OAuth |
+| Android atau viewer tanpa Arial | ya | ya, dengan substitusi font | ya dengan Google OAuth |
 
-`pptx` dan `pdf` dari deck memerlukan PowerPoint COM untuk embedding font dan
-ekspor. PDF dari Markdown memerlukan Word COM. Aturan lengkap ada di
-[pdf.md](pdf.md) dan [com.md](com.md).
+Tidak ada dependensi Office, COM, `pywin32`, atau Windows-only. DOCX dan PPTX
+dibangun murni dengan Python. Arial umumnya tersedia di Windows dan macOS;
+lingkungan tanpa Arial dapat menggantinya dengan Liberation Sans atau font
+substitusi lain. Tata letak tetap dihitung dengan metrik Liberation Sans yang
+kompatibel Arial. Alur ekspor PDF manual ada di
+[pdf-export.md](../user/pdf-export.md).
 
 ## Batasan arsitektur
 
 - Tidak ada mode folder atau file bab terpisah untuk DOCX.
 - Tidak ada filter Lua. Perilaku lama diport ke stage Python.
-- Tidak ada mesin PDF selain Microsoft Word atau PowerPoint.
+- Tidak ada mesin PDF, adapter COM, atau dependensi Windows-only.
 - Build memakai pipeline Python; tidak ada jalur shell atau fallback lama.
-- TOC dan daftar DOCX memakai field native; Word perlu memperbarui field.
+- TOC dan daftar DOCX memakai field native yang tidak diisi otomatis. Pengguna
+  memperbarui field di Word dengan Ctrl+A lalu F9.

@@ -92,21 +92,31 @@ def test_primary_typeface_falls_back_to_generic_stack_head() -> None:
     assert primary_typeface("serif, monospace") == "serif"
 
 
+def test_primary_typeface_resolves_arial_from_stack() -> None:
+    assert primary_typeface("Arial, 'Helvetica Neue', sans-serif") == "Arial"
+
+
+@pytest.mark.parametrize("family", ["", " ", "   ", "\t\n", ",", " , "])
+def test_primary_typeface_rejects_empty_family(family: str) -> None:
+    with pytest.raises(PptxRenderError, match="Family font token tidak boleh kosong"):
+        primary_typeface(family)
+
+
 @pytest.mark.parametrize(
     ("weight", "expected", "bold"),
     [
-        (400, "Plus Jakarta Sans", False),
-        (600, "Plus Jakarta Sans SemiBold", False),
-        (700, "Plus Jakarta Sans", True),
-        (800, "Plus Jakarta Sans ExtraBold", False),
+        (400, "Arial", False),
+        (600, "Arial", True),
+        (700, "Arial", True),
+        (800, "Arial", True),
     ],
 )
-def test_apply_run_style_selects_named_weight_typeface(
+def test_apply_run_style_maps_arial_weights_to_regular_and_bold(
     weight: int,
     expected: str,
     bold: bool,
 ) -> None:
-    run, warning = _styled_run("Plus Jakarta Sans, sans-serif", weight)
+    run, warning = _styled_run("Arial, sans-serif", weight)
 
     assert warning is None
     assert run.font.name == expected

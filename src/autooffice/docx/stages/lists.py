@@ -322,7 +322,7 @@ class ListsStage(BaseStage):
     """Tulis daftar tabel/gambar dan field ``SEQ`` pada caption."""
 
     name = StageName.LISTS
-    # stage-api v0.12: page_numbers (140) -> lists (150) -> office (160).
+    # stage-api v0.12: page_numbers (140) -> lists (150).
     order = 150
     requires = canonical_prefix(StageName.LISTS)
     mutates = frozenset({DOCUMENT_PART, STYLES_PART})

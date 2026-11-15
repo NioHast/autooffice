@@ -31,19 +31,19 @@ Nama distribusi dan entry point resmi adalah `autooffice`.
 | Jenis | Paket | Alasan |
 | --- | --- | --- |
 | Runtime | `lxml`, `python-pptx`, `ruamel.yaml` | Parser DOCX/XML, renderer PPTX, dan parser YAML. |
-| Dev | `pytest`, `pypdf`, `python-docx`, `mypy`, `ruff`, `pytest-cov`, `hypothesis`, `import-linter`, `cosmic-ray` | Tes dan tooling pengembangan. |
+| Dev | `pytest`, `python-docx`, `mypy`, `ruff`, `pytest-cov`, `hypothesis`, `import-linter`, `cosmic-ray` | Tes dan tooling pengembangan. |
 | Google | `google-api-python-client`, `google-auth-oauthlib` | Target `slides` dan sinkronisasi Google. |
-| Windows | `pywin32` | Word dan PowerPoint COM untuk PDF dan embedding font. |
 
 `python-docx` hanya dependensi dev. Paket itu dipakai tes untuk membuat
-fixture DOCX dan memeriksa hasil build, bukan oleh pipeline produksi. `pypdf`
-juga hanya untuk tes PDF.
+fixture DOCX dan memeriksa hasil build, bukan oleh pipeline produksi. Tidak ada
+extra `windows`, `pywin32`, atau dependensi PDF.
 
 `src/autooffice/docx/data/` wajib ikut sebagai package data karena berisi
 format, struktur, template, glosarium, logo, CSL, dan `reference.docx`. Data
 dibaca lewat `src/autooffice/docx/paths.py`; tidak ada fallback ke direktori
-kerja. Aset font PPTX berada di `src/autooffice/assets/fonts/` dan data design
-di `src/autooffice/design/data/`.
+kerja. Data design berada di `src/autooffice/design/data/`. Aset font yang
+dibawa hanya Liberation Sans (Regular dan Bold) untuk pengukuran layout;
+font itu tidak ditanam ke PPTX dan bukan family tampilan.
 
 ## Environment pengembangan
 
@@ -76,8 +76,7 @@ uv run --project <repo> autooffice check /tmp/proyek/document.md
 - modul entry point tidak menjalankan CLI saat diimpor;
 - working directory tes tidak mengubah state build pengguna.
 
-Tes ini tidak membangun DOCX atau PDF. Smoke Word/PowerPoint nyata hanya
-dijalankan pada gate final di Windows.
+Tes ini tidak membangun DOCX atau PPTX nyata.
 
 ## Distribusi
 
@@ -92,9 +91,9 @@ Perintah resmi selalu memakai `uv run --project <repo> autooffice`.
 
 ```bash
 uv run --project <repo> --extra dev pytest tests/cli tests/docx
-uv run --project <repo> --extra dev pytest -m "not integration and not packaging and not word and not windows and not slow"
+uv run --project <repo> --extra dev pytest -m "not integration and not packaging and not slow"
 uv run --project <repo> --extra dev pytest
 ```
 
-Di Linux, tes Word dan Windows dilewati. Smoke PDF nyata hanya berjalan di
-Windows dengan Word. Lihat [testing.md](testing.md).
+Suite berjalan di Windows, Linux, dan macOS. Tidak ada tes Word, PowerPoint,
+COM, atau PDF. Lihat [testing.md](testing.md).

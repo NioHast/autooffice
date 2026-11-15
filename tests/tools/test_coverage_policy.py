@@ -9,7 +9,6 @@ from tools.quality import check_coverage
 
 ADAPTER_SAMPLES: tuple[str, ...] = (
     "autooffice.google.slides",
-    "autooffice.pdf.word",
     "autooffice.cli.main",
     "autooffice.docx.pipeline",
 )

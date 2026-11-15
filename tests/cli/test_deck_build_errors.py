@@ -7,7 +7,6 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-import autooffice.pdf
 from autooffice.cli import CliError
 from autooffice.cli.build import _render_pptx, build_deck, require_google_extra
 from autooffice.deck.layout.spec import LayoutError
@@ -91,12 +90,12 @@ def _fake_empty_render_module() -> ModuleType:
     return ModuleType("autooffice.deck.render.pptx")
 
 
-def test_build_pptx_uses_create_renderer_and_filters_font_warning(
+def test_build_pptx_uses_create_renderer_and_keeps_renderer_warnings(
     deck_path: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    renderer = _FakeRenderer(warnings=("font-embedding: belum", "caption terlalu panjang"))
+    renderer = _FakeRenderer(warnings=("caption terlalu panjang",))
     _use_factory(monkeypatch, renderer)
     out = tmp_path / "out"
 
@@ -290,75 +289,6 @@ def test_build_pptx_publishes_renderer_artifact_written_to_destination(
 
     assert (out / "deck.pptx").read_bytes() == b"PK fake pptx"
     assert outcome.files == (out / "deck.pptx", out / "deck.transcript.md")
-
-
-def test_build_pptx_font_embedding_cli_error_is_propagated(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail_embed(_path: Path) -> Path:
-        raise CliError("embed ditolak", code="CLI-CUSTOM", exit_code=1)
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fail_embed)
-
-    with pytest.raises(CliError, match="embed ditolak") as error:
-        build_deck(deck_path, ("pptx",), tmp_path / "out")
-
-    assert error.value.code == "CLI-CUSTOM"
-
-
-def test_build_pptx_ambiguous_font_cleanup_preserves_build_dir(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _use_factory(monkeypatch, _FakeRenderer())
-
-    def fail_embed(_path: Path) -> Path:
-        raise autooffice.pdf.WordCleanupError("worker PowerPoint masih hidup")
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fail_embed)
-    out = tmp_path / "out"
-
-    with pytest.raises(CliError, match="CLI-FONT-CLEANUP") as error:
-        build_deck(deck_path, ("pptx",), out)
-
-    workspace = deck_path.parent / ".autooffice-build" / deck_path.stem
-    assert error.value.code == "CLI-FONT-CLEANUP"
-    assert error.value.cleanup_ambiguous is True
-    assert workspace.is_dir()
-    assert (workspace / "render.pptx").is_file()
-
-
-def test_build_pptx_font_embedding_os_error_reports_font_error(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail_embed(_path: Path) -> Path:
-        raise OSError("PowerPoint tidak dapat dibuka")
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fail_embed)
-
-    with pytest.raises(CliError, match="PowerPoint tidak dapat dibuka") as error:
-        build_deck(deck_path, ("pptx",), tmp_path / "out")
-
-    assert error.value.code == "CLI-FONT-EMBED"
-    assert error.value.exit_code == 1
-
-
-def test_build_pptx_font_embedding_requires_returned_path(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", lambda _path: None)
-
-    with pytest.raises(CliError, match="tidak mengembalikan path") as error:
-        build_deck(deck_path, ("pptx",), tmp_path / "out")
-
-    assert error.value.code == "CLI-ARTIFACT"
 
 
 def test_build_deck_requires_at_least_one_target(deck_path: Path) -> None:
@@ -556,7 +486,7 @@ def test_build_deck_rejects_sync_without_slides_target(deck_path: Path, tmp_path
     assert error.value.code == "CLI-SYNC-TARGET"
 
 
-def test_build_deck_dry_run_pptx_only_does_not_mention_pdf_or_workspace_keep(
+def test_build_deck_dry_run_pptx_only_reports_workspace_keep(
     deck_path: Path,
     tmp_path: Path,
 ) -> None:
@@ -565,7 +495,6 @@ def test_build_deck_dry_run_pptx_only_does_not_mention_pdf_or_workspace_keep(
     outcome = build_deck(deck_path, ("pptx",), out, dry_run=True)
 
     assert outcome.files == (out / "deck.pptx", out / "deck.transcript.md")
-    assert not any("PDF deck" in note for note in outcome.notes)
     workspace_note = (
         f"workspace build sementara: {deck_path.parent / '.autooffice-build' / deck_path.stem}"
     )
@@ -588,28 +517,6 @@ def test_build_deck_dry_run_keep_intermediate_note(
     assert not out.exists()
 
 
-def test_build_deck_pptx_and_pdf_share_rendered_pptx(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-    exported: list[Path] = []
-
-    def fake_export(pptx: Path, pdf: Path) -> Path:
-        exported.append(pptx)
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fake_export)
-
-    outcome = build_deck(deck_path, ("pptx", "pdf"), out)
-
-    assert outcome.files == (out / "deck.pptx", out / "deck.pdf", out / "deck.transcript.md")
-    assert exported == [out / "deck.pptx"]
-    assert (out / "deck.pdf").read_bytes() == b"%PDF-1.7 fake\n"
-
-
 def test_build_deck_without_transcript_does_not_copy_one(
     deck_path: Path,
     tmp_path: Path,
@@ -621,57 +528,6 @@ def test_build_deck_without_transcript_does_not_copy_one(
 
     assert outcome.files == (out / "deck.pptx",)
     assert not (out / "deck.transcript.md").exists()
-
-
-def test_build_deck_pdf_exporter_none_result_reports_artifact_error(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fake_export(_pptx: Path, pdf: Path) -> None:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fake_export)
-
-    with pytest.raises(CliError, match="tidak mengembalikan path") as error:
-        build_deck(deck_path, ("pdf",), tmp_path / "out")
-
-    assert error.value.code == "CLI-ARTIFACT"
-
-
-def test_build_deck_pdf_exporter_cli_error_is_wrapped_with_pptx_path(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail_export(_pptx: Path, _pdf: Path) -> Path:
-        raise CliError("PowerPoint sibuk", code="CLI-CUSTOM", exit_code=1)
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fail_export)
-
-    with pytest.raises(CliError, match="PPTX selesai di") as error:
-        build_deck(deck_path, ("pdf",), tmp_path / "out")
-
-    assert error.value.code == "CLI-CUSTOM"
-    assert error.value.path is not None
-    assert error.value.path.endswith(".pptx")
-
-
-def test_build_deck_pdf_exporter_os_error_reports_pdf_error(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail_export(_pptx: Path, _pdf: Path) -> Path:
-        raise OSError("COM putus")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fail_export)
-
-    with pytest.raises(CliError, match="COM putus") as error:
-        build_deck(deck_path, ("pdf",), tmp_path / "out")
-
-    assert error.value.code == "CLI-PDF"
-    assert error.value.exit_code == 1
 
 
 def test_build_deck_dry_run_slides_accepts_ready_credentials(
@@ -1055,36 +911,6 @@ def test_dry_run_pptx_requires_pptx_renderer_class(
         build_deck(deck_path, ("pptx",), out, dry_run=True)
 
     assert error.value.code == "CLI-RENDERER"
-    assert not out.exists()
-
-
-def test_dry_run_pdf_requires_pptx_renderer(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setitem(sys.modules, "autooffice.deck.render.pptx", _fake_empty_render_module())
-    out = tmp_path / "out"
-
-    with pytest.raises(CliError, match="PptxRenderer") as error:
-        build_deck(deck_path, ("pdf",), out, dry_run=True)
-
-    assert error.value.code == "CLI-RENDERER"
-    assert not out.exists()
-
-
-def test_dry_run_pdf_requires_pptx_converter(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", None)
-    out = tmp_path / "out"
-
-    with pytest.raises(CliError, match="ekspor PDF PPTX") as error:
-        build_deck(deck_path, ("pdf",), out, dry_run=True)
-
-    assert error.value.code == "CLI-PDF"
     assert not out.exists()
 
 

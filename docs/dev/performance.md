@@ -76,8 +76,8 @@ uv run pytest tests/performance/test_large_deck.py -q -k deterministic
 - Kegagalan determinisme berarti urutan slide, binding, atau geometri plan
   berubah antar-run. Periksa sumber non-deterministik seperti iterasi `set`
   atau path/working directory, bukan menaikkan toleransi.
-- Tes tidak memakai jaringan, COM, Word, atau PowerPoint. Render PPTX memakai
-  `python-pptx` murni.
+- Tes tidak memakai jaringan atau Office. Render PPTX memakai `python-pptx`
+  murni.
 
 ## Terkait
 

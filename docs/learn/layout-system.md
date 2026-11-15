@@ -90,15 +90,15 @@ tidak ada block yang boleh memaksa tinggi absolut.
 
 Kebijakan v1 adalah fail atau flag, bukan shrink:
 
-- Teks diukur dengan metrik Plus Jakarta Sans yang dibundel, lebar slot,
-  padding, dan line-height token.
+- Teks diukur dengan metrik Liberation Sans yang metrik-kompatibel Arial,
+  lebar slot, padding, dan line-height token.
 - Teks, tabel, code, dan row custom yang melewati area konten menghasilkan
   error dan build gagal.
 - Tidak ada autofit, shrink, ellipsis otomatis, atau pemotongan tanpa
   peringatan.
 - Pesan error menyebut slide, block, key, dan perkiraan overflow.
-- Pengukuran deterministik dan tidak memakai browser, PowerPoint COM, atau
-  Google Slides.
+- Pengukuran deterministik dan tidak memakai browser, Office COM, atau
+  Google Slides. Metrik Liberation Sans dipakai sebagai proksi Arial.
 
 Media memakai tinggi area yang tersedia. Gambar default `contain`, sedangkan
 `cover` memenuhi frame dengan crop proporsional, bukan regangan. Chart dan

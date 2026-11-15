@@ -1,6 +1,6 @@
 # 03 - Tahap Pipeline
 
-Halaman ini membahas urutan kerja `Pipeline.run` dan 18 stage kanonik. Setelah
+Halaman ini membahas urutan kerja `Pipeline.run` dan 16 stage kanonik. Setelah
 membacanya, pembaca bisa melacak tempat suatu perubahan terjadi, membaca
 `StageResult`, dan menelusuri kegagalan stage tanpa menebak.
 
@@ -8,9 +8,9 @@ membacanya, pembaca bisa melacak tempat suatu perubahan terjadi, membaca
 
 Setelah halaman ini, pembaca bisa:
 
-1. menyebutkan 18 stage dan urutannya;
+1. menyebutkan 16 stage dan urutannya;
 2. membedakan stage yang memutasi workspace, package, dan part DOCX;
-3. menjelaskan tahap sebelum save, save tunggal, dan finalisasi setelah save;
+3. menjelaskan tahap sebelum save dan save tunggal;
 4. membaca `StageResult` dan artifact yang dihasilkan;
 5. memilih tes atau perintah untuk mendiagnosis stage yang gagal.
 
@@ -19,13 +19,13 @@ Setelah halaman ini, pembaca bisa:
 - [01 - Model Mental](01-mental-model.md).
 - [02 - Build Pertama](02-first-build.md).
 - Bisa membaca Python sederhana dan decorator/class dasar.
-- Tidak perlu Word. Build DOCX tanpa Word cukup untuk sebagian besar latihan.
+- Tidak perlu Word. Build DOCX berjalan tanpa Office.
 
 ## Daftar isi
 
 - [Kontrak Pipeline.run](#kontrak-pipelinerun)
 - [Tiga tahap eksekusi](#tiga-tahap-eksekusi)
-- [Delapan belas stage kanonik](#delapan-belas-stage-kanonik)
+- [Enam belas stage kanonik](#enam-belas-stage-kanonik)
 - [Guard dan alasan urutan](#guard-dan-alasan-urutan)
 - [Satu load dan satu save](#satu-load-dan-satu-save)
 - [StageResult dan stage yang dilewati](#stageresult-dan-stage-yang-dilewati)
@@ -42,17 +42,16 @@ Setelah halaman ini, pembaca bisa:
 
 1. `load_project(document_path)` untuk membaca front matter, format,
    struktur, dan aset;
-2. `_resolve_target(options)` untuk memutuskan target efektif dan warning
-   platform;
+2. `_resolve_target(options)` untuk memutuskan target efektif;
 3. membuat `output_dir` dengan `autooffice.docx.paths.output_directory`;
 4. membuat `Workspace` di `.laporan-build/` di samping dokumen;
-5. menjalankan stage sebelum `office` pada satu `DocumentPackage`;
+5. menjalankan seluruh stage pada satu `DocumentPackage`;
 6. menyimpan package satu kali;
 7. menulis manifest;
-8. menjalankan `office` dan `pdf`;
-9. membersihkan workspace di blok `finally`, kecuali `--keep-intermediate`.
+8. membersihkan workspace di blok `finally`, kecuali `--keep-intermediate`.
 
-Kontrak lengkap ada di [contracts/docx.md](../../contracts/docx.md).
+Tidak ada pass Word, COM, atau PDF setelah save. Kontrak lengkap ada di
+[contracts/docx.md](../../contracts/docx.md).
 
 ## Tiga tahap eksekusi
 
@@ -60,13 +59,13 @@ Kontrak lengkap ada di [contracts/docx.md](../../contracts/docx.md).
 | --- | --- | --- |
 | Persiapan | `validate` sampai `pandoc` | Workspace, Markdown final, package DOCX baru. |
 | Mutasi package | `sections` sampai `lists` | `ctx.package` di memori. |
-| Finalisasi | `office`, `pdf` | DOCX di disk, lalu PDF. |
+| Save | `Pipeline` | DOCX final dan manifest di disk. |
 
 `pandoc` adalah satu-satunya stage yang membuat `ctx.package`. Sebelum
 `pandoc`, `ctx.package is None`. Setelah `pandoc`, stage lain hanya memutasi
 package yang sama.
 
-## Delapan belas stage kanonik
+## Enam belas stage kanonik
 
 | Order | Stage | Modul | Memutasi | Tugas utama |
 | ---: | --- | --- | --- | --- |
@@ -86,16 +85,12 @@ package yang sama.
 | 130 | `toc` | `stages/toc.py` | `word/document.xml`, `word/styles.xml` | Field TOC native dan style TOC. |
 | 140 | `page_numbers` | `stages/page_numbers.py` | document, header/footer, rels, content types | Romawi front matter, Arab body. |
 | 150 | `lists` | `stages/lists.py` | `word/document.xml` | Daftar tabel/gambar dan field `SEQ`. |
-| 160 | `office` | `stages/office.py` | package | Word memperbarui field dan menyimpan DOCX. |
-| 170 | `pdf` | `stages/pdf.py` | - | Word mengekspor PDF. |
 
 Beberapa stage tidak selalu berjalan:
 
 - `terms` hanya aktif dengan `--terms`;
 - `toc` dilewati jika `structure.toc` bernilai `false`;
-- `lists` dilewati jika tidak ada daftar tabel/gambar di struktur;
-- `office` dan `pdf` dapat dilewati atau gagal sesuai target dan ketersediaan
-  Word.
+- `lists` dilewati jika tidak ada daftar tabel/gambar di struktur.
 
 ## Guard dan alasan urutan
 
@@ -107,8 +102,7 @@ Guard penting:
 1. `style_reference` sebelum `front_matter` sebelum `pandoc`;
 2. `sections` sebelum `code` sebelum `captions` sebelum `normalize`;
 3. `normalize` sebelum `equations` sebelum `blank_lines`;
-4. `terms` sebelum `toc` sebelum `page_numbers` sebelum `lists`;
-5. `office` sebelum `pdf`.
+4. `terms` sebelum `toc` sebelum `page_numbers` sebelum `lists`.
 
 Alasannya:
 
@@ -119,31 +113,23 @@ Alasannya:
 - Italic istilah memengaruhi paginasi, jadi `terms` harus selesai sebelum TOC
   dan nomor halaman.
 - TOC dan `PAGEREF` harus ada sebelum format nomor halaman.
-- PDF diekspor dari DOCX yang sudah difinalkan Word.
+
+Field TOC dan nomor halaman ditulis sebagai instruksi native. Hasil field
+tidak dihitung oleh pipeline. Pengguna membuka DOCX di Word, menekan Ctrl+A
+lalu F9, sebelum review atau ekspor PDF.
 
 ## Satu load dan satu save
 
-Di `pipeline.py`, stage dipisahkan berdasarkan order `office`:
-
-```python
-office_order = self._spec_by_name[StageName.OFFICE].order
-pre_save = tuple(stage for stage in self.stages if stage.order < office_order)
-post_save = tuple(stage for stage in self.stages if stage.order >= office_order)
-```
-
-Semua stage `pre_save` berjalan pada package yang sama. Setelah itu:
+Di `pipeline.py`, seluruh stage berjalan sebelum save:
 
 ```python
 ctx.package.save(docx_path)
 ctx.artifacts.put("docx", docx_path)
 ```
 
-Baru setelah save, `office` dan `pdf` berjalan. Stage tidak boleh memanggil
-`load` atau `save` untuk package target. Pengecualian:
-
-- `style_reference` memuat dan menyimpan `reference.docx` sumber, bukan
-  package target;
-- `office` memakai Word yang dapat menulis ulang package dari luar.
+Setelah save, pipeline selesai. Stage tidak boleh memanggil `load` atau `save`
+untuk package target. Pengecualian tunggal adalah `style_reference`, yang
+memuat dan menyimpan `reference.docx` sumber, bukan package target.
 
 ## StageResult dan stage yang dilewati
 
@@ -160,10 +146,8 @@ Setiap stage mengembalikan `StageResult`:
 | `artifacts` | Path yang dihasilkan stage. |
 
 `status="skipped"` bukan error. Contohnya `terms` tanpa `--terms`, `toc` pada
-struktur tanpa TOC, dan `office` saat Word tidak tersedia untuk target DOCX.
-Pada kasus terakhir, pipeline mencetak peringatan dan TOC yang baru belum
-berisi entri sehingga bisa tampil kosong sampai Word memperbarui field.
-Warnings dari stage dikumpulkan di `BuildReport` lalu dicetak CLI.
+struktur tanpa TOC, dan `lists` tanpa daftar. Warnings dari stage dikumpulkan
+di `BuildReport` lalu dicetak CLI.
 
 Error tidak dikembalikan sebagai `StageResult`. Error dilempar sebagai
 `DocgenError` atau subclass. Exception yang tidak dikenal dibungkus
@@ -182,16 +166,15 @@ Error tidak dikembalikan sebagai `StageResult`. Error dilempar sebagai
 | `docx` | DOCX final di path output. |
 | `manifest` | Manifest Adeu. |
 | `terms_review` | Review istilah. |
-| `pdf` | PDF final. |
 
 Key berprefix nama stage juga sah. Key yang sudah ada tidak boleh ditimpa
 tanpa deklarasi.
 
 Workspace default adalah `.laporan-build/` di samping `document.md`. Tanpa
-`--keep-intermediate`, workspace dihapus di blok `finally`, termasuk saat build gagal.
-Dengan `--keep-intermediate`, isinya dipertahankan untuk diperiksa, misalnya
-`front_matter.md`, `mermaid.md`, `reference.docx`, `pandoc-metadata.yml`, dan
-DOCX antara.
+`--keep-intermediate`, workspace dihapus di blok `finally`, termasuk saat build
+gagal. Dengan `--keep-intermediate`, isinya dipertahankan untuk diperiksa,
+misalnya `front_matter.md`, `mermaid.md`, `reference.docx`,
+`pandoc-metadata.yml`, dan DOCX antara.
 
 ## Membaca kegagalan stage
 
@@ -210,7 +193,7 @@ Untuk `StageError`, nama stage muncul di depan:
 Langkah diagnosis:
 
 1. baca nama stage dan kode error;
-2. cari modul stage di tabel 18 stage;
+2. cari modul stage di tabel 16 stage;
 3. baca deklarasi `mutates` dan guard-nya;
 4. jalankan tes stage terkait di `tests/docx`;
 5. jika perlu, build ulang dengan `--keep-intermediate` dan periksa workspace.
@@ -241,14 +224,11 @@ validate
 -> toc
 -> page_numbers
 -> lists
--> office (Word bila ada)
--> pdf (bila diminta)
+-> save
 ```
 
-Dengan `--terms`, stage `terms` berjalan dan menulis review file. Dengan
-`--target docx`, PDF dilewati. Dengan `--target all` di Windows dan Word
-tersedia, stage `office` berjalan di pipeline dan CLI mengekspor PDF setelah
-DOCX selesai.
+Dengan `--terms`, stage `terms` berjalan dan menulis review file. Tidak ada
+stage Word atau PDF setelah save. Field DOCX diperbarui manual di Word.
 
 ## Latihan
 
@@ -260,52 +240,38 @@ Jalankan:
 uv run python -c "from autooffice.docx.pipeline import CANONICAL_ORDER; print(len(CANONICAL_ORDER)); print(', '.join(item.value for item in CANONICAL_ORDER))"
 ```
 
-Cara memeriksa: angka pertama harus `18`, lalu daftar dimulai `validate` dan
-diakhiri `pdf`. Jika ada stage tambahan atau hilang, kontrak pipeline berubah.
+Cara memeriksa: angka pertama harus `16`, lalu daftar dimulai `validate` dan
+diakhiri `lists`. Jika ada stage tambahan atau hilang, kontrak pipeline
+berubah.
 
 ### 2. Temukan stage yang memutasi part tertentu
 
 Jalankan:
 
 ```bash
-grep -RIn "mutates = " src/autooffice/docx/stages
+rg -n "mutates = frozenset" src/autooffice/docx/stages
 ```
 
-Cara memeriksa: `terms` dan `toc` memutasi `word/styles.xml`. Stage
-`numbering` memutasi `word/document.xml` dan `word/numbering.xml`. Stage
-`office` memutasi package. Cocokkan hasil dengan tabel di halaman ini.
-
-### 3. Periksa workspace dengan --keep-intermediate
-
-Pada salinan contoh di direktori sementara, jalankan:
-
-```bash
-uv run autooffice build <path-salinan>/document.md --target docx --keep-intermediate
-```
-
-Cara memeriksa: direktori `.laporan-build/` masih ada dan memuat antara lain
-`front_matter.md`, `mermaid.md`, `reference.docx`, dan DOCX antara. Tanpa
-`--keep-intermediate`, direktori itu harus hilang setelah build selesai.
+Cocokkan hasilnya dengan tabel stage. Stage yang tidak dideklarasikan sebagai
+pemutasi part tidak boleh menulis `word/document.xml`.
 
 ## Halaman berikutnya
 
-Lanjut ke [04 - Model DOCX](04-docx-model.md) untuk memahami package, part,
-dan helper XML yang dipakai stage.
+Lanjut ke [04 - Model DOCX](04-docx-model.md) untuk memahami package yang
+dimutasi stage.
 
 ## Referensi dan kontrak
 
 | Kebutuhan | Dokumen |
 | --- | --- |
-| Model eksekusi dan idempotensi | [pipeline/overview.md](../pipeline/overview.md) |
-| Urutan stage dan guard | [pipeline/stages.md](../pipeline/stages.md) |
-| Opsi build | [pipeline/options.md](../pipeline/options.md) |
-| Artefak dan workspace | [pipeline/artifacts.md](../pipeline/artifacts.md) |
-| Error dan exit code | [pipeline/errors.md](../pipeline/errors.md) |
 | Kontrak DOCX | [contracts/docx.md](../../contracts/docx.md) |
-| Kontrak CLI | [contracts/cli.md](../../contracts/cli.md) |
+| Model eksekusi | [pipeline/overview.md](../pipeline/overview.md) |
+| Urutan stage | [pipeline/stages.md](../pipeline/stages.md) |
+| Opsi build | [pipeline/options.md](../pipeline/options.md) |
+| Ekspor PDF manual | [pdf-export.md](../../user/pdf-export.md) |
 
 ### Referensi resmi
 
-Label registry yang dipakai halaman ini: `pytest documentation`, `pytest
-markers`, dan `lxml documentation`. URL resminya ada di
+Label registry yang dipakai halaman ini: `Python 3.15 language reference`,
+`Pandoc manual`, dan `OOXML ECMA-376`. URL resminya ada di
 [registry referensi](../references.md).

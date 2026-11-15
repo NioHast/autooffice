@@ -12,18 +12,19 @@ setelah F0 wajib memiliki ADR.
 
 | ADR | Keputusan | Status |
 | --- | --- | --- |
-| [0001-assumption-closure.md](0001-assumption-closure.md) | Penutupan asumsi A1-A25 untuk kelulusan F0. | diterima |
-| [0002-scope-and-package.md](0002-scope-and-package.md) | Satu proyek, satu package Python, satu CLI, dan penghapusan repo lama. | diterima |
+| [0001-assumption-closure.md](0001-assumption-closure.md) | Penutupan asumsi A1-A25 untuk kelulusan F0. | diterima; sebagian superseded oleh 0013 |
+| [0002-scope-and-package.md](0002-scope-and-package.md) | Satu proyek, satu package Python, satu CLI, dan penghapusan repo lama. | diterima; target superseded oleh 0013 |
 | [0003-deck-model-and-keys.md](0003-deck-model-and-keys.md) | Satu YAML per deck, ID stabil, flat key, dan 11 block type. | diterima |
-| [0004-layouts-and-rendering.md](0004-layouts-and-rendering.md) | Katalog layout, grid, design token, PPTX native, dan font. | diterima |
-| [0005-google-sheets-and-pdf.md](0005-google-sheets-and-pdf.md) | Linked Sheets chart, state Google, preflight table, dan PDF COM. | diterima |
-| [0006-quality-migration-and-humanizer.md](0006-quality-migration-and-humanizer.md) | Gate lokal, copy checker deterministik, transkrip, dan migrasi. | diterima |
+| [0004-layouts-and-rendering.md](0004-layouts-and-rendering.md) | Katalog layout, grid, design token, PPTX native, dan font. | diterima; font/PDF superseded oleh 0013 |
+| [0005-google-sheets-and-pdf.md](0005-google-sheets-and-pdf.md) | Linked Sheets chart, state Google, preflight table, dan PDF COM. | diterima; PDF/COM superseded oleh 0013 |
+| [0006-quality-migration-and-humanizer.md](0006-quality-migration-and-humanizer.md) | Gate lokal, copy checker deterministik, transkrip, dan migrasi. | diterima; COM superseded oleh 0013 |
 | [0007-slot-span.md](0007-slot-span.md) | Span per slot preset untuk layout asimetris, terpisah dari span custom. | diterima |
 | [0008-min-one-of.md](0008-min-one-of.md) | Grup slot minimal satu untuk alternatif seperti toc group1-3 dan kpi kpi1-4. | diterima |
 | [0009-explicit-custom-rows.md](0009-explicit-custom-rows.md) | Rows custom eksplisit di `SlideIR`; compiler mengisi, planner memakai. | diterima |
-| [0010-risk-based-coverage.md](0010-risk-based-coverage.md) | Coverage global 90%, modul kritis 100%, adapter 85%; checker dan gate. | diterima |
-| [0011-f3-cleanup.md](0011-f3-cleanup.md) | Daftar hapus/update F3, inventaris referensi legacy, urutan operasi, dan rollback. | diterima |
+| [0010-risk-based-coverage.md](0010-risk-based-coverage.md) | Coverage global 90%, modul kritis 100%, adapter 85%; checker dan gate. | diterima; adapter PDF superseded oleh 0013 |
+| [0011-f3-cleanup.md](0011-f3-cleanup.md) | Daftar hapus/update F3, inventaris referensi legacy, urutan operasi, dan rollback. | diterima; referensi PDF/COM superseded oleh 0013 |
 | [0012-chart-kind-preset.md](0012-chart-kind-preset.md) | `SlotSpec.chart_kind` mengikat kind chart pada slot preset `bars`, `line`, dan `donut`. | diterima |
+| [0013-remove-pdf-arial.md](0013-remove-pdf-arial.md) | Hapus PDF/COM/`pywin32`, field DOCX manual, Arial tanpa embedding, layout Liberation Sans. | diterima |
 
 ## Aturan ADR
 

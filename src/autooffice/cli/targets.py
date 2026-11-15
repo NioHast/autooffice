@@ -13,9 +13,9 @@ class InputKind(StrEnum):
     DECK = "deck"
 
 
-MD_TARGETS: tuple[str, ...] = ("docx", "pdf")
-DECK_TARGETS: tuple[str, ...] = ("pptx", "pdf", "slides")
-DOCTOR_TARGETS: tuple[str, ...] = ("docx", "pptx", "pdf", "slides")
+MD_TARGETS: tuple[str, ...] = ("docx",)
+DECK_TARGETS: tuple[str, ...] = ("pptx", "slides")
+DOCTOR_TARGETS: tuple[str, ...] = ("docx", "pptx", "slides")
 
 _KIND_TARGETS: dict[InputKind, tuple[str, ...]] = {
     InputKind.MARKDOWN: MD_TARGETS,
@@ -67,9 +67,8 @@ def parse_targets(
 ) -> tuple[str, ...]:
     """Parse target dipisah koma dan kembalikan urutan kanonik tanpa duplikat.
 
-    Aturan kontrak: spasi setelah koma boleh, duplikat dihapus, ``all`` tidak
-    boleh digabung dengan target lain, dan target yang tidak valid untuk jenis
-    input ditolak dengan exit code 2.
+    Aturan kontrak: spasi setelah koma boleh, duplikat dihapus, dan target yang
+    tidak valid untuk jenis input ditolak dengan exit code 2.
     """
     if raw is None:
         if required:
@@ -90,22 +89,14 @@ def parse_targets(
 
     allowed = set(canonical_targets(kind))
     seen = set(tokens)
-    unknown = sorted(seen - allowed - {"all"})
+    unknown = sorted(seen - allowed)
     if unknown:
         raise CliError(
             f"target tidak valid untuk input {_KIND_SUFFIX[kind]}: {', '.join(unknown)}; "
-            f"pilihan: {', '.join(canonical_targets(kind))}, all",
+            f"pilihan: {', '.join(canonical_targets(kind))}",
             code="CLI-TARGET-INVALID",
             exit_code=2,
         )
-    if "all" in seen:
-        if len(seen) > 1:
-            raise CliError(
-                "target 'all' tidak boleh digabung dengan target lain",
-                code="CLI-TARGET-ALL-MIXED",
-                exit_code=2,
-            )
-        return canonical_targets(kind)
 
     return tuple(target for target in canonical_targets(kind) if target in seen)
 
@@ -123,22 +114,14 @@ def parse_doctor_targets(raw: str | None) -> tuple[str, ...] | None:
         )
     allowed = set(DOCTOR_TARGETS)
     seen = set(tokens)
-    unknown = sorted(seen - allowed - {"all"})
+    unknown = sorted(seen - allowed)
     if unknown:
         raise CliError(
             f"target doctor tidak valid: {', '.join(unknown)}; "
-            f"pilihan: {', '.join(DOCTOR_TARGETS)}, all",
+            f"pilihan: {', '.join(DOCTOR_TARGETS)}",
             code="CLI-TARGET-INVALID",
             exit_code=2,
         )
-    if "all" in seen:
-        if len(seen) > 1:
-            raise CliError(
-                "target 'all' tidak boleh digabung dengan target lain",
-                code="CLI-TARGET-ALL-MIXED",
-                exit_code=2,
-            )
-        return DOCTOR_TARGETS
     return tuple(target for target in DOCTOR_TARGETS if target in seen)
 
 

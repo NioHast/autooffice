@@ -6,9 +6,8 @@ contoh benar dan salah, serta batas pengecualian. Jika dokumen dan konfigurasi
 berbeda, `pyproject.toml` menang dan dokumen ini harus diperbaiki.
 
 Ruang lingkup Ruff adalah file Python di repo, termasuk `src`, `tests`, dan
-`tools`, kecuali `docs/` yang dikecualikan. Mypy saat ini memeriksa
-`src/autooffice` dan jalur legacy DOCX sampai F3 sesuai `files` di
-`[tool.mypy]`. Gaya penulisan dokumen Markdown diatur di
+`tools`, kecuali `docs/` yang dikecualikan. Mypy memeriksa `src/autooffice`
+sesuai `files` di `[tool.mypy]`. Gaya penulisan dokumen Markdown diatur di
 [contributing.md](contributing.md).
 
 ## Daftar isi
@@ -35,7 +34,7 @@ Ruang lingkup Ruff adalah file Python di repo, termasuk `src`, `tests`, dan
 
 Jalankan dari root repo. Urutan ini dipakai lokal dan di gate otomatis.
 
-| Urutan | Tahap | Perintah | Alasan |
+| Urutan | Langkah | Perintah | Alasan |
 | --- | --- | --- | --- |
 | 1 | Format | `uv run --extra dev ruff format .` lalu `uv run --extra dev ruff format --check .` | Formatter menormalkan spasi dan pemenggalan baris lebih murah daripada memperbaiki manual. `--check` memastikan tidak ada perubahan yang tertinggal. |
 | 2 | Lint | `uv run --extra dev ruff check .` | Lint cepat. Setelah format stabil, temuan lint bukan lagi noise format. |
@@ -137,8 +136,8 @@ URL resmi hanya disimpan di sana agar tidak terduplikasi.
 | `RUF` | Dipakai | aturan khusus Ruff: konsistensi dan potensi bug. | `# noqa` tanpa kode atau tanpa efek ditandai `RUF100` | [Ruff rules](references.md#registry) |
 | `BLE` | Dipakai | flake8-blind-except: `except` terlalu luas tanpa alasan. | `except:` menjadi `except ValueError as exc:` | [Ruff rules](references.md#registry) |
 | `D` | Dipakai | pydocstyle: kualitas docstring. Subaturan yang diabaikan dan konflik dicatat di bawah. | `"""ringkasan"""` menjadi `"""Ringkasan."""` | [Ruff rules](references.md#registry) |
-| `D101` | Diabaikan | Docstring class publik ditunda; prioritas ada pada docstring modul kunci. | `class Report:` boleh tanpa docstring pada tahap ini | [Ruff D101](references.md#registry) |
-| `D102` | Diabaikan | Docstring method publik ditunda; kontrak method ada di docs dan test. | `def render(self):` boleh tanpa docstring pada tahap ini | [Ruff D102](references.md#registry) |
+| `D101` | Diabaikan | Docstring class publik ditunda; prioritas ada pada docstring modul kunci. | `class Report:` boleh tanpa docstring saat ini | [Ruff D101](references.md#registry) |
+| `D102` | Diabaikan | Docstring method publik ditunda; kontrak method ada di docs dan test. | `def render(self):` boleh tanpa docstring saat ini | [Ruff D102](references.md#registry) |
 | `D103` | Diabaikan | Docstring fungsi publik ditunda; fungsi panjang tetap wajib lewat kontrak docstring. | `def helper():` pendek boleh tanpa docstring | [Ruff D103](references.md#registry) |
 | `D105` | Diabaikan | Docstring magic method biasanya mengulang perilaku yang sudah jelas. | `def __len__(self):` tidak wajib docstring | [Ruff D105](references.md#registry) |
 | `D107` | Diabaikan | Docstring `__init__` tidak menambah informasi bila class sudah jelas. | `def __init__(self, path):` tidak wajib docstring | [Ruff D107](references.md#registry) |
@@ -287,7 +286,7 @@ dan error utama; docstring bukan narasi riwayat perubahan.
   output, invariant, dan error utama. Fungsi yang lebih dari 80 baris dan punya
   banyak tanggung jawab harus dipecah, bukan hanya diberi docstring.
 - Docstring publik tidak wajib untuk setiap class, method, dan fungsi kecil
-  pada tahap ini. Aturan `D101`, `D102`, `D103`, `D105`, dan `D107` diabaikan
+  saat ini. Aturan `D101`, `D102`, `D103`, `D105`, dan `D107` diabaikan
   agar penambahan docstring mengikuti nilai dan risiko modul, bukan jumlah
   simbol.
 - `D401` diabaikan karena imperative mood Inggris tidak berlaku untuk docstring
@@ -311,14 +310,14 @@ def render_toc(package: DocxPackage, *, keep_existing: bool) -> TocReport:
 
 ## Mypy
 
-Mypy memeriksa `src/autooffice` pada tahap ini. Konfigurasi berasal dari
+Mypy memeriksa `src/autooffice` saat ini. Konfigurasi berasal dari
 `[tool.mypy]` di `pyproject.toml`; dokumentasi pengaturannya ada di
 [mypy configuration](references.md#registry).
 
 | Setelan | Nilai | Alasan |
 | --- | --- | --- |
 | `python_version` | `"3.15"` | Target runtime dan sintaks yang sama dengan Ruff. |
-| `files` | `src/autooffice` dan jalur legacy DOCX sampai F3 | Fokus pada kode sumber; `tests` dan `tools` belum masuk gate mypy. |
+| `files` | `src/autooffice` | Fokus pada kode sumber; `tests` dan `tools` belum masuk gate mypy. |
 | `check_untyped_defs` | `true` | Fungsi tanpa anotasi tetap diperiksa isinya. |
 | `no_implicit_optional` | `true` | Default `None` wajib dianotasi `X \| None`. |
 | `warn_unused_configs` | `true` | Konfigurasi yang tidak lagi dipakai dilaporkan. |
@@ -355,15 +354,12 @@ uv run --extra dev mypy
 uv run --extra dev mypy src/autooffice/docx/pipeline.py
 ```
 
-Tahapan peningkatan:
+Tingkat pengetatan:
 
-1. **Strict untuk AutoOffice.** Override `autooffice.*` sudah memakai
+1. **Strict untuk AutoOffice.** Override `autooffice.*` memakai
    `strict = true`. Modul baru di `src/autooffice` wajib lolos strict sejak
    dibuat; jangan menambah `ignore_errors` per modul.
-2. **Legacy DOCX non-strict sampai F3.** Override legacy mengembalikan
-   baseline non-strict supaya migrasi tidak memaksa refactor besar sekaligus.
-   Jangan menambah kode baru di jalur legacy.
-3. **Strict total bukan gate saat ini.** Strict total baru dipertimbangkan
+2. **Strict total bukan gate saat ini.** Strict total baru dipertimbangkan
    setelah stub pihak ketiga memadai, semua signature publik dianotasi, dan
    `ignore_missing_imports` tidak dipakai. Jangan menambah `ignore_errors`
    global untuk menurunkan target.
@@ -427,10 +423,10 @@ from .errors import DocgenError
 ## Test
 
 - Test memakai pytest dan mengikuti marker yang terdaftar di `pytest.ini`:
-  `unit`, `integration`, `packaging`, `word`, `windows`, dan `slow`.
+  `unit`, `integration`, `packaging`, dan `slow`.
 - Satu test menguji satu perilaku. Nama test menyatakan perilaku yang
   diharapkan, bukan nama fungsi internal.
-- Test unit tidak memanggil Word, jaringan, atau proses eksternal. Test yang
+- Test unit tidak memanggil Pandoc, jaringan, atau proses eksternal. Test yang
   membutuhkannya diberi marker yang sesuai.
 - Gunakan `tmp_path` untuk file sementara dan bersihkan artifact di akhir test.
 - Test regresi ditambahkan untuk setiap bug yang diperbaiki. Test harus gagal
@@ -499,8 +495,8 @@ Contoh pengecualian inline yang dipakai saat ini:
 
 - `BLE001` di `src/autooffice/docx/pipeline.py` untuk pengaman siklus impor.
 - `BLE001` di `src/autooffice/docx/terms/model.py` untuk package tanpa rels.
-- `SIM118` di `src/autooffice/docx/stages/office.py` dan `src/autooffice/docx/stages/mermaid.py`
-  karena `Artifacts` bukan `Mapping`.
+- `SIM118` di `src/autooffice/docx/stages/mermaid.py` karena `Artifacts` bukan
+  `Mapping`.
 - `SIM118` di `tests/docx/test_pandoc_stage.py` karena fake artifacts bukan
   `Mapping`.
 - `E402` dan `F403` pada blok import `src/autooffice/docx/package/__init__.py` karena

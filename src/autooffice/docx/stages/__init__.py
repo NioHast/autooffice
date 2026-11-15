@@ -23,10 +23,8 @@ def default_stages() -> tuple[type[BaseStage], ...]:
     from .mermaid import MermaidStage
     from .normalize import NormalizeStage
     from .numbering import NumberingStage
-    from .office import OfficeStage
     from .page_numbers import PageNumbersStage
     from .pandoc import PandocStage
-    from .pdf import PdfStage
     from .sections import SectionsStage
     from .style_reference import StyleReferenceStage
     from .terms import TermsStage
@@ -50,8 +48,6 @@ def default_stages() -> tuple[type[BaseStage], ...]:
         TocStage,
         PageNumbersStage,
         ListsStage,
-        OfficeStage,
-        PdfStage,
     )
 
 

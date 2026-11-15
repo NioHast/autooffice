@@ -17,7 +17,7 @@ daftar istilah arsitektur.
 | Golden invariant | Baseline hash atau fingerprint output yang dipakai untuk mendeteksi regresi. | [testing.md](testing.md) |
 | Kontrak | Spesifikasi API atau perilaku yang mengikat implementasi dan tes. | [contracts/](../contracts/) |
 | Manifest | `.laporan/manifest.json`; daftar paragraf, bookmark, hash teks, dan status perlindungan. | [adeu-integration.md](adeu-integration.md) |
-| Marker | Label pytest yang memilih kelompok tes, misalnya `unit`, `integration`, `word`, atau `windows`. | [testing.md](testing.md) |
+| Marker | Label pytest yang memilih kelompok tes, misalnya `unit`, `integration`, atau `slow`. | [testing.md](testing.md) |
 | MCP | Model Context Protocol; standar agar AI agent dapat memanggil tool dan membaca dokumen. | [adeu-integration.md](adeu-integration.md) |
 | Output dir | Direktori tujuan artefak pengguna: samping `document.md` atau `examples/<name>/out/`. | [pipeline/outputs.md](pipeline/outputs.md) |
 | Paragraph ID | Bookmark `pNNNN` pada paragraf body untuk mencocokkan DOCX dengan manifest. | [docx/bookmarks.md](docx/bookmarks.md) |
@@ -26,7 +26,7 @@ daftar istilah arsitektur.
 | Rekonsiliasi internal | Pembandingan DOCX hasil edit manual dengan manifest untuk menghasilkan laporan tinjauan; bukan perintah CLI AutoOffice. | [adeu-integration.md](adeu-integration.md) |
 | `reference.docx` | Template Word yang diturunkan dari `format.yml` dan dipakai Pandoc. | [docx/styles.md](docx/styles.md) |
 | Relationship | Relasi OPC antarpart, misalnya `document.xml` ke header atau footer. | [docx/package.md](docx/package.md) |
-| `report_name` | Field front matter wajib yang menentukan stem nama DOCX dan PDF. | [pipeline/outputs.md](pipeline/outputs.md) |
+| `report_name` | Field front matter wajib yang menentukan stem nama DOCX. | [pipeline/outputs.md](pipeline/outputs.md) |
 | Review file | `.laporan/istilah-baru.txt`; daftar istilah yang perlu diputuskan, bukan output dokumen. | [docx/terms.md](docx/terms.md) |
 | Source scan | Pemetaan paragraf manifest ke berkas dan baris Markdown sumber. | [adeu-integration.md](adeu-integration.md) |
 | Stage | Unit kerja pipeline dengan urutan, input, mutasi, dan hasil yang dideklarasikan. | [pipeline/stages.md](pipeline/stages.md) |

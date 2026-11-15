@@ -16,8 +16,8 @@ global yang berlaku untuk semua modul DOCX. Kontrak lengkap ada di
 ## Aturan global
 
 1. **Satu load dan satu save.** Pipeline memanggil `load` setelah Pandoc dan
-   `save` sebelum `office`. Stage tidak boleh memanggil keduanya untuk package
-   target. Model lengkap ada di
+   `save` sekali di akhir pipeline. Stage tidak boleh memanggil keduanya untuk
+   package target. Model lengkap ada di
    [../pipeline/overview.md](../pipeline/overview.md#satu-load-dan-satu-save).
 2. **Part non-target byte-identik.** Hanya part yang dideklarasikan stage yang
    boleh berubah. Part lain dipertahankan apa adanya, termasuk metadata ZIP.
@@ -51,8 +51,9 @@ menghasilkan:
 - byte part non-target yang sama;
 - output akhir yang sama.
 
-`office` dan `pdf` tidak dijamin byte-identik karena Word dapat menulis ulang
-package dan PDF membawa metadata ekspor. Keduanya diuji secara semantik.
+Tidak ada pass Word atau PDF setelah save. Package ditulis sekali dan menjadi
+output final DOCX. Field native yang belum terisi tidak mengubah byte package
+selain nilai cache yang ditulis pipeline.
 Definisi pipeline ada di
 [../pipeline/overview.md](../pipeline/overview.md#idempotensi).
 

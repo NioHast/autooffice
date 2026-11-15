@@ -1,22 +1,17 @@
-"""Tes validasi aset font dan penanda embedding final oleh CLI."""
+"""Tes tipografi Arial PPTX dan paket tanpa font tertanam."""
 
-from dataclasses import replace
-from pathlib import Path
+from xml.etree import ElementTree
+from zipfile import ZipFile
 
-import pytest
 from pptx import Presentation
+from pptx.oxml.ns import qn
 
-from autooffice.deck.render.pptx import PptxRenderer, fonts
-from autooffice.deck.render.pptx.fonts import (
-    DEFERRED,
-    FONT_EMBEDDING_WARNING,
-    embed_fonts,
-    embedded_fonts,
-    font_files_for_theme,
-)
-from autooffice.deck.render.pptx.shapes import PptxRenderError
+from autooffice.deck.render.pptx import PptxRenderer
+from autooffice.deck.render.pptx.shapes import primary_typeface
 from autooffice.deck.render.protocol import OutputTarget, RenderRequest
-from autooffice.design.fonts import FONT_HASHES, sha256
+
+_A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 
 
 def _render_minimal(case, theme):
@@ -31,78 +26,71 @@ def _render_minimal(case, theme):
     )
 
 
-def test_bundled_font_files_are_valid_truetype(theme) -> None:
-    paths = font_files_for_theme(theme)
+def _shape(presentation: Presentation, name: str):
+    return next(shape for shape in presentation.slides[0].shapes if shape.name == name)
 
-    assert tuple(path.name for path in paths) == (
-        "PlusJakartaSans-Regular.ttf",
-        "PlusJakartaSans-SemiBold.ttf",
-        "PlusJakartaSans-Bold.ttf",
-        "PlusJakartaSans-ExtraBold.ttf",
+
+def _first_run(text_frame):
+    return text_frame.paragraphs[0].runs[0]
+
+
+def test_primary_typeface_resolves_arial_from_theme_stack() -> None:
+    assert primary_typeface("Arial") == "Arial"
+    assert primary_typeface("Arial, 'Helvetica Neue', sans-serif") == "Arial"
+
+
+def test_theme_and_render_use_arial_without_embedded_fonts(minimal_case, theme) -> None:
+    result = _render_minimal(minimal_case, theme)
+    presentation = Presentation(str(result.artifact_path))
+
+    assert theme.typography.family == "Arial"
+    title_run = _first_run(_shape(presentation, "autooffice:key:s01.title.text").text_frame)
+    body_run = _first_run(_shape(presentation, "autooffice:key:s01.body.item1.text").text_frame)
+    table = _shape(presentation, "autooffice:table:s01.table1").table
+    header_run = _first_run(table.cell(0, 0).text_frame)
+    cell_run = _first_run(table.cell(1, 0).text_frame)
+    notes_run = _first_run(presentation.slides[0].notes_slide.notes_text_frame)
+
+    assert title_run.font.name == "Arial"
+    assert title_run.font.bold is True
+    assert body_run.font.name == "Arial"
+    assert body_run.font.bold is False
+    assert header_run.font.name == "Arial"
+    assert header_run.font.bold is True
+    assert cell_run.font.name == "Arial"
+    assert cell_run.font.bold is False
+    assert notes_run.font.name == "Arial"
+    assert not any("font-embedding" in warning for warning in result.warnings)
+
+    with ZipFile(result.artifact_path) as package:
+        names = package.namelist()
+        presentation_xml = ElementTree.fromstring(package.read("ppt/presentation.xml"))
+        theme_xml = ElementTree.fromstring(package.read("ppt/theme/theme1.xml"))
+        rels = ElementTree.fromstring(package.read("ppt/_rels/presentation.xml.rels"))
+
+    assert not any(name.startswith("ppt/fonts/") for name in names)
+    assert not any(name.lower().endswith(".fntdata") for name in names)
+    assert presentation_xml.find(f".//{{{_P_NS}}}embeddedFontLst") is None
+    latin = theme_xml.find(f".//{{{_A_NS}}}latin")
+    assert latin is not None
+    assert latin.get("typeface") == "Arial"
+    assert all("relationships/font" not in relationship.get("Type", "") for relationship in rels)
+
+
+def test_latin_typeface_is_arial_for_every_render_run(minimal_case, theme) -> None:
+    result = _render_minimal(minimal_case, theme)
+    presentation = Presentation(str(result.artifact_path))
+
+    text_runs = [
+        run
+        for shape in presentation.slides[0].shapes
+        if shape.has_text_frame
+        for paragraph in shape.text_frame.paragraphs
+        for run in paragraph.runs
+    ]
+
+    assert text_runs
+    assert {run.font.name for run in text_runs} == {"Arial"}
+    assert all(
+        run.font._element.find(qn("a:latin")).get("typeface") == "Arial" for run in text_runs
     )
-    assert all(path.is_file() for path in paths)
-    assert all(path.read_bytes()[:4] in {b"\x00\x01\x00\x00", b"OTTO"} for path in paths)
-    assert {path.name: sha256(path) for path in paths} == dict(FONT_HASHES)
-
-
-def test_font_files_accept_family_stack_with_plus_jakarta_primary(theme) -> None:
-    stacked = replace(
-        theme,
-        typography=replace(
-            theme.typography,
-            family="'Plus Jakarta Sans', 'Helvetica Neue', sans-serif",
-        ),
-    )
-
-    assert font_files_for_theme(stacked) == font_files_for_theme(theme)
-
-
-def test_font_files_reject_corrupted_byte_after_header(
-    theme,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = font_files_for_theme(theme)[0]
-    corrupted = bytearray(source.read_bytes())
-    corrupted[64] ^= 0xFF
-    path = tmp_path / source.name
-    path.write_bytes(corrupted)
-    monkeypatch.setattr(fonts, "font_path", lambda name: path)
-
-    with pytest.raises(PptxRenderError, match="hash SHA-256"):
-        font_files_for_theme(theme)
-
-
-def test_font_embedding_is_deferred_to_cli(minimal_case, theme) -> None:
-    artifact = _render_minimal(minimal_case, theme).artifact_path
-
-    result = embed_fonts(artifact, theme)
-
-    assert result.status == DEFERRED
-    assert result.blocker is None
-    assert result.warnings == (FONT_EMBEDDING_WARNING,)
-    assert "font-embedding" in result.warnings[0]
-    assert "PowerPoint COM" in result.warnings[0]
-
-
-def test_fresh_render_has_no_embedded_font_parts(minimal_case, theme) -> None:
-    artifact = _render_minimal(minimal_case, theme).artifact_path
-
-    assert embedded_fonts(artifact) == ()
-    presentation = Presentation(str(artifact))
-    assert "embeddedFontLst" not in presentation.part.blob.decode("utf-8")
-
-
-def test_font_embedding_rejects_theme_without_bundled_assets(theme) -> None:
-    wrong_theme = replace(
-        theme,
-        typography=replace(theme.typography, family="Font Tidak Dikenal"),
-    )
-
-    with pytest.raises(PptxRenderError, match="aset tertanam"):
-        font_files_for_theme(wrong_theme)
-
-
-def test_font_embedding_rejects_missing_artifact(theme, tmp_path: Path) -> None:
-    with pytest.raises(PptxRenderError, match="tidak ditemukan"):
-        embed_fonts(tmp_path / "missing.pptx", theme)

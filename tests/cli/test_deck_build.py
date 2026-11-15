@@ -1,11 +1,10 @@
-"""Tes build deck YAML: PPTX, PDF, dry-run, aset, dan transcript."""
+"""Tes build deck YAML: PPTX, Slides, dry-run, aset, dan transcript."""
 
 from pathlib import Path
 
 import pytest
 from pptx import Presentation
 
-import autooffice.pdf
 from autooffice.cli import CliError
 from autooffice.cli.build import build_deck
 from autooffice.cli.main import main
@@ -27,7 +26,7 @@ def test_build_pptx_writes_named_output_and_transcript(
         deck_path.parent / "transcripts.md"
     ).read_bytes()
     assert outcome.files == (out / "deck.pptx", out / "deck.transcript.md")
-    assert not any("font-embedding" in warning for warning in outcome.warnings)
+    assert outcome.warnings == ()
     assert "deck: Deck Uji Build" in outcome.notes
     assert "slide: 4" in outcome.notes
     assert "coverage: 24 key, 1 chart, 0 temuan" in outcome.notes
@@ -42,44 +41,20 @@ def test_build_pptx_writes_named_output_and_transcript(
     )
 
 
-def test_build_pptx_embeds_fonts_before_publish(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-    calls: list[Path] = []
+def test_build_pptx_rejects_pdf_target(deck_path: Path, tmp_path: Path) -> None:
+    with pytest.raises(CliError, match="target tidak valid") as error:
+        build_deck(deck_path, ("pdf",), tmp_path / "out")
 
-    def fake_embed(path: Path) -> Path:
-        assert Path(path).is_file()
-        assert Path(path).parent == deck_path.parent / ".autooffice-build" / deck_path.stem
-        calls.append(Path(path))
-        return Path(path)
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fake_embed)
-    outcome = build_deck(deck_path, ("pptx",), out)
-
-    assert len(calls) == 1
-    assert (out / "deck.pptx").is_file()
-    assert not any("font-embedding" in warning for warning in outcome.warnings)
+    assert error.value.code == "CLI-TARGET-INVALID"
+    assert error.value.exit_code == 2
 
 
-def test_build_pptx_font_embedding_failure_writes_no_final(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
+def test_build_pptx_rejects_all_target(deck_path: Path, tmp_path: Path) -> None:
+    with pytest.raises(CliError, match="target tidak valid") as error:
+        build_deck(deck_path, ("all",), tmp_path / "out")
 
-    def fail_embed(_path: Path) -> Path:
-        raise autooffice.pdf.PdfUnavailableError("PowerPoint tidak terpasang")
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fail_embed)
-    with pytest.raises(CliError, match="PowerPoint") as error:
-        build_deck(deck_path, ("pptx",), out)
-
-    assert error.value.code == "CLI-FONT-EMBED"
-    assert not (out / "deck.pptx").exists()
+    assert error.value.code == "CLI-TARGET-INVALID"
+    assert error.value.exit_code == 2
 
 
 def test_build_pptx_keep_intermediate_preserves_staged_assets(
@@ -110,14 +85,14 @@ def test_build_missing_asset_fails_with_slide_block_and_path(
     assert not out.exists()
 
 
-def test_build_dry_run_all_targets_writes_nothing(
+def test_build_dry_run_pptx_and_slides_writes_nothing(
     deck_path: Path,
     tmp_path: Path,
 ) -> None:
     out = tmp_path / "out"
     outcome = build_deck(
         deck_path,
-        ("pptx", "pdf", "slides"),
+        ("pptx", "slides"),
         out,
         dry_run=True,
         google_services=object(),
@@ -125,7 +100,6 @@ def test_build_dry_run_all_targets_writes_nothing(
 
     assert outcome.dry_run is True
     assert out / "deck.pptx" in outcome.files
-    assert out / "deck.pdf" in outcome.files
     assert out / "deck.transcript.md" in outcome.files
     assert _state_file(deck_path) in outcome.files
     assert out / "deck.slides-upload.pptx" not in outcome.files
@@ -133,97 +107,6 @@ def test_build_dry_run_all_targets_writes_nothing(
     assert not out.exists()
     assert not _state_file(deck_path).exists()
     assert not (deck_path.parent / ".autooffice-build").exists()
-
-
-def test_build_pdf_uses_pptx_intermediate_and_fake_export(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-    exported: list[Path] = []
-
-    def fake_export(pptx: Path, pdf: Path) -> Path:
-        exported.append(Path(pptx))
-        assert Path(pptx).read_bytes().startswith(b"PK")
-        Path(pdf).write_bytes(b"%PDF-1.7 fake\n")
-        return Path(pdf)
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fake_export)
-    outcome = build_deck(deck_path, ("pdf",), out)
-
-    assert (out / "deck.pdf").read_bytes() == b"%PDF-1.7 fake\n"
-    assert not (out / "deck.pptx").exists()
-    assert exported
-    assert exported[0].suffix == ".pptx"
-    assert outcome.files == (out / "deck.pdf", out / "deck.transcript.md")
-    assert not (out / ".autooffice-build" / deck_path.stem).exists()
-
-
-def test_build_pdf_embeds_fonts_before_powerpoint_export(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-    events: list[str] = []
-
-    def fake_embed(path: Path) -> Path:
-        events.append("embed")
-        return Path(path)
-
-    def fake_export(pptx: Path, pdf: Path) -> Path:
-        events.append("export")
-        assert Path(pptx).is_file()
-        Path(pdf).write_bytes(b"%PDF-1.7 fake\n")
-        return Path(pdf)
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fake_embed)
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fake_export)
-    build_deck(deck_path, ("pdf",), out)
-
-    assert events == ["embed", "export"]
-    assert (out / "deck.pdf").read_bytes() == b"%PDF-1.7 fake\n"
-
-
-def test_build_pdf_keep_intermediate_lists_and_keeps_pptx(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-
-    def fake_export(_pptx: Path, pdf: Path) -> Path:
-        Path(pdf).write_bytes(b"%PDF-1.7 fake\n")
-        return Path(pdf)
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fake_export)
-    outcome = build_deck(deck_path, ("pdf",), out, keep_intermediate=True)
-
-    intermediate = (
-        deck_path.parent / ".autooffice-build" / deck_path.stem / f"{deck_path.stem}.pptx"
-    )
-    assert intermediate.is_file()
-    assert intermediate in outcome.files
-
-
-def test_build_pdf_wraps_missing_powerpoint_as_cli_error(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    out = tmp_path / "out"
-
-    def fail_export(_pptx: Path, _pdf: Path) -> Path:
-        raise autooffice.pdf.PdfUnavailableError("PowerPoint tidak terpasang")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pptx_pdf", fail_export)
-    with pytest.raises(CliError, match="PowerPoint") as error:
-        build_deck(deck_path, ("pdf",), out)
-
-    assert error.value.code == "CLI-PDF-COM"
-    assert error.value.exit_code == 1
-    assert not (out / "deck.pdf").exists()
 
 
 def test_build_deck_copy_error_stops_before_render(

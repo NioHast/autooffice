@@ -4,6 +4,7 @@ Kontrak didefinisikan di ``[tool.importlinter]`` pada ``pyproject.toml`` dan
 diperiksa lewat entry point ``lint-imports`` dari dependency dev.
 """
 
+import importlib.util
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,6 +12,17 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_pdf_module_is_removed() -> None:
+    """The PDF/COM adapter package must not exist in the distribution."""
+    assert importlib.util.find_spec("autooffice.pdf") is None
+
+
+def test_import_contracts_have_no_pdf_module() -> None:
+    """Import-linter contracts no longer reference the removed PDF adapter."""
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "autooffice.pdf" not in pyproject
 
 
 @pytest.mark.integration

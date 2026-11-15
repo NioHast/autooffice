@@ -12,6 +12,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
     "lxml==6.1.3",
+    "pillow==13.0.0",
     "python-pptx==1.0.2",
     "ruamel.yaml==0.19.1",
 ]
@@ -19,7 +20,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest==9.2.0",
-    "pypdf==7.0.0",
     "python-docx==1.2.0",
     "mypy==2.4.1",
     "ruff==0.17.4",
@@ -31,9 +31,6 @@ dev = [
 google = [
     "google-api-python-client==2.202.0",
     "google-auth-oauthlib==1.5.0",
-]
-windows = [
-    'pywin32==312; sys_platform == "win32"',
 ]
 
 [project.scripts]
@@ -121,108 +118,99 @@ warn_unreachable = true
 root_packages = ["autooffice"]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.design tidak boleh mengimpor domain deck, docx, google, pdf, atau CLI"
+name = "autooffice.design tidak boleh mengimpor domain deck, docx, google, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.design"]
 forbidden_modules = [
     "autooffice.deck",
     "autooffice.docx",
     "autooffice.google",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.common tidak boleh mengimpor domain deck, docx, google, pdf, atau CLI"
+name = "autooffice.common tidak boleh mengimpor domain deck, docx, google, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.common"]
 forbidden_modules = [
     "autooffice.deck",
     "autooffice.docx",
     "autooffice.google",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.model tidak boleh mengimpor renderer, google, docx, pdf, atau CLI"
+name = "autooffice.deck.model tidak boleh mengimpor renderer, google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.model"]
 forbidden_modules = [
     "autooffice.deck.render",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.layout tidak boleh mengimpor renderer, google, docx, pdf, atau CLI"
+name = "autooffice.deck.layout tidak boleh mengimpor renderer, google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.layout"]
 forbidden_modules = [
     "autooffice.deck.render",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.render.pptx tidak boleh mengimpor google, docx, pdf, atau CLI"
+name = "autooffice.deck.render.pptx tidak boleh mengimpor google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.render.pptx"]
 forbidden_modules = [
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.charts tidak boleh mengimpor renderer, google, docx, pdf, atau CLI"
+name = "autooffice.deck.charts tidak boleh mengimpor renderer, google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.charts"]
 forbidden_modules = [
     "autooffice.deck.render",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.copy tidak boleh mengimpor renderer, google, docx, pdf, atau CLI"
+name = "autooffice.deck.copy tidak boleh mengimpor renderer, google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.copy"]
 forbidden_modules = [
     "autooffice.deck.render",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.deck.transcript tidak boleh mengimpor renderer, google, docx, pdf, atau CLI"
+name = "autooffice.deck.transcript tidak boleh mengimpor renderer, google, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.deck.transcript"]
 forbidden_modules = [
     "autooffice.deck.render",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.google tidak boleh mengimpor renderer PPTX, docx, pdf, atau CLI"
+name = "autooffice.google tidak boleh mengimpor renderer PPTX, docx, atau CLI"
 type = "forbidden"
 source_modules = ["autooffice.google"]
 forbidden_modules = [
     "autooffice.deck.render.pptx",
     "autooffice.docx",
-    "autooffice.pdf",
     "autooffice.cli",
 ]
 
@@ -237,16 +225,6 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "autooffice.pdf tidak boleh mengimpor google, renderer PPTX, atau CLI"
-type = "forbidden"
-source_modules = ["autooffice.pdf"]
-forbidden_modules = [
-    "autooffice.google",
-    "autooffice.deck.render.pptx",
-    "autooffice.cli",
-]
-
-[[tool.importlinter.contracts]]
 name = "domain AutoOffice tidak boleh mengimpor CLI"
 type = "forbidden"
 source_modules = [
@@ -255,6 +233,5 @@ source_modules = [
     "autooffice.deck",
     "autooffice.google",
     "autooffice.docx",
-    "autooffice.pdf",
 ]
 forbidden_modules = ["autooffice.cli"]

@@ -19,22 +19,24 @@ nama satu flag, lokasi kode, dan dokumentasi.
 4. Hanya ada satu `DocumentPackage.load()` dan satu `DocumentPackage.save()`
    untuk dokumen target. Part non-target harus byte-identik setelah
    normalisasi timestamp dan metadata.
-5. Stage finalisasi Word tetap menghasilkan TOC, daftar, caption, tabel,
-   code, equation, numbering, dan page number seperti baseline DOCX.
+5. Stage finalisasi menghasilkan TOC, daftar, caption, tabel, code,
+   equation, numbering, dan page number seperti baseline DOCX. Field native
+   ditulis beserta instruksinya, tetapi hasil field tidak diisi otomatis.
 6. Manifest Adeu tetap deterministik di `.laporan/manifest.json` dan bookmark
    tetap `pNNNN`.
 7. `report_name` wajib dan aman sebagai nama berkas. Output default:
-   `<report_name>.docx` dan `<report_name>.pdf`; contoh di
-   `examples/<name>/document.md` memakai `examples/<name>/out/`.
+   `<report_name>.docx`; contoh di `examples/<name>/document.md` memakai
+   `examples/<name>/out/`.
 8. `--terms` menjalankan check, apply, verify, dan gate istilah seperti
    baseline DOCX. Output istilah baru berada di `.laporan/istilah-baru.txt`.
    `--terms` hanya berlaku untuk `.md`, bukan `.yaml`.
-9. DOCX tidak memakai design system deck, tidak memakai Plus Jakarta Sans,
+9. DOCX tidak memakai design system deck, tidak memakai font theme deck,
    dan tidak menjalankan copy checker atau humanizer.
 10. Flag lama DOCX tidak dipertahankan. Opsi workspace lama diganti
     `--keep-intermediate`; tidak ada alias untuk flag lama.
-11. PDF DOCX memakai Word COM di Windows. File input tidak boleh diubah dan
-    Word harus menutup dokumen serta prosesnya.
+11. DOCX tidak memakai COM, Word, `pywin32`, atau dependensi Windows-only.
+    Field dan TOC tidak diperbarui otomatis; pengguna membuka DOCX di Word,
+    menekan Ctrl+A lalu F9, sebelum review atau ekspor PDF.
 
 ## API `build_docx`
 
@@ -60,11 +62,7 @@ def build_docx(
 Output yang berada di dalam `.laporan-build/` hanya diizinkan bila
 `keep_intermediate=True`. Tanpa keep, pipeline menolak dengan
 `OutputError("OUTPUT-WORKSPACE")` karena workspace dibersihkan di blok
-`finally`. Jalur CLI `--target pdf` tanpa `docx` memakai intermediate DOCX di
-dalam `.laporan-build/`, mengonversinya ke PDF, lalu membersihkan workspace
-setelah konversi selesai; `--keep-intermediate` menahan pembersihan tersebut.
-DOCX final yang sudah ada di direktori output tidak ditimpa oleh jalur
-PDF-only ini.
+`finally`. Tidak ada jalur PDF-only atau intermediate DOCX untuk konversi PDF.
 
 Pemanggil CLI tidak boleh mengimpor modul internal DOCX. `cli` boleh
 memanggil `build_docx`; `docx` tidak boleh mengimpor `deck`, `google`, atau

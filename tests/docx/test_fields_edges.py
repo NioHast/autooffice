@@ -1,8 +1,7 @@
-"""Tes edge case parser, builder, dan settings field WordprocessingML."""
+"""Tes edge case parser dan builder field WordprocessingML."""
 
 import zipfile
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from lxml import etree
@@ -33,8 +32,6 @@ from autooffice.docx.package.fields import (
     iter_field_markers,
     iter_field_runs,
     iter_fields_in_root,
-    strip_update_fields,
-    update_fields_enabled,
 )
 from autooffice.docx.package.package import (
     CONTENT_TYPES_PART,
@@ -549,67 +546,3 @@ def test_ensure_no_blank_page_after_toc_skips_sdt_without_toc_gallery(
     package = DocumentPackage.load(path)
 
     assert ensure_no_blank_page_after_toc(package) == 0
-
-
-# ---------------------------------------------------------------------------
-# Settings updateFields
-# ---------------------------------------------------------------------------
-
-
-class _SettingsPackage:
-    def __init__(self, root: etree._Element | None) -> None:
-        self.root = root
-
-    def has_part(self, name: str) -> bool:
-        return name == fields_module.SETTINGS_PART and self.root is not None
-
-    def xml(self, name: str) -> etree._Element:
-        assert name == fields_module.SETTINGS_PART
-        assert self.root is not None
-        return self.root
-
-
-def _settings(inner: str) -> etree._Element:
-    return etree.fromstring(f'<w:settings xmlns:w="{W_NS}">{inner}</w:settings>')
-
-
-def test_update_fields_enabled_and_strip_with_missing_settings() -> None:
-    package = _SettingsPackage(None)
-
-    assert update_fields_enabled(package) is False
-    assert strip_update_fields(package) is False
-
-
-def test_update_fields_enabled_reads_val_and_strip_removes_all() -> None:
-    package = _SettingsPackage(_settings("<w:updateFields/>"))
-
-    assert update_fields_enabled(package) is True
-    assert strip_update_fields(package) is True
-    assert strip_update_fields(package) is False
-    assert update_fields_enabled(package) is False
-
-
-@pytest.mark.parametrize("value", ["0", "false", "OFF", "no"])
-def test_update_fields_enabled_rejects_false_values(value: str) -> None:
-    package = _SettingsPackage(_settings(f'<w:updateFields w:val="{value}"/>'))
-
-    assert update_fields_enabled(package) is False
-
-
-def test_update_fields_enabled_defaults_true_without_val() -> None:
-    package = _SettingsPackage(_settings("<w:updateFields/>"))
-
-    assert update_fields_enabled(package) is True
-
-
-def test_settings_without_update_fields_is_disabled() -> None:
-    package = _SettingsPackage(_settings("<w:zoom/>"))
-
-    assert update_fields_enabled(package) is False
-    assert strip_update_fields(package) is False
-
-
-def test_simple_namespace_field_package_is_not_required_for_settings() -> None:
-    package = SimpleNamespace(has_part=lambda name: False, xml=lambda name: None)
-
-    assert update_fields_enabled(package) is False

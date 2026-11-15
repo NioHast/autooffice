@@ -102,7 +102,7 @@ def test_theme_resolves_geometry_typography_and_code_tokens() -> None:
     theme = resolve_theme("indigo")
 
     assert theme.typography == Typography(
-        family="Plus Jakarta Sans",
+        family="Arial",
         weights=(400, 600, 700, 800),
         title_pt=30.0,
         body_pt=16.5,

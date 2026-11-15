@@ -1,6 +1,15 @@
 # AutoOffice: Rencana Refactor
 
-> Status: draft source of truth.
+> **Superseded: dokumen ini historis.** Rencana ini bukan sumber aktif.
+> Implementasi mengikuti keputusan di
+> [`docs/decisions/README.md`](docs/decisions/README.md), terutama
+> [ADR 0013](docs/decisions/0013-remove-pdf-arial.md). Semua referensi
+> di dalam dokumen ini ke PDF, COM, `pywin32`, Plus Jakarta Sans,
+> embedding/instalasi font, dan target `all` sudah tidak berlaku. Jangan
+> memakai plan ini sebagai acuan implementasi baru atau untuk mengembalikan
+> fitur yang sudah dihapus.
+
+> Status: historis; bukan sumber aktif. Lihat banner superseded di atas.
 > Versi: 1.0-draft.
 > Tanggal: 2026-11-14.
 > Lokasi awal: `C:\dev\apps\docgen\AUTO_OFFICE_PLAN.md`.

@@ -30,12 +30,9 @@ def test_build_deck_dry_run_does_not_create_output(
 ) -> None:
     _patch_deck_dependencies(monkeypatch)
     out = tmp_path / "out"
-    outcome = build_deck(FIXTURE, ("pptx", "pdf"), out, dry_run=True)
+    outcome = build_deck(FIXTURE, ("pptx",), out, dry_run=True)
     assert outcome.dry_run is True
-    assert outcome.files == (
-        out / "minimal.pptx",
-        out / "minimal.pdf",
-    )
+    assert outcome.files == (out / "minimal.pptx",)
     assert not out.exists()
 
 

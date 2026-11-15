@@ -1,7 +1,8 @@
 # Quickstart
 
 Panduan singkat dari naskah kosong sampai DOCX, lalu dari `deck.yaml` sampai
-PPTX/PDF/Slides. Semua perintah `autooffice` dijalankan dari akar repo:
+PPTX/Slides. PDF diekspor manual dari Word atau PowerPoint setelah review.
+Semua perintah `autooffice` dijalankan dari akar repo:
 
 ```bash
 uv run autooffice <perintah> ...
@@ -115,14 +116,9 @@ Bangun DOCX:
 uv run autooffice build document.md --target docx
 ```
 
-Di Windows dengan Microsoft Word terpasang, bangun DOCX dan PDF:
-
-```bash
-uv run autooffice build document.md --target docx,pdf
-```
-
-Di Debian atau lingkungan tanpa Word, gunakan `--target docx`. Target `pdf`
-memerlukan Word COM dan tidak memiliki fallback diam-diam.
+DOCX memakai field native Word. AutoOffice tidak mengisi hasil field. Sebelum
+review atau ekspor PDF, buka DOCX di Word, tekan Ctrl+A lalu F9. Untuk daftar
+isi, pengguna juga dapat memakai References > Update Table.
 
 Tambahkan `--keep-intermediate` bila workspace `.laporan-build/` perlu
 diperiksa setelah build. Tambahkan `--terms` bila ingin mengaktifkan gate
@@ -137,15 +133,16 @@ tugas/
 |-- document.md
 |-- references.bib
 |-- Tugas.docx
-|-- Tugas.pdf            # hanya Windows dengan Word
 |-- .laporan/
 |   `-- manifest.json
 `-- .laporan-build/      # hanya dengan --keep-intermediate
 ```
 
 Nama berkas mengikuti `report_name` yang wajib di front matter. Tidak ada nama
-default, dan DOCX serta PDF memakai stem yang sama. Manifest berisi bookmark
-`pNNNN` untuk penelusuran edit Word.
+default. Manifest berisi bookmark `pNNNN` untuk penelusuran edit Word.
+
+PDF tidak ditulis oleh build. Setelah DOCX direview dan field diperbarui,
+ekspor PDF manual dari Word; lihat [pdf-export.md](pdf-export.md).
 
 ## 7. Quickstart deck
 
@@ -166,32 +163,28 @@ Periksa sumber tanpa menulis output:
 uv run autooffice check deck-saya/deck.yaml
 ```
 
-`check` berjalan di Linux, macOS, dan Windows. Final `pptx` dan `pdf`
-memerlukan Windows dengan Microsoft PowerPoint desktop dan `pywin32`
-(`uv sync --extra windows`). Final `pptx` menanam font Plus Jakarta Sans lewat
-PowerPoint COM; pasang font per-user lebih dulu:
+`check` berjalan di Linux, macOS, dan Windows. Build `pptx` juga berjalan di
+semua platform tanpa Office, COM, atau `pywin32`. PPTX memakai Arial tanpa
+embedding font; layout diukur dengan Liberation Sans yang metrik-kompatibel
+Arial.
 
-```bash
-python tools/install_fonts.py
-```
-
-Di Windows, bangun PPTX, lalu PPTX dan PDF:
+Bangun PPTX:
 
 ```bash
 uv run autooffice build deck-saya/deck.yaml --target pptx
-uv run autooffice build deck-saya/deck.yaml --target pptx,pdf
 ```
 
-Di Linux/macOS, `check` tetap berjalan dan DOCX dari Markdown dapat dibangun,
-tetapi final PPTX/PDF tidak tersedia karena penanaman font dan ekspor memakai
-Office COM.
-
 Sinkronkan ke Google Slides setelah `uv sync --extra google` dan kredensial
-OAuth siap:
+OAuth siap. Tutorial OAuth ada di [google-oauth.md](google-oauth.md):
 
 ```bash
 uv run autooffice build deck-saya/deck.yaml --target slides
 ```
+
+PDF diekspor manual dari PowerPoint setelah PPTX direview; lihat
+[pdf-export.md](pdf-export.md). Di Android, Linux, atau lingkungan tanpa
+Arial, aplikasi dapat mengganti Arial dengan Liberation Sans atau font
+substitusi lain, sehingga bentuk glyph dapat berbeda.
 
 Rincian authoring ada di [deck-authoring.md](deck-authoring.md), target dan
 flag di [CLI AutoOffice](cli.md), dan konsep pipeline di

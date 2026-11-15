@@ -19,20 +19,17 @@ uv run --project <repo> pytest tests/cli tests/docx
 
 ```bash
 uv run --project <repo> pytest tests/cli tests/docx
-uv run --project <repo> pytest -m "not integration and not packaging and not word and not windows and not slow"
+uv run --project <repo> pytest -m "not integration and not packaging and not slow"
 uv run --project <repo> pytest
 ```
 
 Suite AutoOffice berada di `tests/cli`, `tests/contract`, `tests/deck`,
-`tests/design`, `tests/docx`, `tests/google`, `tests/pdf`,
-`tests/performance`, `tests/property`, `tests/tools`, dan `tests/visual`.
-Tes yang membutuhkan Word atau Windows memakai marker `word` atau `windows`.
-Tes PDF memakai fake COM di suite offline; smoke Word/PowerPoint nyata hanya
-dijalankan pada gate final di Windows. Di Linux, jalankan subset non-Windows
-dan jangan mengklaim PDF lulus.
+`tests/design`, `tests/docx`, `tests/google`, `tests/performance`,
+`tests/property`, dan `tests/tools`. Tidak ada tes Word, PowerPoint, COM, atau
+PDF. Suite berjalan di Windows, Linux, dan macOS.
 
 Jalankan tes CLI dan DOCX lebih dulu untuk perubahan yang menyentuh kedua area
-tersebut. Jangan menambahkan build DOCX (Word) ke tes domain.
+tersebut.
 
 ## Aturan kode
 
@@ -68,9 +65,9 @@ tersebut. Jangan menambahkan build DOCX (Word) ke tes domain.
 - Jangan memakai em dash atau en dash.
 - Tautan internal harus relatif dan menunjuk berkas yang ada.
 - Jangan mengklaim fitur yang belum ada. TOC (table of contents) dan daftar
-  DOCX memakai field native; daftar tabel/gambar memakai hybrid `SEQ`. PDF
-  DOCX memakai Word di Windows; PDF dan font presentasi PowerPoint (PPTX)
-  memakai PowerPoint di Windows.
+  DOCX memakai field native yang tidak diisi otomatis; daftar tabel/gambar
+  memakai hybrid `SEQ`. AutoOffice tidak memakai COM dan tidak membangun PDF.
+  PDF diekspor manual dari Word atau PowerPoint.
 - Dokumentasi pengguna ada di `docs/user/`; detail implementasi di
   `docs/dev/`. Jangan menduplikasi isi yang sama di dua tempat.
 

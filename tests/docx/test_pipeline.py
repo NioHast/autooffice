@@ -52,10 +52,7 @@ def test_canonical_specs_requires_is_prefix() -> None:
             "word/_rels/document.xml.rels",
             "[Content_Types].xml",
         }
-        if spec.name in {StageName.OFFICE, StageName.PDF}:
-            assert spec.idempotent is False
-        else:
-            assert spec.idempotent is True
+        assert spec.idempotent is True
 
 
 def test_canonical_orders_unique_and_increasing() -> None:
@@ -65,7 +62,7 @@ def test_canonical_orders_unique_and_increasing() -> None:
     by_name = {spec.name: spec.order for spec in CANONICAL_STAGES}
     assert by_name[StageName.FRONT_MATTER] == 35
     assert by_name[StageName.PANDOC] == 40
-    assert by_name[StageName.PDF] == 170
+    assert by_name[CANONICAL_ORDER[-1]] == CANONICAL_STAGES[-1].order
 
 
 def test_validate_stage_order_rejects_swapped_order() -> None:
@@ -141,11 +138,6 @@ def test_adeu_options_maps_flags() -> None:
         False,
         False,
     )
-
-
-def test_build_options_rejects_unknown_target() -> None:
-    with pytest.raises(ValueError, match="target tidak dikenal: 'rtf'"):
-        BuildOptions(target="rtf")  # type: ignore[arg-type]
 
 
 def test_output_directory_example_and_user(tmp_path: Path) -> None:

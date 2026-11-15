@@ -1,9 +1,11 @@
 """Test pengukuran teks dan block memakai metrik font bundle."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
+import autooffice.deck.layout.measure as measure
 from autooffice.deck.layout.measure import (
     MeasurementError,
     TextMeasurement,
@@ -12,9 +14,35 @@ from autooffice.deck.layout.measure import (
     measure_text,
 )
 from autooffice.deck.model.deck_ir import BlockIR
+from autooffice.design.fonts import FONT_DIR
 from autooffice.design.theme import Theme
 
 WIDTH = 2_000_000
+
+
+def test_font_weight_mapping_uses_packaged_liberation_sans() -> None:
+    regular = measure._font_file_for_weight(400)
+    bold = measure._font_file_for_weight(700)
+
+    assert regular == "LiberationSans-Regular.ttf"
+    assert bold == "LiberationSans-Bold.ttf"
+    assert measure.font_path(regular) == FONT_DIR / regular
+    assert measure.font_path(bold) == FONT_DIR / bold
+    assert measure._load_font(regular).path == str(FONT_DIR / regular)
+    assert measure._load_font(bold).path == str(FONT_DIR / bold)
+
+
+def test_missing_packaged_font_raises_instead_of_falling_back(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("autooffice.design.fonts.FONT_DIR", tmp_path / "absent")
+    measure._load_font.cache_clear()
+    try:
+        with pytest.raises(OSError, match="cannot open resource"):
+            measure._load_font("LiberationSans-Regular.ttf")
+    finally:
+        measure._load_font.cache_clear()
 
 
 def test_text_measurement_uses_theme_line_height(theme: Theme) -> None:
@@ -260,8 +288,6 @@ def test_text_role_matches_renderer_size_and_weight(
     [
         ("body", "lead"),
         ("caption", "label"),
-        ("label", "kicker"),
-        ("title", "display"),
     ],
 )
 def test_role_weight_affects_measured_width(
@@ -287,6 +313,37 @@ def test_role_weight_affects_measured_width(
     heavier_measurement = measure_block(heavier, width_emu=WIDTH, theme=theme)
 
     assert heavier_measurement.width_emu > lighter_measurement.width_emu
+
+
+@pytest.mark.parametrize(
+    ("lighter_role", "heavier_role"),
+    [
+        ("label", "kicker"),
+        ("title", "display"),
+    ],
+)
+def test_bold_role_weights_share_arial_bold_metrics(
+    block_factory: Callable[..., BlockIR],
+    theme: Theme,
+    lighter_role: str,
+    heavier_role: str,
+) -> None:
+    lighter = block_factory(
+        "lighter",
+        "text",
+        fields={"text": "Halo dunia"},
+        role=lighter_role,
+    )
+    heavier = block_factory(
+        "heavier",
+        "text",
+        fields={"text": "Halo dunia"},
+        role=heavier_role,
+    )
+
+    assert measure_block(lighter, width_emu=WIDTH, theme=theme) == measure_block(
+        heavier, width_emu=WIDTH, theme=theme
+    )
 
 
 def test_code_filename_height_includes_gap(
@@ -401,7 +458,7 @@ def test_table_emphasis_column_uses_emphasized_weights(
 
     header_emphasis = measure(header, 700)
     body_emphasis = measure(body, 600)
-    assert header_emphasis.line_count > measure(header, 600).line_count
+    assert header_emphasis.line_count == measure(header, 600).line_count
     assert body_emphasis.line_count > measure(body, 400).line_count
     caption_measurement = measure_text(
         caption,

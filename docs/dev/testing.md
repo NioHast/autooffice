@@ -26,9 +26,10 @@ uv run python tools/quality/gate.py
 
 `gate.py` menjalankan ruff format, ruff check, mypy, lint-imports, pytest,
 lock check (`uv lock --check`), docs checker, test-quality checker,
-no-legacy checker, dan Python style checker. Gate berhenti pada kegagalan
-pertama, menulis `[gate] GAGAL: <nama>`, dan keluar dengan kode perintah
-tersebut. Gate tidak memakai Microsoft Word dan tidak mengubah berkas.
+no-legacy checker, removed-features checker, Python style checker, identifier
+checker, dan source-style checker. Gate berhenti pada kegagalan pertama,
+menulis `[gate] GAGAL: <nama>`, dan keluar dengan kode perintah tersebut.
+Gate tidak memakai Microsoft Word dan tidak mengubah berkas.
 
 Langkah `lint-imports` memeriksa kontrak import di `[tool.importlinter]` pada
 `pyproject.toml`. Untuk membaca temuan test-quality secara manual, jalankan
@@ -41,8 +42,6 @@ Langkah `lint-imports` memeriksa kontrak import di `[tool.importlinter]` pada
 | Artefak | Path | Status |
 |---|---|---|
 | DOCX baseline | `tests/fixtures/golden/laporan-baseline.docx` | disimpan di repo |
-| PDF baseline | `tests/fixtures/golden/laporan-baseline.pdf` | **tidak disimpan** (456 KiB) |
-| Invariant PDF | `tests/fixtures/golden/pdf-baseline.json` | disimpan di repo |
 | Golden part DOCX minimal | `tests/fixtures/golden/docx/minimal/baseline.json` | disimpan di repo |
 
 `laporan-baseline.docx` adalah salinan `Laporan.docx` baseline. Metadata
@@ -56,9 +55,10 @@ pribadi di `docProps/core.xml` sudah diganti placeholder:
 88.020 byte dengan SHA-256
 `f0d96979ea43a6a7d5c9f7ea8e69a18e667209c1e3cc7d1cfb19db9b9e5049f0`.
 
-PDF baseline hanya dicatat invariant-nya. Untuk perbandingan PDF lokal di
-Windows, salin `Laporan.pdf` ke `tests/fixtures/golden/laporan-baseline.pdf`;
-jangan commit file tersebut.
+Baseline DOCX berasal dari output yang sudah difinalkan Word pada pipeline
+lama. Pipeline AutoOffice sekarang tidak memakai Word, sehingga DOCX hasil
+build baru dapat memiliki field yang belum terisi. Invariant di bawah menguji
+struktur field dan part, bukan hasil field yang sudah dihitung.
 
 ### Invariant DOCX
 
@@ -80,20 +80,6 @@ jangan commit file tersebut.
   `nil`/`none`).
 - Tidak ada placeholder `{{` atau `}}` di part XML/RELS mana pun.
 
-### Invariant PDF
-
-- Jumlah halaman: **26**.
-- Ukuran halaman: **595,5 x 842,25 pt** (A4).
-- Teks kunci yang harus tetap ada:
-  - `OTOMATISASI PEMBUATAN DOKUMEN LAPORAN`
-  - `MENGGUNAKAN PANDOC, TYPST, DAN MARKDOWN`
-  - `KATA PENGANTAR`, `DAFTAR ISI`
-  - `BAB I`, `PENDAHULUAN`, `BAB V`, `PENUTUP`
-  - `DAFTAR PUSTAKA`
-- TOC PDF berisi 44 entri dengan nomor halaman yang sama seperti DOCX,
-  termasuk `2.6.1` halaman 9, `3.2.3` halaman 13, dan `DAFTAR PUSTAKA`
-  halaman 22.
-
 ## Menjalankan tes golden
 
 Dari root repo:
@@ -110,11 +96,8 @@ Perilaku tes:
 - `test_toc.py`, `test_sections.py`, dan `test_page_numbers.py` membaca
   `tests/fixtures/golden/laporan-baseline.docx` dan memeriksa invariant field,
   section, serta penomoran halaman.
-- `tests/docx/test_pdf.py` menguji stage PDF dan pemetaan error dengan fake COM.
-  Perbandingan PDF nyata hanya smoke Windows pada gate final; suite offline
-  tidak mengklaim PDF lulus.
-- `pytest.ini` mendaftarkan marker `unit`, `integration`, `packaging`,
-  `word`, `windows`, dan `slow` dengan `--strict-markers`.
+- `pytest.ini` mendaftarkan marker `unit`, `integration`, `packaging`, dan
+  `slow` dengan `--strict-markers`. Tidak ada marker Word atau Windows.
 
 ## Fixture dan fake
 
@@ -126,11 +109,10 @@ Fixture dibagi menurut suite dan tetap deterministik serta offline:
 | `tests/cli/conftest.py` | Deck contoh, fake Google, dan aset CLI. |
 | `tests/_helpers/paths.py` | Path repo yang tidak bergantung cwd. |
 | `autooffice.google.fake` | Fake Google Services tanpa transport HTTP. |
-| `tests/pdf/` | Fake COM, fake process control, dan snapshot. |
 
 Aturan yang ditegakkan checker dan review:
 
-- tidak ada network, `time.sleep`, atau panggilan COM/Google live di unit test;
+- tidak ada network atau panggilan Google live di unit test;
 - setiap test punya assertion perilaku, bukan `assert True`;
 - penulisan berkas hanya di `tmp_path` atau fixture turunannya;
 - golden membandingkan part yang sudah dinormalisasi, bukan binary mentah.

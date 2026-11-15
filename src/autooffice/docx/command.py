@@ -44,7 +44,6 @@ def build_docx(
     document_path = Path(input).expanduser()
     output_dir = Path(out).expanduser() if out is not None else None
     options = BuildOptions(
-        target="docx",
         keep=keep_intermediate,
         terms=terms,
     )

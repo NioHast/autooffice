@@ -1,4 +1,4 @@
-"""Tes acceptance demo deck: build PPTX/PDF nyata dengan font tertanam."""
+"""Tes acceptance demo deck: build PPTX nyata dengan font Arial tanpa embedding."""
 
 import os
 import shutil
@@ -10,9 +10,6 @@ from zipfile import ZipFile
 
 import pytest
 from pptx import Presentation
-from pypdf import PdfReader
-
-from autooffice.cli.doctor import doctor_report
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
@@ -22,23 +19,14 @@ EXPECTED_SLIDES = 24
 BUILD_TIMEOUT_S = 900
 _ANIMATION_TAGS = frozenset({"timing", "transition"})
 _PRESENTATIONML_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+_REMOVED_FONT_MARKERS = ("plus jakarta sans", "plusjakartasans")
+_ALLOWED_TYPEFACES = frozenset({"Arial", "Cascadia Mono"})
 
 
 def _skip_reason() -> str | None:
-    """Alasan skip bila prasyarat COM/font demo deck tidak tersedia."""
-    if sys.platform != "win32":
-        return (
-            "demo deck acceptance membutuhkan Windows, Microsoft PowerPoint, "
-            f"dan font Plus Jakarta Sans; platform saat ini {sys.platform!r}"
-        )
-    checks = {check.name: check for check in doctor_report(("pptx", "pdf")).checks}
-    missing = [
-        f"{name}: {checks[name].detail}"
-        for name in ("powerpoint", "pywin32", "font-assets", "fonts")
-        if not checks[name].ok
-    ]
-    if missing:
-        return "prasyarat build demo deck tidak tersedia: " + "; ".join(missing)
+    """Alasan skip bila prasyarat eksternal build demo deck tidak tersedia."""
+    if shutil.which("mmdc") is None:
+        return "demo deck acceptance membutuhkan mmdc untuk blok diagram Mermaid"
     return None
 
 
@@ -53,7 +41,7 @@ def _copy_demo_deck(destination: Path) -> Path:
 
 
 def _run_build(deck_path: Path, out: Path) -> None:
-    """Jalankan CLI build nyata untuk target pptx,pdf di direktori sementara."""
+    """Jalankan CLI build nyata untuk target pptx di direktori sementara."""
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(REPO_ROOT / "src")
     completed = subprocess.run(
@@ -64,7 +52,7 @@ def _run_build(deck_path: Path, out: Path) -> None:
             "build",
             str(deck_path),
             "--target",
-            "pptx,pdf",
+            "pptx",
             "--out",
             str(out),
         ],
@@ -85,35 +73,58 @@ def _run_build(deck_path: Path, out: Path) -> None:
     )
 
 
+def _xml_parts(package: ZipFile) -> tuple[str, ...]:
+    return tuple(name for name in package.namelist() if name.lower().endswith(".xml"))
+
+
+def _renderer_text_parts(package: ZipFile) -> tuple[str, ...]:
+    prefixes = ("ppt/slides/", "ppt/charts/", "ppt/notesSlides/")
+    return tuple(
+        name
+        for name in package.namelist()
+        if name.lower().endswith(".xml") and name.startswith(prefixes)
+    )
+
+
+def _typefaces(package: ZipFile) -> set[str]:
+    """Kumpulkan seluruh typeface eksplisit yang ditulis renderer."""
+    values: set[str] = set()
+    for name in _renderer_text_parts(package):
+        root = ElementTree.fromstring(package.read(name))
+        for element in root.iter():
+            typeface = element.get("typeface")
+            if typeface:
+                values.add(typeface)
+    return values
+
+
 def _assert_pptx(pptx: Path) -> None:
-    """PPTX dapat dibuka, 24 slide, font tertanam, dan tanpa animasi/transisi."""
+    """PPTX berisi 24 slide, font Arial, tanpa font tertanam dan animasi."""
     assert len(Presentation(str(pptx)).slides) == EXPECTED_SLIDES
 
     with ZipFile(pptx) as package:
         names = package.namelist()
-        font_parts = [
-            name
-            for name in names
-            if name.startswith("ppt/fonts/") and name.lower().endswith(".fntdata")
-        ]
-        assert font_parts, "PPTX tidak memuat part ppt/fonts/*.fntdata"
-        empty_parts = [name for name in font_parts if package.getinfo(name).file_size == 0]
-        assert not empty_parts, "part fntdata kosong: " + ", ".join(empty_parts)
+
+        assert not [
+            name for name in names if name.startswith("ppt/fonts/") and name.endswith(".fntdata")
+        ], "PPTX tidak boleh memuat part ppt/fonts/*.fntdata"
 
         presentation = ElementTree.fromstring(package.read("ppt/presentation.xml"))
-        embedded = presentation.find(f".//{{{_PRESENTATIONML_NS}}}embeddedFontLst")
-        assert embedded is not None, "presentation.xml tidak memuat p:embeddedFontLst"
-        typefaces = {
-            font.get("typeface") for font in embedded.iter(f"{{{_PRESENTATIONML_NS}}}font")
-        }
-        assert "Plus Jakarta Sans" in typefaces, (
-            "font tertanam tidak memuat Plus Jakarta Sans: " + ", ".join(sorted(typefaces))
+        assert presentation.find(f".//{{{_PRESENTATIONML_NS}}}embeddedFontLst") is None, (
+            "presentation.xml tidak boleh memuat p:embeddedFontLst"
         )
 
+        typefaces = _typefaces(package)
+        concrete = {value for value in typefaces if not value.startswith("+")}
+        assert "Arial" in concrete, "PPTX tidak memakai font Arial: " + ", ".join(sorted(typefaces))
+        assert concrete <= _ALLOWED_TYPEFACES, (
+            "typeface di luar Arial/code ditemukan: " + ", ".join(sorted(concrete))
+        )
+        assert not any(
+            marker in value.casefold() for value in typefaces for marker in _REMOVED_FONT_MARKERS
+        ), "PPTX masih memuat Plus Jakarta Sans"
         offenders: list[str] = []
-        for name in names:
-            if not name.lower().endswith(".xml"):
-                continue
+        for name in _xml_parts(package):
             root = ElementTree.fromstring(package.read(name))
             for element in root.iter():
                 local_name = element.tag.rsplit("}", 1)[-1]
@@ -122,16 +133,8 @@ def _assert_pptx(pptx: Path) -> None:
         assert not offenders, "PPTX memuat timing/transition: " + ", ".join(offenders)
 
 
-def _assert_pdf(pdf: Path) -> None:
-    """PDF diawali magic %PDF- dan berisi 24 halaman."""
-    assert pdf.read_bytes().startswith(b"%PDF-")
-    assert len(PdfReader(str(pdf)).pages) == EXPECTED_SLIDES
-
-
-def test_demo_deck_builds_pptx_pdf_with_embedded_fonts_and_transcript(
-    tmp_path: Path,
-) -> None:
-    """Build demo deck nyata lalu verifikasi PPTX, PDF, dan transkrip."""
+def test_demo_deck_builds_pptx_with_arial_and_transcript(tmp_path: Path) -> None:
+    """Build demo deck nyata lalu verifikasi PPTX dan transkrip."""
     reason = _skip_reason()
     if reason is not None:
         pytest.skip(reason)
@@ -141,12 +144,10 @@ def test_demo_deck_builds_pptx_pdf_with_embedded_fonts_and_transcript(
     _run_build(deck_path, out)
 
     pptx = out / f"{deck_path.stem}.pptx"
-    pdf = out / f"{deck_path.stem}.pdf"
     transcript = out / f"{deck_path.stem}.transcript.md"
     assert pptx.is_file(), f"PPTX tidak ditemukan: {pptx}"
-    assert pdf.is_file(), f"PDF tidak ditemukan: {pdf}"
     assert transcript.is_file(), f"transcript tidak ditemukan: {transcript}"
+    assert not list(out.glob("*.pdf")), "target PDF tidak boleh menghasilkan artefak"
 
     _assert_pptx(pptx)
-    _assert_pdf(pdf)
     assert transcript.read_bytes() == (deck_path.parent / "transcripts.md").read_bytes()

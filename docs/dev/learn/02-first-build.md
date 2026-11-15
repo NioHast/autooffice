@@ -2,7 +2,8 @@
 
 Halaman ini memandu build DOCX pertama dari contoh yang sudah tersedia.
 Setelah membacanya, pembaca bisa menyiapkan prasyarat, menjalankan `check`,
-membangun DOCX, menemukan output, dan memahami aturan target PDF.
+membangun DOCX, menemukan output, dan memahami aturan field manual serta
+ekspor PDF.
 
 ## Tujuan halaman
 
@@ -12,8 +13,8 @@ Setelah halaman ini, pembaca bisa:
 2. menjelaskan front matter minimum, termasuk `report_name` wajib;
 3. menjalankan `check` dan `build --target docx`;
 4. menemukan DOCX, manifest, dan workspace;
-5. memilih target `docx`, `pdf`, atau `all` sesuai platform dan Word;
-6. membaca peringatan saat Word tidak tersedia.
+5. menjelaskan mengapa DOCX memerlukan Ctrl+A lalu F9 di Word;
+6. mengekspor PDF manual dari Word.
 
 ## Prasyarat
 
@@ -21,8 +22,8 @@ Setelah halaman ini, pembaca bisa:
   [01 - Model Mental](01-mental-model.md).
 - `uv` sudah terpasang.
 - Pandoc tersedia untuk build DOCX.
-- Microsoft Word desktop di Windows hanya diperlukan untuk PDF dan
-  finalisasi field. Word Online tidak dipakai.
+- Microsoft Word tidak diperlukan untuk build. Word hanya diperlukan bila
+  pengguna ingin memperbarui field DOCX atau mengekspor PDF manual.
 - `mmdc` hanya diperlukan bila dokumen memakai blok Mermaid.
 
 ## Daftar isi
@@ -33,7 +34,7 @@ Setelah halaman ini, pembaca bisa:
 - [Langkah build DOCX](#langkah-build-docx)
 - [Apa yang terjadi saat build](#apa-yang-terjadi-saat-build)
 - [Nama output dan manifest](#nama-output-dan-manifest)
-- [Target PDF dan peringatan Word](#target-pdf-dan-peringatan-word)
+- [Field DOCX dan ekspor PDF manual](#field-docx-dan-ekspor-pdf-manual)
 - [Kesalahan umum build pertama](#kesalahan-umum-build-pertama)
 - [Latihan](#latihan)
 - [Halaman berikutnya](#halaman-berikutnya)
@@ -49,12 +50,12 @@ uv run autooffice --version
 uv run autooffice doctor
 ```
 
-`doctor` mencetak status Python, Pandoc, Word, dan `mmdc`. Exit code 1 berarti
-dependensi wajib untuk DOCX belum lengkap. Perhatikan bahwa:
+`doctor` mencetak status Python, Pandoc, `mmdc`, Google, dan workspace. Exit
+code 1 berarti dependensi wajib untuk DOCX belum lengkap. Perhatikan bahwa:
 
 - Python harus 3.15 atau lebih baru;
 - Pandoc wajib untuk DOCX;
-- Word hanya relevan di Windows dan untuk PDF/finalisasi field;
+- Word tidak diperiksa karena bukan dependensi build;
 - `mmdc` hanya wajib jika ada blok Mermaid.
 
 Setelah `doctor` siap untuk DOCX, lanjut ke contoh.
@@ -135,7 +136,7 @@ uv run autooffice build examples/assignment-single/document.md --target docx
 Arti tiap langkah:
 
 1. `sync` memastikan environment dan dependensi pengembangan tersedia.
-2. `check` memvalidasi input tanpa memanggil Pandoc atau Word.
+2. `check` memvalidasi input tanpa memanggil Pandoc atau Office.
 3. `build --target docx` menjalankan pipeline Python dan menghasilkan DOCX.
 
 Keluaran yang diharapkan dari build:
@@ -145,8 +146,8 @@ Keluaran yang diharapkan dari build:
 [OK] Keluaran: ...\examples\assignment-single\.laporan\manifest.json
 ```
 
-Jika Word tidak tersedia tetapi target hanya DOCX, build tetap berhasil
-dengan peringatan. Peringatan itu bukan kegagalan.
+Build DOCX tidak memerlukan Word dan tidak memberi peringatan field. Field
+baru diisi saat pengguna membuka DOCX di Word dan menekan Ctrl+A lalu F9.
 
 ## Apa yang terjadi saat build
 
@@ -161,7 +162,7 @@ Secara ringkas:
 6. stage Python menambahkan section, caption, persamaan, numbering, field
    TOC, nomor halaman, dan daftar tabel/gambar;
 7. package disimpan satu kali;
-8. Word memperbarui field dan mengekspor PDF bila diminta dan tersedia.
+8. selesai. Tidak ada pass Word atau PDF.
 
 Urutan lengkap ada di [03 - Tahap Pipeline](03-pipeline-stages.md).
 
@@ -176,7 +177,6 @@ Contoh dengan `report_name: "Tugas"`:
 | Artefak | Lokasi |
 | --- | --- |
 | DOCX | `examples/assignment-single/out/Tugas.docx` |
-| PDF | `examples/assignment-single/out/Tugas.pdf` jika Word tersedia |
 | Manifest | `examples/assignment-single/.laporan/manifest.json` |
 | Review istilah | `examples/assignment-single/.laporan/istilah-baru.txt` jika `--terms` |
 | Workspace | `examples/assignment-single/.laporan-build/` jika `--keep-intermediate` |
@@ -184,42 +184,34 @@ Contoh dengan `report_name: "Tugas"`:
 Manifest berisi bookmark `pNNNN` dan peta paragraf. Manifest dan bookmark
 selalu ditulis oleh AutoOffice v1; tidak ada flag CLI untuk mematikannya.
 
-## Target PDF dan peringatan Word
+## Field DOCX dan ekspor PDF manual
 
+AutoOffice tidak memiliki target `pdf` atau `all` dan tidak memanggil Word.
 Matriks target:
 
-| Platform dan alat | `--target docx` | `--target pdf` | `--target all` |
+| Platform | `--target docx` | `--target pptx` | `--target slides` |
 | --- | --- | --- | --- |
-| Windows dengan Word | DOCX, field diperbarui | PDF | DOCX dan PDF |
-| Windows tanpa Word | DOCX dengan peringatan | error | DOCX dapat tertulis, lalu error |
-| Debian/Linux | DOCX best-effort, field belum final | error | DOCX dapat tertulis, lalu error |
+| Windows | DOCX dengan field native | PPTX Arial | Slides dengan OAuth |
+| Linux/macOS | DOCX dengan field native | PPTX Arial | Slides dengan OAuth |
 
-Perintah DOCX dan PDF di Windows dengan Word:
+DOCX hasil build belum memiliki hasil field. Field TOC yang baru ditulis
+belum berisi entri, sehingga TOC bisa tampil kosong sampai dokumen dibuka di
+Word. Nomor halaman juga belum final. Ini bukan kegagalan build: field native
+memang diisi oleh aplikasi yang membuka dokumen.
 
-```bash
-uv run autooffice build examples/thesis-single/document.md --target docx,pdf
-```
-
-Perintah yang aman tanpa Word:
+Langkah review dan ekspor PDF:
 
 ```bash
 uv run autooffice build examples/thesis-single/document.md --target docx
 ```
 
-Tanpa Word, stage `office` tidak berjalan. Pipeline memberi peringatan:
+1. Buka `examples/thesis-single/out/Tugas.docx` di Word.
+2. Tekan Ctrl+A lalu F9 untuk memperbarui seluruh field.
+3. Periksa TOC, daftar tabel/gambar, dan nomor halaman.
+4. Ekspor PDF manual dari Word: File > Save As atau File > Export > Create
+   PDF/XPS.
 
-```text
-Microsoft Word tidak tersedia; field DOCX tidak diperbarui dan TOC memakai cache terakhir. DOCX tetap dihasilkan.
-```
-
-Field TOC yang baru ditulis belum berisi entri. Akibatnya TOC bisa tampil
-kosong di DOCX sampai dokumen dibuka di Word dan field diperbarui. Nomor
-halaman juga belum final. Ini bukan bug pipeline: finalisasi field adalah
-tanggung jawab Word.
-
-`--target pdf` dan `--target all` selalu membutuhkan Word karena PDF tidak
-dapat dihasilkan tanpa Word. Tidak ada flag yang menurunkan `all` menjadi
-DOCX.
+Alur lengkap ada di [Ekspor PDF Manual](../../user/pdf-export.md).
 
 ## Kesalahan umum build pertama
 
@@ -229,8 +221,7 @@ DOCX.
 | Heading 1 tidak cocok | `CFG-BODY-ORDER` | Samakan judul dan urutan dengan `structure.body`. |
 | Bibliografi atau gambar tidak ditemukan | `CFG-ASSET-MISSING` | Perbaiki path relatif dan sediakan berkas. |
 | Pandoc tidak menemukan input | `PANDOC-INPUT` | Jalankan pipeline normal; jangan mengandalkan berkas cadangan. |
-| Word tidak ditemukan saat minta PDF | `TOOL-MISSING` | Gunakan `--target docx` atau pasang Word desktop. |
-| TOC kosong | Word belum memperbarui field | Buka DOCX di Word dan perbarui field, atau build ulang dengan Word. |
+| TOC kosong | Field belum diperbarui | Buka DOCX di Word, tekan Ctrl+A lalu F9. |
 
 Saat error muncul, salin baris `[ERROR]` lengkap. Baris itu memuat path, key,
 dan kode yang dibutuhkan untuk mencari penyebab.
@@ -264,8 +255,8 @@ ls -l examples/assignment-single/out/Tugas.docx
 ls -l examples/assignment-single/.laporan/manifest.json
 ```
 
-Kedua berkas harus ada dan ukurannya tidak nol. Jika Word tidak tersedia,
-peringatan TOC boleh muncul, tetapi DOCX tetap harus ada.
+Kedua berkas harus ada dan ukurannya tidak nol. Field DOCX belum diisi oleh
+build; itu diharapkan dan bukan kegagalan.
 
 ### 3. Ganti report_name pada salinan
 
@@ -282,7 +273,7 @@ output benar-benar berasal dari `report_name`, bukan dari default.
 
 ## Halaman berikutnya
 
-Lanjut ke [03 - Tahap Pipeline](03-pipeline-stages.md) untuk memahami 18 stage
+Lanjut ke [03 - Tahap Pipeline](03-pipeline-stages.md) untuk memahami 16 stage
 dan cara membaca kegagalannya.
 
 ## Referensi dan kontrak
@@ -293,7 +284,7 @@ dan cara membaca kegagalannya.
 | Nama dan lokasi output | [pipeline/outputs.md](../pipeline/outputs.md) |
 | Artefak dan workspace | [pipeline/artifacts.md](../pipeline/artifacts.md) |
 | Error dan exit code | [pipeline/errors.md](../pipeline/errors.md) |
-| PDF dan Word | [pdf.md](../pdf.md) |
+| Ekspor PDF manual | [pdf-export.md](../../user/pdf-export.md) |
 | Contoh repo | [examples/README.md](../../../examples/README.md) |
 | Kontrak konfigurasi | [formats.md](../formats.md) |
 | Kontrak stage dan CLI | [contracts/cli.md](../../contracts/cli.md) |
@@ -301,6 +292,5 @@ dan cara membaca kegagalannya.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Pandoc installation`, `Pandoc
-manual`, `uv documentation`, `Word COM object model (VBA reference)`, dan
-`pytest documentation`. URL resminya ada di
+manual`, `uv documentation`, dan `pytest documentation`. URL resminya ada di
 [registry referensi](../references.md).

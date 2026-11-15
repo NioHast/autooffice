@@ -12,7 +12,7 @@ stage, path, dan cause.
 | Exit | Arti |
 | ---: | --- |
 | 0 | Sukses atau `check` tanpa temuan |
-| 1 | Error input, konfigurasi, stage, tool, output, Word/PowerPoint, Google, atau temuan check |
+| 1 | Error input, konfigurasi, stage, tool, output, Google, atau temuan check |
 | 2 | Kesalahan pemakaian CLI, target tidak valid, atau kombinasi flag salah |
 | 130 | Dibatalkan pengguna |
 

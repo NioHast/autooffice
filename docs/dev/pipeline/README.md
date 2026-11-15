@@ -9,7 +9,7 @@ menulis output, dan melaporkan error. Kontrak mengikat ada di
 | Halaman | Isi |
 | --- | --- |
 | [overview.md](overview.md) | Model eksekusi, satu load dan satu save, Adeu hook, idempotensi, dan logging. |
-| [stages.md](stages.md) | Urutan 18 stage dan guard yang wajib ditegakkan. |
+| [stages.md](stages.md) | Urutan stage dan guard yang wajib ditegakkan. |
 | [options.md](options.md) | Flag `autooffice build` dan matriks target per platform. |
 | [outputs.md](outputs.md) | `report_name`, lokasi output, dan artefak pengguna. |
 | [artifacts.md](artifacts.md) | Workspace, artefak antara, dan penulisan atomic. |

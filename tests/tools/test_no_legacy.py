@@ -136,7 +136,6 @@ def test_existing_legacy_paths_are_violations(tmp_path: Path) -> None:
         "docs/dev/f3-cleanup.md",
         "tests/fixtures/golden/baseline.json",
         "tests/cli/test_cli.py",
-        "tests/docx/test_office.py",
         "tests/packaging/test_autooffice_package.py",
         "tests/packaging/test_wheel_contents.py",
         "tests/tools/test_no_legacy.py",

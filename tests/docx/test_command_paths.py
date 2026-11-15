@@ -9,7 +9,6 @@ import pytest
 from autooffice.docx import command
 from autooffice.docx.command import build_docx
 from autooffice.docx.errors import OutputError
-from autooffice.docx.stages import office
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "docx" / "minimal"
 
@@ -78,9 +77,7 @@ def test_build_docx_raises_when_result_docx_missing(
 
 def test_build_docx_rejects_output_dir_inside_workspace(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(office, "word_available", lambda: False)
     document = tmp_path / "project" / "document.md"
     shutil.copytree(FIXTURE, document.parent)
     workspace = document.parent / ".laporan-build"

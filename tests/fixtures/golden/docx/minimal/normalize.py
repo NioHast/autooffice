@@ -31,7 +31,6 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
-from unittest import mock
 
 from lxml import etree
 
@@ -234,21 +233,17 @@ def build_baseline() -> dict[str, Any]:
     """Bangun fixture dengan ``build_docx`` lalu normalisasi seluruh part."""
 
     from autooffice.docx.command import build_docx
-    from autooffice.docx.stages import office
 
     with tempfile.TemporaryDirectory(prefix="autooffice-docx-golden-") as temporary:
         root = Path(temporary)
         project = root / "project"
         shutil.copytree(FIXTURE_ROOT, project)
-        # Word di-disable agar baseline deterministik dan tidak bergantung pada
-        # versi Word. Perilaku COM nyata diuji terpisah dan tidak masuk golden.
-        with mock.patch.object(office, "word_available", return_value=False):
-            result = build_docx(
-                project / "document.md",
-                out=root / "out",
-                terms=False,
-                keep_intermediate=False,
-            )
+        result = build_docx(
+            project / "document.md",
+            out=root / "out",
+            terms=False,
+            keep_intermediate=False,
+        )
         return {
             "schema_version": SCHEMA_VERSION,
             "fixture": "tests/fixtures/docx/minimal/document.md",
@@ -256,7 +251,6 @@ def build_baseline() -> dict[str, Any]:
                 "api": "autooffice.docx.command.build_docx",
                 "terms": False,
                 "keep_intermediate": False,
-                "word": "disabled",
             },
             "normalization": [
                 "dcterms:created/dcterms:modified -> <TIMESTAMP>",

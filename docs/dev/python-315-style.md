@@ -44,8 +44,7 @@ dokumen ini menjelaskan alasan dan aturan migrasinya.
   `# python-style: allow <rule>` pada baris yang sama, dengan alasan tertulis.
   Pengecualian bukan cara untuk menunda migrasi kode baru.
 - Cakupan checker adalah `src/autooffice/**/*.py` dan `tests/**/*.py`.
-  Jalur DOCX legacy di luar `src/autooffice` tidak menjadi target penulisan
-  baru sampai dihapus pada F3.
+  Tidak ada jalur kode di luar `src/autooffice` yang menjadi target.
 
 ## Anotasi future import
 
@@ -230,7 +229,7 @@ selalu berasal dari perintah checker, bukan dari tabel ini.
 | `from __future__ import annotations` di `src/autooffice` | 0 | Termasuk 10 file Google yang dibersihkan terakhir. |
 | `from __future__ import annotations` di `tests` | 0 | Termasuk 9 file Google yang dibersihkan terakhir. |
 | Total future import | 0 | 89 file dibersihkan, 19 file Google menyusul, total 108 pada snapshot. |
-| Future import di jalur legacy DOCX | 0 | Jalur legacy sudah bersih. |
+| Future import di `src` dan `tests` | 0 | Seluruh jalur aktif sudah bersih. |
 | Alias typing warisan | 0 | Tidak ada `List`, `Dict`, `Optional`, `Union`, dan sejenisnya dari `typing`. |
 | `TypeVar` atau `Generic` | 0 | Sintaks PEP 695 belum diperlukan karena belum ada generic baru. |
 | `TypedDict` bentuk fungsional | 1 | `CoverData` di `src/autooffice/design/tokens.py`. |

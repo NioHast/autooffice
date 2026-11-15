@@ -41,12 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     build_parser_ = subparsers.add_parser(
         "build",
-        help="Bangun DOCX/PDF dari Markdown atau PPTX/PDF/Slides dari YAML.",
+        help="Bangun DOCX dari Markdown atau PPTX/Slides dari YAML.",
     )
     build_parser_.add_argument("input", type=Path, help="Berkas .md atau .yaml.")
     build_parser_.add_argument(
         "--target",
-        help="Target dipisah koma: docx,pdf (md) atau pptx,pdf,slides (yaml), atau all.",
+        help="Target dipisah koma: docx (md) atau pptx,slides (yaml).",
     )
     build_parser_.add_argument("--out", type=Path, help="Direktori output final.")
     build_parser_.add_argument(
@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     build_parser_.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validasi dan cetak rencana tanpa menulis output atau memanggil COM/Google.",
+        help="Validasi dan cetak rencana tanpa menulis output atau memanggil Google.",
     )
     build_parser_.add_argument(
         "--keep-intermediate",
@@ -75,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     check_parser = subparsers.add_parser(
         "check",
-        help="Validasi Markdown/DOCX atau deck tanpa menulis output.",
+        help="Validasi Markdown atau deck tanpa menulis output.",
     )
     check_parser.add_argument("input", type=Path, help="Berkas .md atau .yaml.")
     check_parser.add_argument(
@@ -89,11 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor_parser = subparsers.add_parser(
         "doctor",
-        help="Periksa Python, Pandoc, mmdc, COM Office, dan font tanpa jaringan.",
+        help="Periksa Python, Pandoc, mmdc, dan font tanpa jaringan.",
     )
     doctor_parser.add_argument(
         "--target",
-        help="Target opsional: docx,pptx,pdf,slides,all.",
+        help="Target opsional: docx,pptx,slides.",
     )
     doctor_parser.add_argument(
         "--json",

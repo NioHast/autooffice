@@ -24,5 +24,6 @@ python tools/quality/check_docs.py
 uv run python tools/quality/gate.py
 ```
 
-Gate final dan smoke Windows mengikuti ADR 0011. Rename repo adalah langkah
-terpisah dan tidak menjadi bagian halaman ini.
+Gate final mengikuti ADR 0011, dengan amandemen ADR 0013: tidak ada smoke
+Office atau PDF. Rename repo adalah langkah terpisah dan tidak menjadi bagian
+halaman ini.

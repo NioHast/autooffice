@@ -1,7 +1,7 @@
 """Stage ``toc``: field TOC native di dalam ``w:sdt`` dan style TOC.
 
 Stage ini menulis field TOC kosong; Word/LibreOffice mengisi entri dan nomor
-halaman pada stage ``office``. Tidak ada cache nomor halaman statis dan tidak
+halaman saat dokumen dibuka. Tidak ada cache nomor halaman statis dan tidak
 ada TOC ganda: field lama diganti.
 """
 

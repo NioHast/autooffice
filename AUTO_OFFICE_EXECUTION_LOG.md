@@ -737,3 +737,22 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
 - Efek samping: F3 belum boleh dianggap selesai penuh atau di-merge.
 - Catatan/verifikasi: tidak ada klaim visual layer atau Google live selesai.
 - File yang berubah: `AUTO_OFFICE_EXECUTION_LOG.md` (entri ini).
+
+## 2026-11-15 - Hapus PDF/COM dan render deck dengan Arial
+
+- Masalah: jalur PDF/COM membuat build bergantung pada Microsoft Office dan Windows, menanam font ke PPTX, serta menyisakan dependensi `pywin32`/`pypdf`; theme deck masih memakai Plus Jakarta Sans.
+- Resolusi:
+  - PDF dan COM dihapus dari produksi: `src/autooffice/pdf/**`, `src/autooffice/docx/stages/{office,pdf}.py`, `OutputTarget.PDF`, dan font embedding dihapus.
+  - Dependensi `pywin32`, `pypdf`, dan extra `windows` dihapus; CLI hanya menerima target `docx` untuk `.md` serta `pptx,slides` untuk `.yaml`; `pdf` dan `all` ditolak.
+  - Theme deck memakai `Arial`. `Liberation Sans` Regular/Bold dibundel hanya untuk pengukuran layout; tidak ada font yang ditanam ke PPTX. Aset dan installer Plus Jakarta Sans dihapus.
+  - `autooffice doctor` memeriksa `font-assets` bundled (keberadaan dan hash), bukan font terpasang.
+  - Langkah gate baru `removed-features`: mendeteksi impor terlarang, path terlarang (termasuk `plus-jakarta-sans`), serta dependency/extra/konfigurasi yang dihapus.
+- Pembersihan mesin (bukti):
+  - 4 nilai registry font Plus Jakarta Sans HKCU dan 4 TTF dihapus; `WM_FONTCHANGE` disiarkan; enumerasi GDI menunjukkan 0 family Jakarta.
+  - Instalasi admin sementara LibreOffice dihapus: 2.037.820.221 byte / 21.012 file; tidak ada sisa registry, AppData, atau uninstaller LibreOffice.
+  - Cache/generated repo sekitar 30 MB dihapus; `pypdf` dan `pywin32` dihapus dari `.venv`; MS Office tidak disentuh.
+- Catatan/verifikasi:
+  - Gate PASS: 14 langkah, `3214 passed, 9 deselected`; coverage global 90,68%.
+  - Full suite: 3.223 passed. Acceptance + wheel `-m slow`: 2 passed.
+  - Smoke build DOCX dan PPTX OK; PPTX tidak memuat font ter-embed.
+- File yang berubah: `src/autooffice/**`, `tests/**`, `tools/**`, `docs/**`, `pyproject.toml`, `uv.lock`, `README.md`, `AGENTS.md`, `AUTO_OFFICE_PLAN.md`, `AUTO_OFFICE_EXECUTION_LOG.md`.

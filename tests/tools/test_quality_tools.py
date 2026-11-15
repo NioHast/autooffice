@@ -279,6 +279,7 @@ def test_gate_step_order_matches_documented_gate() -> None:
         "docs",
         "test-quality",
         "no-legacy",
+        "removed-features",
         "python-style",
         "identifiers",
         "source-style",

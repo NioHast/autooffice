@@ -36,10 +36,10 @@ uv run python tests/fixtures/golden/docx/minimal/normalize.py --update
 
 Perintah tersebut menyalin fixture ke direktori sementara, memanggil
 `build_docx` dengan `terms=False` dan `keep_intermediate=False`, lalu menulis
-`baseline.json` baru. Word sengaja dinonaktifkan selama pembuatan baseline agar
-hasilnya deterministik dan tidak bergantung pada versi Microsoft Word. Perilaku
-Word nyata diuji terpisah dengan fake Word di `tests/docx/test_office.py` dan
-`tests/docx/test_pdf.py`; output Word tidak boleh masuk ke golden ini.
+`baseline.json` baru. Baseline deterministik karena DOCX dihasilkan murni oleh
+pipeline Python. Finalisasi field dan TOC Word COM sudah dihapus; field dan TOC
+diperbarui manual di Microsoft Word setelah build, sehingga tidak menjadi bagian
+baseline ini.
 
 ## Memeriksa baseline
 

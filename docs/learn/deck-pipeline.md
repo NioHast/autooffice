@@ -1,7 +1,8 @@
 # Pipeline Deck
 
-Halaman ini menjelaskan perjalanan satu `deck.yaml` sampai PPTX, PDF, atau
-Google Slides. Kontrak normatifnya ada di
+Halaman ini menjelaskan perjalanan satu `deck.yaml` sampai PPTX atau Google
+Slides. PDF diekspor manual dari PowerPoint setelah review. Kontrak normatifnya
+ada di
 [Deck IR](../contracts/deck-ir.md),
 [key grammar](../contracts/key-grammar.md),
 [skema deck](../contracts/deck-schema.md),
@@ -37,12 +38,12 @@ deck.yaml   transcripts.md   copy.yaml   assets/   diagrams/
                   |
                   v
               LayoutPlan
-        |            |               |
-        v            v               v
-   PPTX render   staging PPTX     PDF via COM
-                      |
-                      v
-          Google Slides + linked Sheets chart
+        |                       |
+        v                       v
+   PPTX render             staging PPTX
+                                  |
+                                  v
+                    Google Slides + linked Sheets chart
 ```
 
 ## Tahap
@@ -56,7 +57,7 @@ deck.yaml   transcripts.md   copy.yaml   assets/   diagrams/
 | Coverage | `DeckIR` | coverage plan | Ada objek tampil tanpa key, alt hilang, atau key duplikat. |
 | Copy | `DeckIR`, `TranscriptIR`, `copy.yaml` | diagnostic | Ada diagnostic berperingkat error. |
 | Layout | `DeckIR`, theme | `LayoutPlan` | Slot wajib kosong, role tidak cocok, atau overflow. |
-| Render | `DeckIR`, `LayoutPlan`, theme | PPTX atau PDF | Font, `mmdc`, atau target render gagal. |
+| Render | `DeckIR`, `LayoutPlan`, theme | PPTX | `mmdc` atau target render gagal. |
 | Sync | staging PPTX, state | presentasi Slides | Kredensial, preflight chart, atau state tidak valid. |
 
 Urutan ini penting: seluruh validasi naskah, coverage, dan copy selesai sebelum
@@ -102,6 +103,8 @@ key dan 3 chart untuk 24 slide.
 - Semua teks tampil punya binding; teks tanpa key hanya chrome terdaftar.
 - Layout tidak menciptakan teks, tidak menambah block, dan tidak punya fallback.
 - Chart dan tabel tetap native. Chart tidak boleh menjadi gambar.
+- PPTX memakai Arial tanpa embedding font. Layout diukur dengan Liberation
+  Sans yang metrik-kompatibel Arial.
 - Tidak ada shrink, autofit, atau pemotongan diam-diam. Overflow menggagalkan
   build.
 - Geometri authoring hanya berasal dari layout dan `span`.

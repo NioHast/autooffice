@@ -9,8 +9,8 @@ offline-nya. Wrapper lama `scripts/check.ps1` sudah dihapus;
 
 - Gate dijalankan lokal; tidak ada GitHub Actions dan tidak ada merge yang
   bergantung pada CI.
-- Gate tidak memanggil Word/PowerPoint COM, Google API live, atau jaringan.
-  Jalur nyata hanya dijalankan smoke manual di Windows pada gate final.
+- Gate tidak memanggil Google API live atau jaringan. Tidak ada Word,
+  PowerPoint, atau COM yang dipanggil.
 - Setiap langkah read-only terhadap repo. Output build, coverage HTML, dan
   cache ditulis di luar jalur yang di-track atau diabaikan Git.
 - Gate berhenti pada kegagalan pertama kecuali `--keep-going` diberikan.
@@ -46,7 +46,10 @@ tanpa menjalankannya. Nama langkah yang tidak dikenal ditolak dengan exit 2.
 | `docs` | `uv run python tools/quality/check_docs.py` | Tautan, TOC, judul, fence, indeks, registry. |
 | `test-quality` | `uv run python tools/quality/check_tests.py` | Assertion, sleep, network, dan penulisan path. |
 | `no-legacy` | `uv run python tools/quality/check_no_legacy.py` | Pemeriksa path, package, entry point, dan teknologi legacy; blocking. |
+| `removed-features` | `uv run python tools/quality/check_removed_features.py` | Import, path, dependency, dan konfigurasi fitur PDF/COM yang dihapus; blocking. |
 | `python-style` | `uv run python tools/quality/check_python.py` | Future import, alias typing warisan, dan API stdlib deprecated. |
+| `identifiers` | `uv run python tools/quality/check_identifiers.py` | Identifier definisi dan referensi wajib bahasa Inggris. |
+| `source-style` | `uv run python tools/quality/check_source_style.py` | Komentar dan docstring bebas bahasa rencana atau riwayat. |
 
 Langkah `coverage-policy` membaca `.coverage` hasil langkah `tests` tanpa
 menjalankan ulang suite. Checker mencetak baris dan branch yang hilang untuk
@@ -57,9 +60,18 @@ memindai path, import, entry point, dan nama teknologi legacy; allowlist
 eksplisit mencakup arsip, ADR, fixture golden, plan, execution log, dan guard
 negatif. Temuan aktif menghentikan gate.
 
+Langkah `removed-features` memeriksa import nyata di `src`, `tests`, dan
+`tools`, path terlarang, dependency/extra, serta kontrak import-linter untuk
+fitur PDF/COM yang sudah dihapus. Literal string, assertion negatif, dan
+dokumentasi historis tidak dipindai.
+
 Langkah `python-style` bersifat blocking. Seluruh future import sudah
 dibersihkan, sehingga setiap temuan checker harus diperbaiki dan tidak lagi
 dibiarkan sebagai peringatan.
+
+Langkah `identifiers` memeriksa nama definisi dan referensi wajib bahasa
+Inggris. Langkah `source-style` menolak komentar dan docstring yang memakai
+bahasa rencana, fase, atau riwayat. Keduanya blocking.
 
 ## Checker dokumentasi
 
@@ -94,14 +106,15 @@ Gate final menambahkan langkah yang tidak dijalankan gate lokal harian:
 
 ```bash
 uv build
-uv run autooffice doctor --target all
+uv run autooffice doctor
 uv run autooffice check examples/demo-deck/deck.yaml
-uv run autooffice build examples/demo-deck/deck.yaml --target all --out <tmp>
+uv run autooffice build examples/demo-deck/deck.yaml --target pptx --out <tmp>
+uv run autooffice build examples/thesis-single/document.md --target docx --out <tmp>
 ```
 
-Langkah final dijalankan pada Windows dengan Word dan PowerPoint terpasang.
-Smoke Google live adalah gerbang manual terpisah dan tidak boleh dipanggil oleh
-`tools/quality/gate.py`.
+Gate final berjalan di Windows, Linux, atau macOS. Tidak ada langkah Office
+atau PDF. Smoke Google live adalah gerbang manual terpisah dan tidak boleh
+dipanggil oleh `tools/quality/gate.py`.
 
 ## Rujukan
 

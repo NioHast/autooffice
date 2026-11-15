@@ -19,7 +19,7 @@ assertion memeriksa perilaku yang benar.
 | --- | ---: | --- |
 | Global line+branch | >= 90.0% | Sinyal kesehatan suite; menahan regresi luas. |
 | Modul kritis | 100.0% | Jalur kontrak dan keputusan yang mahal bila salah. |
-| Modul adapter | >= 85.0% | Boundary COM, Google, CLI, dan DOCX sulit diuji penuh. |
+| Modul adapter | >= 85.0% | Boundary Google, CLI, dan DOCX sulit diuji penuh. |
 | Kode baru per commit | 95-99% | Mendorong test untuk perubahan tanpa menuntut angka sempurna. |
 
 Modul kritis:
@@ -36,7 +36,6 @@ Modul kritis:
 Modul adapter memakai pola:
 
 - `autooffice.google.*`
-- `autooffice.pdf.*`
 - `autooffice.cli.*`
 - `autooffice.docx.*`
 
@@ -79,12 +78,12 @@ baik dialokasikan ke modul kritis, mutation testing, dan test perilaku.
    - baris yang tidak dapat dieksekusi oleh Python karena deklarasi tipe.
 9. Exclusion tambahan wajib terdaftar di tabel kontrak ini dengan file, baris
    atau fungsi, alasan, dan approver. Tanpa entri, exclusion tidak sah.
-10. Dilarang mengecualikan seluruh file `cli/main.py`, `google/*`, `pdf/*`,
-    `docx/*`, atau modul bisnis lain.
+10. Dilarang mengecualikan seluruh file `cli/main.py`, `google/*`, `docx/*`,
+    atau modul bisnis lain.
 11. Dilarang memakai `coverage combine` untuk menutupi modul yang tidak pernah
     dijalankan.
-12. COM dan Google diuji dengan fake di unit dan contract test. Jalur nyata
-    dijalankan integration test atau smoke final di Windows.
+12. Google diuji dengan fake di unit dan contract test. Jalur nyata hanya
+    smoke manual terpisah.
 13. Coverage report ditinjau oleh integration owner saat merge dan gate final.
 14. Angka 100% tanpa assertion perilaku tetap dianggap gagal oleh test-quality
     checker.
@@ -142,7 +141,7 @@ dijadwalkan di lane implementasi terkait.
 | Gate memakai ambang 90% | Step `tests` di `tools/quality/gate.py`. |
 | Tidak ada omit global | Review `pyproject.toml` dan coverage config. |
 | Exclusion tertulis | Tabel di halaman ini; review integration owner. |
-| Fake COM dan Google | `tests/pdf/**`, `tests/google/**`; bagian 12.7 dan 12.8. |
+| Fake Google | `tests/google/**`. |
 | Tidak ada whole-file exclusion | Review gate dan tabel exclusion. |
 | Report dihasilkan | `htmlcov/` dan terminal report pada gate final. |
 | Kebijakan berbasis risiko | [ADR 0010](../decisions/0010-risk-based-coverage.md). |

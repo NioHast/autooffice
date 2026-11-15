@@ -19,7 +19,7 @@ Setelah halaman ini, pembaca bisa:
 - [02 - Build Pertama](02-first-build.md) sampai
   [04 - Model DOCX](04-docx-model.md).
 - Mengenal pytest dasar: file tes, fungsi `test_*`, fixture, dan marker.
-- Pandoc atau Word hanya diperlukan untuk tes yang memang memakainya.
+- Pandoc hanya diperlukan untuk tes yang memang memakainya.
 
 ## Daftar isi
 
@@ -52,18 +52,16 @@ tes berhenti gagal.
 
 | Tingkat | Lokasi | Ciri | Tool eksternal |
 | --- | --- | --- | --- |
-| Domain | `tests/docx/`, `tests/deck/`, `tests/design/` | Cepat, memakai objek di memori dan fixture kecil. | Tidak menyentuh Word, Pandoc, atau `mmdc`. |
+| Domain | `tests/docx/`, `tests/deck/`, `tests/design/` | Cepat, memakai objek di memori dan fixture kecil. | Tidak menyentuh Pandoc atau `mmdc`. |
 | Contract | `tests/contract/` | Membekukan bentuk API dan scaffold kontrak. | Tidak ada. |
-| CLI | `tests/cli/` | Menjalankan parser, target, output, dan entry point. | Fake Google dan fake COM. |
-| Visual dan performa | `tests/visual/`, `tests/performance/` | Render PPTX ke PNG atau deck besar. | PowerPoint COM atau marker `slow`. |
+| CLI | `tests/cli/` | Menjalankan parser, target, output, dan entry point. | Fake Google. |
+| Performa | `tests/performance/` | Deck besar. | Marker `slow`. |
 
 Marker di `pytest.ini`:
 
-- `unit`: tes cepat tanpa Word/Pandoc/mmdc;
-- `integration`: membutuhkan Pandoc, Word, atau artefak build;
+- `unit`: tes cepat tanpa Pandoc/mmdc;
+- `integration`: membutuhkan Pandoc atau artefak build;
 - `packaging`: packaging repo-local atau wheel;
-- `word`: membutuhkan Microsoft Word;
-- `windows`: hanya Windows;
 - `slow`: tes berat seperti deck 500 slide atau render PPTX.
 
 ## Perintah pytest
@@ -87,21 +85,14 @@ Filter nama tes:
 uv run --extra dev pytest -k report_name -q
 ```
 
-Subset cepat tanpa integration, packaging, Word, Windows, dan slow:
+Subset cepat tanpa integration, packaging, dan slow:
 
 ```bash
-uv run --extra dev pytest -m "not integration and not packaging and not word and not windows and not slow" -q
+uv run --extra dev pytest -m "not integration and not packaging and not slow" -q
 ```
 
-Tes PDF dan Word memakai fake COM di suite offline:
-
-```bash
-uv run --extra dev pytest tests/docx/test_pdf.py -q
-uv run --extra dev pytest tests/docx/test_office.py -q
-```
-
-Smoke Word/PowerPoint nyata hanya dijalankan manual pada gate final di Windows.
-Marker `word` dan `windows` disediakan untuk tes yang membutuhkannya.
+Tidak ada tes Word, PowerPoint, COM, atau PDF. Suite berjalan di Windows,
+Linux, dan macOS.
 
 Suite penuh:
 
@@ -109,9 +100,8 @@ Suite penuh:
 uv run --extra dev pytest
 ```
 
-Di Linux, tes Word dan Windows akan di-skip. Jangan mengklaim PDF lulus jika
-Word tidak tersedia. Untuk perubahan kecil, mulai dari file tes yang paling
-dekat, lalu naik ke integration jika perlu.
+Untuk perubahan kecil, mulai dari file tes yang paling dekat, lalu naik ke
+integration jika perlu.
 
 ## Membaca kegagalan
 
@@ -196,8 +186,7 @@ perubahan disetujui, terapkan ke `document.md` dan build ulang.
 Fixture golden ada di `tests/fixtures/golden/`:
 
 - `laporan-baseline.docx` untuk invariant DOCX;
-- `baseline-4a5b777.json` untuk metadata invariant;
-- `pdf-baseline.json` untuk invariant PDF.
+- `baseline-4a5b777.json` untuk metadata invariant.
 
 `tests/docx/test_command.py` membekukan part DOCX ternormalisasi terhadap
 `tests/fixtures/golden/docx/minimal/baseline.json`. `tests/docx/test_toc.py`,
@@ -205,18 +194,15 @@ Fixture golden ada di `tests/fixtures/golden/`:
 `tests/fixtures/golden/laporan-baseline.docx` dan memeriksa field TOC, caption,
 tabel kode, style, section, serta content type tertentu. Fixture DOCX wajib ada.
 
-`tests/docx/test_pdf.py` menguji stage PDF dan pemetaan error dengan fake COM.
-Perbandingan PDF nyata hanya smoke Windows pada gate final. Fixture
-`pdf-baseline.json` disimpan sebagai referensi historis, bukan dijalankan suite
-offline. Jangan menambahkan skip karena fixture hilang. Perbaiki fixture atau
-tes.
+Tidak ada fixture atau tes PDF. Jangan menambahkan skip karena fixture hilang.
+Perbaiki fixture atau tes.
 
 Aturan golden:
 
 - perubahan output yang disengaja harus disertai alasan dan pembaruan
   invariant;
 - jangan mengubah baseline agar tes lulus;
-- jangan commit PDF besar atau artefak build;
+- jangan commit artefak build;
 - jalankan tes golden terkait setelah perubahan yang memengaruhi output.
 
 ## Debug fitur istilah
@@ -296,5 +282,5 @@ perubahan kecil dengan urutan kerja yang aman.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `pytest documentation`, `pytest
-markers`, `pypdf documentation`, `uv documentation`, dan `Ruff rules`. URL
-resminya ada di [registry referensi](../references.md).
+markers`, `uv documentation`, dan `Ruff rules`. URL resminya ada di
+[registry referensi](../references.md).

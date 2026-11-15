@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from autooffice.design import fonts
+
 pytestmark = [pytest.mark.packaging, pytest.mark.integration, pytest.mark.slow]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -53,13 +55,9 @@ _EXCLUDED_NAMES = frozenset(
     }
 )
 
-_FONT_FILES = (
-    "autooffice/assets/fonts/plus-jakarta-sans/OFL.txt",
-    "autooffice/assets/fonts/plus-jakarta-sans/PlusJakartaSans-Bold.ttf",
-    "autooffice/assets/fonts/plus-jakarta-sans/PlusJakartaSans-ExtraBold.ttf",
-    "autooffice/assets/fonts/plus-jakarta-sans/PlusJakartaSans-Regular.ttf",
-    "autooffice/assets/fonts/plus-jakarta-sans/PlusJakartaSans-SemiBold.ttf",
-)
+_PACKAGE_ROOT = Path(fonts.__file__).resolve().parents[1]
+_FONT_DIR = fonts.FONT_DIR.resolve().relative_to(_PACKAGE_ROOT).as_posix()
+_FONT_FILES = tuple(f"autooffice/{_FONT_DIR}/{name}" for name in fonts.ASSET_FILES)
 
 _PACKAGE_DATA_FILES = (
     "autooffice/design/data/themes.yaml",
@@ -121,6 +119,8 @@ def test_clean_source_wheel_contains_only_autooffice(tmp_path: Path) -> None:
     name = project["project"]["name"]
     version = project["project"]["version"]
     assert name == "autooffice"
+    assert "windows" not in project["project"].get("optional-dependencies", {})
+    assert "pdf" not in project["project"].get("optional-dependencies", {})
     out_dir = tmp_path / "dist"
     dist_info = f"{name}-{version}.dist-info"
 
@@ -147,3 +147,9 @@ def test_clean_source_wheel_contains_only_autooffice(tmp_path: Path) -> None:
             entry for entry in (*_FONT_FILES, *_PACKAGE_DATA_FILES) if entry not in entries
         )
         assert missing == [], f"package data hilang dari wheel: {missing}"
+
+        forbidden = ("autooffice/pdf/", "plusjakarta", "plus-jakarta", ".fntdata")
+        leaked = sorted(
+            entry for entry in entries if any(marker in entry.casefold() for marker in forbidden)
+        )
+        assert leaked == [], f"wheel memuat artefak PDF/Plus Jakarta Sans: {leaked[:10]}"

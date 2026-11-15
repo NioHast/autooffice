@@ -1,6 +1,11 @@
 # ADR 0011: Pembersihan F3 dan Penghapusan Legacy
 
-- Status: diterima; pembersihan diterapkan di working tree
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Bagian
+> yang menyebut `autooffice.pdf`, `tests/pdf`, stage `pdf`, embedding font,
+> atau target `all` tidak lagi berlaku. Riwayat pembersihan legacy lainnya
+> tetap berlaku.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L01, L02, L13, L16, L18, L20, L25

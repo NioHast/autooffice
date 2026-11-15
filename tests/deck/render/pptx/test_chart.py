@@ -88,9 +88,8 @@ def _patch_workbook_clock(monkeypatch: pytest.MonkeyPatch, moment: datetime) -> 
     monkeypatch.setattr("xlsxwriter.core.datetime", FixedDatetime)
 
 
-@pytest.mark.parametrize("target", [OutputTarget.PPTX, OutputTarget.PDF])
-def test_pptx_and_pdf_targets_render_native_chart_part(chart_case, theme, target) -> None:
-    result = _render(chart_case, theme, target=target)
+def test_pptx_target_renders_native_chart_part(chart_case, theme) -> None:
+    result = _render(chart_case, theme, target=OutputTarget.PPTX)
     presentation = Presentation(str(result.artifact_path))
     shape = _chart_shape(result)
 
@@ -243,7 +242,7 @@ def test_chart_coverage_fails_when_block_caption_is_missing(chart_case, theme) -
 
 @pytest.mark.parametrize(
     "target",
-    [OutputTarget.PPTX, OutputTarget.PDF, OutputTarget.SLIDES],
+    [OutputTarget.PPTX, OutputTarget.SLIDES],
 )
 def test_chart_render_has_no_timing_or_transition(chart_case, theme, target) -> None:
     result = _render(chart_case, theme, target=target)

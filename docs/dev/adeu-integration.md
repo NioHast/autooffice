@@ -80,8 +80,8 @@ Aturan:
 - nama bookmark cocok dengan `^p\d{4,}$`;
 - urutan bookmark sama dengan urutan paragraf body;
 - bookmark ditambahkan ke package di memori;
-- setelah `office`, pipeline membaca ulang DOCX dan memastikan seluruh
-  bookmark masih ada dan urutannya sama;
+- setelah save, pipeline membaca ulang DOCX dan memastikan seluruh bookmark
+  masih ada dan urutannya sama;
 - bookmark yang hilang atau berubah menggagalkan build dengan
   `BookmarkError`.
 

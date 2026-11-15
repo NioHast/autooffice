@@ -86,9 +86,9 @@ fitur Markdown yang didukung melalui contoh tesis satu berkas.
 ## Batasan Masalah
 
 Pembahasan dibatasi pada struktur `thesis` dan format `undip-msi`. Keluaran
-utama adalah DOCX; PDF dihasilkan dari DOCX melalui Microsoft Word pada
-lingkungan Windows. Contoh tidak mengukur waktu kompilasi atau kualitas
-tipografi secara kuantitatif.
+utama adalah DOCX. PDF tidak dibangun oleh AutoOffice; PDF diekspor manual
+dari DOCX melalui Microsoft Word setelah field diperbarui. Contoh tidak
+mengukur waktu kompilasi atau kualitas tipografi secara kuantitatif.
 
 # Tinjauan Pustaka
 
@@ -243,8 +243,8 @@ ini lebih murah daripada memperbaiki DOCX yang sudah terbentuk.
 
 Contoh ini tidak membuktikan paritas visual penuh dengan pedoman kampus.
 Pemeriksaan `autooffice check` hanya memvalidasi konfigurasi dan aset, bukan
-tampilan akhir. PDF juga bergantung pada Microsoft Word yang tersedia di
-Windows, sehingga lingkungan tanpa Word hanya dapat menghasilkan DOCX.
+tampilan akhir. PDF juga bergantung pada ekspor manual dari Word, sehingga
+lingkungan tanpa Word hanya dapat menghasilkan DOCX.
 
 # Penutup
 

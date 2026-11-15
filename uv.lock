@@ -154,6 +154,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "lxml" },
+    { name = "pillow" },
     { name = "python-pptx" },
     { name = "ruamel-yaml" },
 ]
@@ -164,7 +165,6 @@ dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
     { name = "mypy" },
-    { name = "pypdf" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "python-docx" },
@@ -173,9 +173,6 @@ dev = [
 google = [
     { name = "google-api-python-client" },
     { name = "google-auth-oauthlib" },
-]
-windows = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
@@ -187,16 +184,15 @@ requires-dist = [
     { name = "import-linter", marker = "extra == 'dev'", specifier = "==2.16" },
     { name = "lxml", specifier = "==6.1.3" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.4.1" },
-    { name = "pypdf", marker = "extra == 'dev'", specifier = "==7.0.0" },
+    { name = "pillow", specifier = "==13.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.2.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.1.0" },
     { name = "python-docx", marker = "extra == 'dev'", specifier = "==1.2.0" },
     { name = "python-pptx", specifier = "==1.0.2" },
-    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'windows'", specifier = "==312" },
     { name = "ruamel-yaml", specifier = "==0.19.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.4" },
 ]
-provides-extras = ["dev", "google", "windows"]
+provides-extras = ["dev", "google"]
 
 [[package]]
 name = "certifi"
@@ -1077,15 +1073,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pypdf"
-version = "7.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/01/19/3e8223d0618bd441eb2b3e105de83ce4187e76f5823d876f60a109ee9072/pypdf-7.0.0.tar.gz", hash = "sha256:061aa78dec270854c912dde80c6bc060486fa955399d643da27ea30afeb6571b", size = 7201622, upload-time = "2026-11-06T12:10:03.447Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8a/21/e83122a25e334c718a4da67004fa94acd7215fe9f8e63a9d7c7f979eb52b/pypdf-7.0.0-py3-none-any.whl", hash = "sha256:112a2c7cbabefd8dfe498f7a13977e575e762d58cdb0d832acb8886922602c6f", size = 413949, upload-time = "2026-11-06T12:10:01.205Z" },
-]
-
-[[package]]
 name = "pytest"
 version = "9.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1141,16 +1128,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/52/a9/0c0db8d37b2b8a645666f7fd8accea4c6224e013c42b1d5c17c93590cd06/python_pptx-1.0.2.tar.gz", hash = "sha256:479a8af0eaf0f0d76b6f00b0887732874ad2e3188230315290cd1f9dd9cc7095", size = 10109297, upload-time = "2024-08-07T17:33:37.772Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/4f/00be2196329ebbff56ce564aa94efb0fbc828d00de250b1980de1a34ab49/python_pptx-1.0.2-py3-none-any.whl", hash = "sha256:160838e0b8565a8b1f67947675886e9fea18aa5e795db7ae531606d68e785cba", size = 472788, upload-time = "2024-08-07T17:33:28.192Z" },
-]
-
-[[package]]
-name = "pywin32"
-version = "312"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/61/caa39686032d2ebdd04ff0ab5cbe163126c0066d98e00c9018646e42393b/pywin32-312-cp315-cp315-win32.whl", hash = "sha256:5c1fbe4a937a73ae9297384a3da38518cbc694c68ad8a809b2e19acd350f03ed", size = 6471159, upload-time = "2026-06-04T07:49:50.035Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/cd/7e1de64a4a6f69c04214169657ccab0d93a670ea50e35eb8f489d7378249/pywin32-312-cp315-cp315-win_amd64.whl", hash = "sha256:c2f03a0f73f804a13c2735b99392b0cd426bb4f2c4d0178e5ac966a0f21618d5", size = 7025293, upload-time = "2026-06-04T07:49:54.857Z" },
-    { url = "https://files.pythonhosted.org/packages/23/ed/4532e9388e65fa16b46776ef47ad631a64eda1631884488af707666350ed/pywin32-312-cp315-cp315-win_arm64.whl", hash = "sha256:a8597d28f267b39074aef51fa593530082b39cbe5a074226096857b1fed2dfb9", size = 6840337, upload-time = "2026-06-04T07:49:57.531Z" },
 ]
 
 [[package]]

@@ -57,8 +57,8 @@ class CheckResult:
 def load_markdown_project(source: Path) -> Any:
     """Muat dan validasi project Markdown memakai API domain DOCX.
 
-    Fungsi ini tidak menjalankan Pandoc atau Word. Front matter, format,
-    struktur, aset, dan urutan heading divalidasi oleh ``load_project`` serta
+    Fungsi ini tidak menjalankan Pandoc. Front matter, format, struktur, aset,
+    dan urutan heading divalidasi oleh ``load_project`` serta
     ``validate_body``.
     """
     from autooffice.docx.document import load_project

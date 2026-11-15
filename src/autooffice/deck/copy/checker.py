@@ -1,7 +1,7 @@
 """Copy checker deterministik untuk DeckIR, TranscriptIR, dan ``copy.yaml``.
 
 Checker hanya membaca IR dan konfigurasi. Ia tidak mengimpor renderer, Google,
-DOCX, PDF, atau CLI. Keluaran berupa tuple ``Diagnostic`` yang stabil dan siap
+DOCX, atau CLI. Keluaran berupa tuple ``Diagnostic`` yang stabil dan siap
 dipakai build gate.
 
 Teks diperiksa sebagai teks tampil: label link dipertahankan, sedangkan tujuan

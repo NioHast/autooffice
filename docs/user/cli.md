@@ -18,42 +18,39 @@ autooffice --help
 
 ## Target
 
-| Input | `docx` | `pdf` | `pptx` | `slides` | `all` |
-| --- | --- | --- | --- | --- | --- |
-| `.md` | ya | ya, lewat DOCX | tidak | tidak | DOCX + PDF |
-| `.yaml` | tidak | ya, lewat PPTX | ya | ya | PPTX + PDF + Slides |
+| Input | `docx` | `pptx` | `slides` |
+| --- | --- | --- | --- |
+| `.md` | ya | tidak | tidak |
+| `.yaml` | tidak | ya | ya |
 
 - Target dipisah koma dan spasi setelah koma boleh.
-- Duplikat dihapus dan urutan kanonik dipakai: `docx,pdf` untuk `.md`, lalu
-  `pptx,pdf,slides` untuk `.yaml`.
-- `all` tidak boleh digabung dengan target lain.
+- Duplikat dihapus dan urutan kanonik dipakai: `docx` untuk `.md`, lalu
+  `pptx,slides` untuk `.yaml`.
 - `--target` wajib untuk `build`.
-- `pdf` dari `.md` membangun DOCX lebih dulu; `pdf` dari `.yaml` membangun
-  PPTX lebih dulu.
-- `slides` dan `all` untuk `.yaml` memerlukan extra `google` serta kredensial
-  OAuth. Jalur offline untuk deck adalah `pptx,pdf`.
+- Tidak ada target `pdf` atau `all`.
+- `slides` untuk `.yaml` memerlukan extra `google` serta kredensial OAuth.
+  Jalur offline untuk deck adalah `pptx`.
 - Input selain `.md` dan `.yaml` ditolak.
+- DOCX memakai field native yang tidak diisi otomatis. Pengguna membuka DOCX
+  di Word, menekan Ctrl+A lalu F9, sebelum review atau ekspor PDF.
+- PDF diekspor manual dari Word atau PowerPoint; lihat
+  [pdf-export.md](pdf-export.md).
 
 ## Penamaan output
 
 ### Input `.md`
 
-- `<report_name>.docx` dan `<report_name>.pdf` dari front matter.
+- `<report_name>.docx` dari front matter.
 - Manifest `.laporan/manifest.json` dan istilah `.laporan/istilah-baru.txt`
   tetap berada di samping dokumen sumber.
 - Intermediate `.laporan-build/`.
-- Target `pdf` tanpa `docx` membangun DOCX intermediate di dalam
-  `.laporan-build/`; workspace dibersihkan setelah konversi PDF selesai.
-  Intermediate di dalam workspace hanya dipertahankan bila
-  `--keep-intermediate` aktif. DOCX final yang sudah ada tidak ditimpa.
 - `examples/<nama>/document.md` menulis final ke `examples/<nama>/out/`;
   dokumen pengguna menulis di direktori dokumen.
 - `--out DIR` hanya memindahkan artefak final.
 
 ### Input `.yaml`
 
-- `<stem>.pptx`, `<stem>.pdf`, dan `<stem>.transcript.md` bila
-  `transcripts.md` ada.
+- `<stem>.pptx` dan `<stem>.transcript.md` bila `transcripts.md` ada.
 - Staging internal `<stem>.slides-upload.pptx`.
 - State `.autooffice/state/<stem>.json`, cache `.autooffice/cache/`, review
   `.autooffice/review/`, dan intermediate `.autooffice-build/<stem>/`.
@@ -71,7 +68,7 @@ autooffice --help
 | `--theme NAME` | `.yaml` | `indigo` atau `hitam`; menimpa `theme.name`. |
 | `--terms` | `.md` | Menjalankan gate istilah seperti pipeline DOCX lama. |
 | `--dry-run` | semua | Validasi dan cetak rencana tanpa menulis file final, state, atau remote. |
-| `--keep-intermediate` | semua | Menyimpan intermediate di lokasi yang terdokumentasi; tanpa flag ini workspace dibersihkan setelah build/konversi PDF selesai. |
+| `--keep-intermediate` | semua | Menyimpan intermediate di lokasi yang terdokumentasi; tanpa flag ini workspace dibersihkan setelah build selesai. |
 | `--sync MODE` | `.yaml` + `slides` | `push` (default), `pull`, `diff`, atau `apply`. |
 
 `--theme` untuk `.md`, `--terms` untuk `.yaml`, dan `--sync` tanpa target
@@ -81,67 +78,56 @@ autooffice --help
 
 `--dry-run` memvalidasi input, aset, copy checker, transkrip, compiler,
 layout, dan coverage plan. Dry-run mencetak target yang dijalankan serta file
-yang akan ditulis, tetapi tidak menulis file atau state, tidak memanggil
-Word/PowerPoint COM, dan tidak menulis ke Drive, Sheets, atau Slides. Overflow,
-key hilang, atau dependency wajib yang tidak tersedia menghasilkan kode
-keluar nonzero.
+yang akan ditulis, tetapi tidak menulis file atau state dan tidak menulis ke
+Drive, Sheets, atau Slides. Overflow, key hilang, atau dependency wajib yang
+tidak tersedia menghasilkan kode keluar nonzero.
 
 ## Check dan doctor
 
-`autooffice check <input>` tidak memanggil Pandoc, Word, atau Google.
+`autooffice check <input>` tidak memanggil Pandoc atau Google.
 
 - `.md`: front matter, format, struktur, aset, urutan heading, dan caption.
 - `.yaml`: schema, compiler, coverage plan, layout/overflow, copy checker, dan
   transcript validation bila modul dan berkasnya tersedia.
 
-`autooffice doctor` memeriksa Python, Pandoc, `mmdc`, Word/PowerPoint COM,
-pywin32, aset font, status font terpasang, extra Google, kredensial OAuth
-lokal, dan izin tulis workspace tanpa jaringan. Tambahkan `--json` untuk
-keluaran mesin yang deterministik. `doctor` tetap berjalan tanpa extra
-`google`; pemeriksaan Google dilaporkan belum terpasang dan pemeriksaan lain
-tetap dijalankan. Target `slides` mewajibkan aset font dan token Google,
-tetapi tidak mewajibkan font terpasang karena memakai Google Fonts.
+`autooffice doctor` memeriksa Python, Pandoc, `mmdc`, integritas aset font
+pengukuran Liberation Sans, extra Google, kredensial OAuth lokal, dan izin
+tulis workspace tanpa jaringan. Tambahkan `--json` untuk keluaran mesin yang
+deterministik. `doctor` tetap berjalan tanpa extra `google`; pemeriksaan
+Google dilaporkan belum terpasang dan pemeriksaan lain tetap dijalankan.
+Target `slides` mewajibkan token Google. Tidak ada pemeriksaan Word,
+PowerPoint, COM, atau `pywin32`.
 
-## Font untuk PPTX/PDF di Windows
+## Font PPTX
 
-Target `pptx` dan `pdf` dari `.yaml` menanam Plus Jakarta Sans lewat
-PowerPoint COM; `pdf` dari `.md` memakai Word COM. Sebelum build, font harus
-terpasang untuk pengguna saat ini dan terdaftar di registry HKCU. Pasang dari
-aset yang dibundel repo:
+Target `pptx` memakai family `Arial`. AutoOffice tidak menanam font ke PPTX
+dan tidak memerlukan font terpasang di mesin build. Layout diukur dengan
+Liberation Sans, font metrik-kompatibel Arial, sehingga ukuran dan posisi
+konsisten dengan Arial.
 
-```bash
-python tools/install_fonts.py
-python tools/install_fonts.py --list
-```
-
-Installer menyalin empat TTF ke
-`%LOCALAPPDATA%\Microsoft\Windows\Fonts`, memperbarui
-`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Fonts`, memuat font ke sesi
-berjalan, dan menyiarkan `WM_FONTCHANGE`. Installer tidak membutuhkan admin,
-PowerShell, atau pywin32 dan aman dijalankan ulang karena berkas dengan hash
-sama dilewati. `--list` hanya membaca status.
-
-`autooffice doctor` melaporkan apakah font terpasang per-user atau di font
-store sistem dan menyarankan perintah installer bila belum lengkap. Target
-`slides` memakai Google Fonts sehingga tidak membutuhkan langkah ini.
+Di Android, Linux, atau lingkungan tanpa Arial, aplikasi dapat mengganti
+Arial dengan Liberation Sans atau font substitusi lain. Tata letak umumnya
+tetap sama, tetapi bentuk glyph dan rendering dapat berbeda. Bila PDF harus
+tampil identik di semua perangkat, aktifkan embedding font saat mengekspor
+dari Word atau PowerPoint. AutoOffice tidak menyediakan installer font.
 
 ## Kode keluar
 
 | Kode | Arti |
 | --- | --- |
 | 0 | Sukses atau `check` tanpa temuan. |
-| 1 | Validasi, build, coverage, dependency, COM, Google, atau temuan check. |
+| 1 | Validasi, build, coverage, dependency, Google, atau temuan check. |
 | 2 | Argumen CLI salah, target tidak valid, atau kombinasi flag salah. |
 
 ## Contoh
 
 ```bash
 autooffice build document.md --target docx
-autooffice build document.md --target docx,pdf --terms
-autooffice build deck.yaml --target pptx,pdf
-autooffice build deck.yaml --target all --dry-run
+autooffice build document.md --target docx --terms
+autooffice build deck.yaml --target pptx
+autooffice build deck.yaml --target pptx --dry-run
 autooffice build deck.yaml --target slides --sync diff
 autooffice check document.md
-autooffice check deck.yaml --target pptx,pdf
+autooffice check deck.yaml --target pptx
 autooffice doctor --json
 ```

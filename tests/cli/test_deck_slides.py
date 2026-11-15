@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-import autooffice.pdf
 from autooffice.cli import CliError
 from autooffice.cli.build import build_deck
 from autooffice.design import resolve_theme
@@ -77,25 +76,6 @@ def test_build_slides_forwards_theme_to_google_chart_colors(
     series = basic["series"]
     assert isinstance(series, list)
     assert series[0]["color"] == _rgb(resolve_theme("hitam").chart.series[0])
-
-
-def test_build_slides_does_not_embed_ppt_fonts(
-    deck_path: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    fake_google: FakeGoogleServices,
-) -> None:
-    out = tmp_path / "out"
-    calls: list[Path] = []
-
-    def fake_embed(path: Path) -> Path:
-        calls.append(Path(path))
-        return Path(path)
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fake_embed)
-    build_deck(deck_path, ("slides",), out, google_services=fake_google)
-
-    assert calls == []
 
 
 def test_build_slides_keep_intermediate_keeps_staging(

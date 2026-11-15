@@ -59,18 +59,18 @@ def test_every_table_cell_has_native_key_extension(minimal_case, theme) -> None:
     assert table_cell_key(table.cell(2, 2)) == "s01.table1.r2.c3"
 
 
-def test_table_header_uses_semibold_and_body_uses_regular(minimal_case, theme) -> None:
+def test_table_header_uses_bold_and_body_uses_regular(minimal_case, theme) -> None:
     result = _render(minimal_case, theme)
     table = _table_shape(result).table
     header_run = table.cell(0, 0).text_frame.paragraphs[0].runs[0]
     body_run = table.cell(1, 0).text_frame.paragraphs[0].runs[0]
 
-    assert header_run.font.name == "Plus Jakarta Sans SemiBold"
-    assert header_run.font.bold is False
-    assert body_run.font.name == "Plus Jakarta Sans"
+    assert header_run.font.name == "Arial"
+    assert header_run.font.bold is True
+    assert body_run.font.name == "Arial"
     assert body_run.font.bold is False
-    assert _latin_typeface(header_run) == "Plus Jakarta Sans SemiBold"
-    assert _latin_typeface(body_run) == "Plus Jakarta Sans"
+    assert _latin_typeface(header_run) == "Arial"
+    assert _latin_typeface(body_run) == "Arial"
 
 
 def test_table_borders_and_fills_come_from_theme(minimal_case, theme) -> None:
@@ -287,7 +287,7 @@ def test_emphasis_column_measures_emphasized_header_and_body(theme) -> None:
 
     header_emphasis = measure(header, 700)
     body_emphasis = measure(body, 600)
-    assert header_emphasis.line_count > measure(header, 600).line_count
+    assert header_emphasis.line_count == measure(header, 600).line_count
     assert body_emphasis.line_count > measure(body, 400).line_count
 
     caption_height = measure_text(
@@ -345,8 +345,10 @@ def test_emphasis_column_changes_fill_and_weight(theme) -> None:
     assert plain_body.fill.fore_color.rgb == _rgb(theme.colors.surface)
     emphasis_run = body.text_frame.paragraphs[0].runs[0]
     plain_run = plain_body.text_frame.paragraphs[0].runs[0]
-    assert emphasis_run.font.name == "Plus Jakarta Sans SemiBold"
-    assert plain_run.font.name == "Plus Jakarta Sans"
+    assert emphasis_run.font.name == "Arial"
+    assert emphasis_run.font.bold is True
+    assert plain_run.font.name == "Arial"
+    assert plain_run.font.bold is False
 
 
 def _latin_typeface(run) -> str:

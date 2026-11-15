@@ -23,13 +23,11 @@ class CliError(AutoOfficeError):
         code: str = "CLI",
         exit_code: int = 2,
         path: str | None = None,
-        cleanup_ambiguous: bool = False,
     ) -> None:
         self.message = message
         self.code = code
         self.exit_code = exit_code
         self.path = path
-        self.cleanup_ambiguous = cleanup_ambiguous
         super().__init__(self.format())
 
     def format(self) -> str:

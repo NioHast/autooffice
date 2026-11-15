@@ -91,27 +91,16 @@ Build PPTX native:
 uv run autooffice build examples/demo-deck/deck.yaml --target pptx
 ```
 
-Build PDF memakai konversi PowerPoint COM:
-
-```bash
-uv run autooffice build examples/demo-deck/deck.yaml --target pdf
-```
-
 Build staging PPTX dan push ke Google Slides:
 
 ```bash
 uv run autooffice build examples/demo-deck/deck.yaml --target slides --sync push
 ```
 
-Target `slides` memerlukan dependency Google dan state OAuth. Mode review
-`--sync pull`, `--sync diff`, dan `--sync apply` menulis berkas di
+Target `slides` memerlukan dependency Google dan state OAuth. Tutorial OAuth
+ada di [docs/user/google-oauth.md](../../docs/user/google-oauth.md). Mode
+review `--sync pull`, `--sync diff`, dan `--sync apply` menulis berkas di
 `.autooffice/review/`.
-
-Build ketiga target sekaligus:
-
-```bash
-uv run autooffice build examples/demo-deck/deck.yaml --target all
-```
 
 Uji theme kedua:
 
@@ -122,9 +111,13 @@ uv run autooffice build examples/demo-deck/deck.yaml --target pptx --theme hitam
 Output final ditulis ke `examples/demo-deck/out/`:
 
 - `deck.pptx`
-- `deck.pdf`
 - `deck.transcript.md`
 - `deck.slides-upload.pptx` untuk staging Google Slides
+
+Tidak ada target `pdf` atau `all`. PPTX memakai Arial tanpa embedding font;
+layout diukur dengan Liberation Sans yang metrik-kompatibel Arial. PDF
+diekspor manual dari PowerPoint setelah review; lihat
+[docs/user/pdf-export.md](../../docs/user/pdf-export.md).
 
 ## Aset
 

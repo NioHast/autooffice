@@ -1,6 +1,10 @@
 # ADR 0010: Kebijakan Coverage Berbasis Risiko
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Kelompok
+> adapter `autooffice.pdf.*` dan boundary COM tidak lagi ada. Target coverage
+> lain tetap berlaku untuk adapter Google, CLI, dan DOCX.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L17

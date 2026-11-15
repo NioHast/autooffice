@@ -15,29 +15,30 @@ untuk gate dan checker.
 - Alat baru harus punya penggunaan jelas, exit code terdokumentasi, dan tes di
   `tests/tools/`. Perubahan pada alat tidak boleh mengubah perilaku runtime
   `autooffice`.
-- `tools/quality/` dimiliki test infrastructure owner; `tools/mutation/` dan
-  `tools/visual/` dimiliki pemilik modul terkait.
+- `tools/quality/` dimiliki test infrastructure owner; `tools/mutation/`
+  dimiliki pemilik modul terkait.
 
 ## Alat yang tersedia
 
 | Alat | Fungsi |
 | --- | --- |
-| `quality/gate.py` | Gate lokal berurutan: format, lint, types, imports, tests, coverage policy, lock, docs, test quality, no-legacy, dan Python style. |
+| `quality/gate.py` | Gate lokal berurutan: format, lint, types, imports, tests, coverage policy, lock, docs, test quality, no-legacy, removed-features, Python style, identifiers, dan source-style. |
 | `quality/check_docs.py` | Memeriksa tautan relatif di README/docs aktif, TOC, judul, code fence, keterjangkauan indeks, dan registry `docs/dev/references.md`. |
 | `quality/check_tests.py` | Memindai AST fungsi `test_*` dan melaporkan assertion, sleep, network, dan penulisan path. |
 | `quality/check_coverage.py` | Membaca `.coverage` hasil `pytest-cov` dan menerapkan kebijakan coverage berbasis risiko. |
 | `quality/check_python.py` | Memeriksa future import, alias typing warisan, dan API stdlib deprecated. |
 | `quality/check_no_legacy.py` | Memeriksa path, package, import, entry point, dan teknologi legacy; exit 1 bila ada pelanggaran aktif. |
+| `quality/check_removed_features.py` | Memeriksa import, path, dependency, dan konfigurasi fitur PDF/COM yang dihapus. |
+| `quality/check_identifiers.py` | Memeriksa identifier definisi dan referensi wajib bahasa Inggris. |
+| `quality/check_source_style.py` | Memeriksa komentar dan docstring bebas bahasa rencana atau riwayat. |
 | `mutation/cosmic-ray.toml` | Konfigurasi mutation testing manual untuk modul kritis. |
-| `visual/render_pptx.py` | Smoke render PPTX ke PNG lewat PowerPoint COM. |
-| `install_fonts.py` | Memasang Plus Jakarta Sans per-user tanpa admin. |
 
 ## Alat dev vs resource runtime
 
 - `tools/` adalah alat pengembang: dijalankan manual atau di gate, tidak
   dipaketkan ke wheel, dan tidak dipanggil pipeline.
-- Runtime tidak membaca `tools/`. PDF dan DOCX final memakai adapter
-  `autooffice.pdf` dan Office COM, bukan skrip PowerShell.
+- Runtime tidak membaca `tools/`. DOCX dan PPTX dibangun oleh pipeline Python
+  tanpa Office, COM, atau skrip PowerShell.
 - Alat boleh memakai API `autooffice` sebagai klien, tetapi `src/autooffice`
   tidak boleh mengimpor `tools/`.
 

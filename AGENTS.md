@@ -3,7 +3,7 @@
 ## DOCX authoring
 
 - Sumber kebenaran: `document.md`, `references.bib`, `istilah.tsv`, dan `gambar/`;
-  DOCX dan PDF adalah artefak build.
+  DOCX adalah artefak build, sedangkan PDF diekspor manual dari Word.
 - Satu dokumen adalah satu `document.md`; tidak ada mode folder atau file bab
   terpisah. Setiap Heading 1 harus cocok dengan urutan `body` pada
   `structure.yml`.
@@ -18,7 +18,8 @@
 ## Deck authoring
 
 - Sumber kebenaran: `deck.yaml`, `copy.yaml`, `transcripts.md`, `assets/`, dan
-  `diagrams/`; PPTX, PDF, dan Slides adalah artefak build.
+  `diagrams/`; PPTX dan Slides adalah artefak build, sedangkan PDF diekspor
+  manual dari PowerPoint.
 - Satu deck adalah satu `deck.yaml`; tidak ada include, partial, atau file slide
   terpisah.
 - Jangan memakai absolute positioning atau koordinat. Geometri berasal dari
@@ -43,23 +44,28 @@
 - DOCX: `document.md`, `references.bib`, `istilah.tsv`, dan `gambar/`.
 - Deck: `deck.yaml`, `copy.yaml`, `transcripts.md`, `assets/`, dan `diagrams/`.
 - Output build (`.laporan/`, `.laporan-build/`, `.autooffice/`,
-  `.autooffice-build/`, `out/`, DOCX, PDF, dan PPTX) tidak boleh disunting.
+  `.autooffice-build/`, `out/`, DOCX, dan PPTX) tidak boleh disunting. PDF
+  adalah hasil ekspor manual, bukan output build.
 
 ## Perintah
 
 ```bash
 uv run autooffice check document.md
 uv run autooffice build document.md --target docx
-uv run autooffice build document.md --target docx,pdf
 uv run autooffice check examples/demo-deck/deck.yaml
-uv run autooffice build examples/demo-deck/deck.yaml --target pptx,pdf
+uv run autooffice build examples/demo-deck/deck.yaml --target pptx
 uv run autooffice doctor
 ```
 
-`pdf` memerlukan Word/PowerPoint di Windows. `slides` memerlukan extra `google`
-dan kredensial OAuth. Tambahkan `--terms` untuk gate glosarium DOCX,
-`--dry-run` untuk validasi tanpa output, dan `--keep-intermediate` untuk
-menyimpan intermediate.
+Tidak ada target `pdf` atau `all`. `slides` memerlukan extra `google` dan
+kredensial OAuth. Tambahkan `--terms` untuk gate glosarium DOCX, `--dry-run`
+untuk validasi tanpa output, dan `--keep-intermediate` untuk menyimpan
+intermediate.
+
+DOCX memakai field native yang tidak diisi otomatis. Sebelum review atau
+ekspor PDF, buka DOCX di Word, tekan Ctrl+A lalu F9. Ekspor PDF dilakukan
+manual dari Word atau PowerPoint; lihat
+[docs/user/pdf-export.md](docs/user/pdf-export.md).
 
 ## Larangan
 
@@ -69,8 +75,10 @@ menyimpan intermediate.
 - Jangan memperbaiki naskah dengan menyunting DOCX atau PPTX. Perbaiki Markdown
   atau YAML lalu build ulang.
 - Jangan menambahkan kembali nama package, entry point, path, atau alat lama.
-  Permukaan resmi hanya `autooffice`, `tools/quality/`, `tools/install_fonts.py`,
-  `tools/visual/`, dan `tools/mutation/`.
+  Permukaan resmi hanya `autooffice`, `tools/quality/`, dan `tools/mutation/`.
+- Jangan menambahkan kembali target `pdf`/`all`, COM, `pywin32`, PowerPoint
+  embedding, Plus Jakarta Sans, atau dependensi Windows-only. Sumber lama
+  hanya ada di tag `pre-pdf-removal` dan branch `archive/pdf-com`.
 
 ## Definition of done
 
@@ -101,18 +109,18 @@ log AutoOffice di bawah tetap berlaku.
    elemen yang benar-benar dirender dan terlihat di artefak akhir. Key yang
    hanya ada di metadata, notes, YAML, model internal, atau bookkeeping renderer
    dilarang. Coverage harus diekstrak ulang secara independen dari artefak final
-   (DOCX, PPTX, atau PDF), bukan dari maksud build atau state renderer. Key
+   (DOCX atau PPTX), bukan dari maksud build atau state renderer. Key
    hilang, key asing, key duplikat, atau teks terlihat tanpa key adalah
    kegagalan.
 5. **Test di boundary, fake lebih dulu.** Patch hanya di boundary eksternal
-   (COM, Google, subprocess, jaringan, waktu); jangan mem-patch kolaborator
+   (Google, subprocess, jaringan, waktu); jangan mem-patch kolaborator
    internal. Utamakan fake yang menjaga perilaku nyata di atas mock yang
    memeriksa koreografi panggilan. Setiap test perbaikan bug wajib gagal bila
    perbaikan produksi dikembalikan; buktikan dengan revert sementara, lalu
    pulihkan perbaikan.
 6. **Golden visual dan mutation untuk modul kritis.** Perubahan yang menyentuh
-   output visual wajib punya golden test visual untuk artefak final (DOCX,
-   PPTX, PDF). Modul kritis wajib tercakup konfigurasi mutation testing di
+   output visual wajib punya golden test visual untuk artefak final (DOCX dan
+   PPTX). Modul kritis wajib tercakup konfigurasi mutation testing di
    `tools/mutation/` dan dijalankan saat modul itu berubah atau pada gate akhir.
    Mutant yang bertahan harus ditutup dengan assertion baru atau didokumentasikan
    sebagai equivalent mutant.
@@ -126,6 +134,8 @@ log AutoOffice di bawah tetap berlaku.
   [docs/user/document-format.md](docs/user/document-format.md)
 - [docs/user/deck-authoring.md](docs/user/deck-authoring.md),
   [docs/user/cli.md](docs/user/cli.md)
+- [docs/user/pdf-export.md](docs/user/pdf-export.md),
+  [docs/user/google-oauth.md](docs/user/google-oauth.md)
 - [docs/dev/README.md](docs/dev/README.md),
   [docs/learn/README.md](docs/learn/README.md)
 - [docs/contracts/README.md](docs/contracts/README.md),

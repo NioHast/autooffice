@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Gate lokal AutoOffice tanpa COM, Google live, atau jaringan.
+"""Gate lokal AutoOffice tanpa jaringan.
 
 Gate menjalankan langkah secara berurutan dan berhenti pada kegagalan pertama
 yang memblokir. Semua perintah bersifat lokal: Ruff, mypy, pytest dengan
 coverage, coverage policy berbasis risiko, import contracts, lock check, docs
-checker, test-quality checker, pemeriksa path/package, checker style Python,
-checker identifier, dan checker komentar. Tidak ada
-langkah yang memanggil Word/PowerPoint COM, Google API, atau layanan eksternal.
+checker, test-quality checker, pemeriksa path/package, pemeriksa fitur PDF/COM
+yang dihapus, checker style Python, checker identifier, dan checker komentar.
+Tidak ada langkah yang memanggil Google API atau layanan eksternal.
 
 Pemakaian:
     python tools/quality/gate.py
@@ -86,6 +86,12 @@ def build_steps() -> tuple[Step, ...]:
             ("uv", "run", "python", "tools/quality/check_no_legacy.py"),
         ),
         Step(
+            "removed-features",
+            "Pemeriksa import, path, dan konfigurasi fitur PDF/COM yang dihapus",
+            ("uv", "run", "python", "tools/quality/check_removed_features.py"),
+            blocking=True,
+        ),
+        Step(
             "python-style",
             "Checker gaya Python 3.15 untuk future import dan API deprecated",
             ("uv", "run", "python", "tools/quality/check_python.py"),
@@ -159,7 +165,7 @@ def build_parser(steps: Sequence[Step] | None = None) -> argparse.ArgumentParser
     available = steps or build_steps()
     parser = argparse.ArgumentParser(
         prog="gate.py",
-        description="Gate lokal AutoOffice tanpa COM, Google live, atau jaringan.",
+        description="Gate lokal AutoOffice tanpa Google live atau jaringan.",
     )
     parser.add_argument(
         "steps",

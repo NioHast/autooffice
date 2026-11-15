@@ -1,7 +1,7 @@
 """Orkestrasi build CLI untuk Markdown/DOCX dan deck YAML.
 
 Modul domain diimpor di dalam fungsi yang membutuhkannya sehingga
-``--help``/``--version`` tidak menyentuh COM, Google, atau renderer.
+``--help``/``--version`` tidak menyentuh Google atau renderer.
 """
 
 import contextlib
@@ -47,17 +47,6 @@ class BuildOutcome:
     dry_run: bool = False
 
 
-_AMBIGUOUS_CLEANUP_CODES = frozenset({"WORD-CLEANUP", "PDF-CLEANUP", "CLI-FONT-CLEANUP"})
-
-
-def _is_cleanup_ambiguous(exc: BaseException) -> bool:
-    """True bila error menyatakan worker Office mungkin masih menulis."""
-
-    return bool(getattr(exc, "cleanup_ambiguous", False)) or (
-        getattr(exc, "code", None) in _AMBIGUOUS_CLEANUP_CODES
-    )
-
-
 @dataclass(frozen=True, slots=True)
 class _RenderedPptx:
     """Artefak PPTX hasil render beserta warning renderer."""
@@ -74,32 +63,24 @@ def build_markdown(
     keep_intermediate: bool = False,
     dry_run: bool = False,
 ) -> BuildOutcome:
-    """Bangun DOCX/PDF dari ``document.md`` memakai API ``build_docx``."""
+    """Bangun DOCX dari ``document.md`` memakai API ``build_docx``."""
     requested = _validated_targets(targets, MD_TARGETS, "markdown")
     if out is not None:
         out = resolve_output_directory(input, out)
-    pdf_only = "pdf" in requested and "docx" not in requested
 
     if dry_run:
         project = load_markdown_project(input)
         report_name = str(project.document.metadata.report_name)
         outputs = docx_outputs(input, report_name, out)
-        _preflight_markdown_apis(requested)
+        _preflight_markdown_apis()
         dry_notes = [f"direktori output: {outputs.output_dir}"]
-        if "pdf" in requested:
-            dry_notes.append(f"PDF DOCX melalui Word COM: {outputs.pdf}")
         if keep_intermediate:
             dry_notes.append(f"intermediate dipertahankan: {outputs.build_dir}")
         return BuildOutcome(
             source=input,
             kind=InputKind.MARKDOWN,
             targets=requested,
-            files=planned_docx_files(
-                outputs,
-                requested,
-                terms=terms,
-                keep_intermediate=keep_intermediate,
-            ),
+            files=planned_docx_files(outputs, requested, terms=terms),
             warnings=tuple(str(warning) for warning in project.warnings),
             notes=tuple(dry_notes),
             dry_run=True,
@@ -107,35 +88,12 @@ def build_markdown(
 
     from autooffice.docx.command import build_docx
 
-    intermediate_dir = docx_outputs(input, "build", out).build_dir
-    cleanup_safe = True
-    try:
-        result = build_docx(
-            input=input,
-            out=intermediate_dir if pdf_only else out,
-            terms=terms,
-            keep_intermediate=pdf_only or keep_intermediate,
-        )
-    except Exception as exc:
-        if _is_cleanup_ambiguous(exc):
-            cleanup_safe = False
-        if cleanup_safe and pdf_only and not keep_intermediate:
-            _cleanup_build_directory(
-                input,
-                intermediate_dir,
-                ".laporan-build",
-                per_stem=False,
-            )
-        raise
-    report_name = result.docx.stem
-    outputs = docx_outputs(input, report_name, out)
-    if pdf_only and not _is_within(result.docx, outputs.build_dir):
-        raise CliError(
-            f"build DOCX intermediate keluar dari workspace build: {result.docx}",
-            code="CLI-BUILD-PATH",
-            exit_code=1,
-            path=str(result.docx),
-        )
+    result = build_docx(
+        input=input,
+        out=out,
+        terms=terms,
+        keep_intermediate=keep_intermediate,
+    )
     files: list[Path] = []
     notes: list[str] = []
 
@@ -145,38 +103,8 @@ def build_markdown(
         files.append(result.manifest)
     if result.terms is not None:
         files.append(result.terms)
-    if result.workspace is not None and not pdf_only:
+    if result.workspace is not None:
         notes.append(f"workspace dipertahankan: {result.workspace}")
-
-    if "pdf" in requested:
-        try:
-            pdf_path = _convert_docx_to_pdf(result.docx, outputs.pdf)
-        except CliError as exc:
-            raise CliError(
-                f"DOCX selesai di {result.docx}, tetapi {exc.message}",
-                code=exc.code,
-                exit_code=exc.exit_code,
-                path=str(result.docx),
-                cleanup_ambiguous=_is_cleanup_ambiguous(exc),
-            ) from exc
-        files.append(pdf_path)
-        if pdf_only:
-            if keep_intermediate:
-                files.append(result.docx)
-                notes.append(f"intermediate dipertahankan: {outputs.build_dir}")
-                if result.workspace is not None:
-                    notes.append(f"workspace dipertahankan: {result.workspace}")
-            else:
-                _cleanup_build_directory(
-                    input,
-                    outputs.build_dir,
-                    ".laporan-build",
-                    per_stem=False,
-                )
-                notes.append(
-                    "DOCX intermediate dihapus dari workspace karena "
-                    "--keep-intermediate tidak aktif"
-                )
 
     return BuildOutcome(
         source=input,
@@ -199,7 +127,7 @@ def build_deck(
     *,
     google_services: Any | None = None,
 ) -> BuildOutcome:
-    """Bangun deck YAML menjadi PPTX/PDF/Slides.
+    """Bangun deck YAML menjadi PPTX/Slides.
 
     ``model``, ``layout``, ``copy``, dan ``render.pptx`` diimpor di dalam
     fungsi ini. ``google_services`` adalah seam dependency injection untuk
@@ -253,8 +181,6 @@ def build_deck(
         notes.extend(_google_notes(outputs, sync_mode, keep_intermediate=keep_intermediate))
 
     if dry_run:
-        if "pdf" in requested:
-            notes.append(f"PDF deck melalui PowerPoint COM: {outputs.pdf}")
         if not sync_only:
             if keep_intermediate:
                 notes.append(f"intermediate dipertahankan: {outputs.build_dir}")
@@ -274,11 +200,9 @@ def build_deck(
         ensure_directory(outputs.output_dir)
     warnings = list(copy_warnings)
     written: list[Path] = []
-    cleanup_safe = True
     try:
         if _needs_render(requested, sync_mode):
             stage_deck_assets(input, deck, outputs.build_dir)
-        pptx_source: Path | None = None
         if "pptx" in requested:
             rendered = _render_pptx(
                 deck=deck,
@@ -290,35 +214,7 @@ def build_deck(
                 cache=outputs.cache,
             )
             warnings.extend(rendered.warnings)
-            pptx_source = rendered.artifact
             written.append(rendered.artifact)
-
-        if "pdf" in requested:
-            pdf_source = outputs.intermediate_pptx if pptx_source is None else pptx_source
-            if pptx_source is None:
-                rendered = _render_pptx(
-                    deck=deck,
-                    layout=layout_plan,
-                    theme=theme_value,
-                    target="pptx",
-                    workspace=outputs.build_dir,
-                    destination=outputs.intermediate_pptx,
-                    cache=outputs.cache,
-                )
-                warnings.extend(rendered.warnings)
-            try:
-                pdf_path = _convert_pptx_to_pdf(pdf_source, outputs.pdf)
-            except CliError as exc:
-                raise CliError(
-                    f"PPTX selesai di {pdf_source}, tetapi {exc.message}",
-                    code=exc.code,
-                    exit_code=exc.exit_code,
-                    path=str(pdf_source),
-                    cleanup_ambiguous=_is_cleanup_ambiguous(exc),
-                ) from exc
-            written.append(pdf_path)
-            if keep_intermediate and pptx_source is None:
-                written.append(outputs.intermediate_pptx)
 
         if "slides" in requested:
             if sync_mode == "push":
@@ -329,7 +225,6 @@ def build_deck(
                     target="slides",
                     workspace=outputs.build_dir,
                     destination=outputs.staging,
-                    embed_fonts=False,
                     cache=outputs.cache,
                 )
                 warnings.extend(staging_render.warnings)
@@ -355,15 +250,10 @@ def build_deck(
 
         if transcript_source.is_file() and not sync_only:
             written.append(atomic_copy(transcript_source, outputs.transcript))
-    except BaseException as exc:
-        if _is_cleanup_ambiguous(exc):
-            cleanup_safe = False
-        raise
     finally:
         # Sync-only tidak me-render dan tidak membuat workspace; jangan hapus
         # direktori build yang mungkin ditinggalkan --keep-intermediate.
-        # Cleanup ambigu berarti worker COM masih dapat menulis ke workspace.
-        if cleanup_safe and not keep_intermediate and not sync_only:
+        if not keep_intermediate and not sync_only:
             _cleanup_build_directory(input, outputs.build_dir, ".autooffice-build")
 
     if keep_intermediate and not sync_only:
@@ -562,8 +452,8 @@ def _format_diagnostic(diagnostic: Any) -> str:
     return str(diagnostic)
 
 
-def _preflight_markdown_apis(requested: tuple[str, ...]) -> None:
-    """Validasi API Markdown pada dry-run tanpa memanggil COM."""
+def _preflight_markdown_apis() -> None:
+    """Validasi API Markdown pada dry-run tanpa memanggil Pandoc."""
 
     from autooffice.docx.command import build_docx
 
@@ -573,71 +463,6 @@ def _preflight_markdown_apis(requested: tuple[str, ...]) -> None:
             code="CLI-DOCX",
             exit_code=1,
         )
-    if "pdf" in requested:
-        from autooffice.pdf import export_pdf
-
-        if not callable(export_pdf):
-            raise CliError(
-                "API ekspor PDF tidak tersedia",
-                code="CLI-PDF",
-                exit_code=1,
-            )
-
-
-def _convert_docx_to_pdf(source: Path, destination: Path) -> Path:
-    ensure_directory(destination.parent)
-    from autooffice.pdf import export_pdf
-
-    try:
-        converted = export_pdf(source, destination)
-    except CliError:
-        raise
-    except AutoOfficeError as exc:
-        ambiguous = _is_cleanup_ambiguous(exc)
-        raise CliError(
-            f"ekspor PDF DOCX dengan Word gagal untuk '{source}' "
-            f"dengan target '{destination}': {exc}",
-            code="PDF-CLEANUP" if ambiguous else "CLI-PDF-COM",
-            exit_code=1,
-            path=str(source),
-            cleanup_ambiguous=ambiguous,
-        ) from exc
-    except (OSError, ValueError) as exc:
-        raise CliError(
-            f"ekspor PDF DOCX gagal untuk '{source}' dengan target '{destination}': {exc}",
-            code="CLI-PDF",
-            exit_code=1,
-            path=str(source),
-        ) from exc
-    return _require_artifact(_as_path(converted, "konversi PDF DOCX"), "konversi PDF DOCX")
-
-
-def _convert_pptx_to_pdf(source: Path, destination: Path) -> Path:
-    ensure_directory(destination.parent)
-    from autooffice.pdf import export_pptx_pdf
-
-    try:
-        converted = export_pptx_pdf(source, destination)
-    except CliError:
-        raise
-    except AutoOfficeError as exc:
-        ambiguous = _is_cleanup_ambiguous(exc)
-        raise CliError(
-            f"ekspor PDF PPTX dengan PowerPoint gagal untuk '{source}' "
-            f"dengan target '{destination}': {exc}",
-            code="PDF-CLEANUP" if ambiguous else "CLI-PDF-COM",
-            exit_code=1,
-            path=str(source),
-            cleanup_ambiguous=ambiguous,
-        ) from exc
-    except (OSError, ValueError) as exc:
-        raise CliError(
-            f"ekspor PDF PPTX gagal untuk '{source}' dengan target '{destination}': {exc}",
-            code="CLI-PDF",
-            exit_code=1,
-            path=str(source),
-        ) from exc
-    return _require_artifact(_as_path(converted, "konversi PDF PPTX"), "konversi PDF PPTX")
 
 
 class _Renderer(Protocol):
@@ -662,7 +487,6 @@ def _render_pptx(
     target: str,
     workspace: Path,
     destination: Path,
-    embed_fonts: bool = True,
     cache: Path | None = None,
 ) -> _RenderedPptx:
     from autooffice.deck.render.protocol import OutputTarget, RenderRequest
@@ -705,9 +529,6 @@ def _render_pptx(
     artifact_path = _as_path(artifact, "renderer PPTX")
     _require_artifact(artifact_path, "renderer PPTX")
     warnings = tuple(str(warning) for warning in getattr(result, "warnings", ()))
-    if embed_fonts:
-        _embed_pptx_fonts(artifact_path)
-        warnings = _without_font_embedding_warnings(warnings)
     return _RenderedPptx(artifact=_publish(artifact_path, destination), warnings=warnings)
 
 
@@ -757,48 +578,6 @@ def _persist_render_cache(workspace: Path, cache: Path) -> None:
         ) from exc
 
 
-def _embed_pptx_fonts(source: Path) -> Path:
-    """Tanam Plus Jakarta Sans ke PPTX final lewat PowerPoint COM.
-
-    Embedding dilakukan sebelum artefak dipublikasikan ke path final agar
-    build yang gagal tidak meninggalkan PPTX tanpa font. ``RenderResult``
-    ``content_hash`` dihitung renderer sebelum embedding; hash byte final
-    berubah setelah langkah ini.
-    """
-
-    from autooffice.pdf import embed_pptx_fonts
-
-    try:
-        embedded = embed_pptx_fonts(source)
-    except CliError:
-        raise
-    except AutoOfficeError as exc:
-        ambiguous = _is_cleanup_ambiguous(exc)
-        raise CliError(
-            f"font Plus Jakarta Sans gagal ditanam ke '{source}' dengan PowerPoint COM: {exc}. "
-            "Final PPTX/PDF membutuhkan Microsoft PowerPoint desktop di Windows dan "
-            "font Plus Jakarta Sans terpasang.",
-            code="CLI-FONT-CLEANUP" if ambiguous else "CLI-FONT-EMBED",
-            exit_code=1,
-            path=str(source),
-            cleanup_ambiguous=ambiguous,
-        ) from exc
-    except (OSError, ValueError) as exc:
-        raise CliError(
-            f"font Plus Jakarta Sans gagal ditanam ke '{source}': {exc}",
-            code="CLI-FONT-EMBED",
-            exit_code=1,
-            path=str(source),
-        ) from exc
-    return _require_artifact(_as_path(embedded, "font embedding PPTX"), "font embedding PPTX")
-
-
-def _without_font_embedding_warnings(warnings: tuple[str, ...]) -> tuple[str, ...]:
-    """Hapus warning renderer setelah CLI berhasil menanam font."""
-
-    return tuple(warning for warning in warnings if not warning.startswith("font-embedding:"))
-
-
 def _renderer_from(module: Any) -> _Renderer:
     for name in ("create_renderer", "renderer_factory"):
         factory = getattr(module, name, None)
@@ -818,18 +597,16 @@ def _renderer_from(module: Any) -> _Renderer:
 
 
 def _needs_render(targets: tuple[str, ...], sync_mode: str) -> bool:
-    if bool({"pptx", "pdf"} & set(targets)):
+    if "pptx" in targets:
         return True
     return "slides" in targets and sync_mode == "push"
 
 
 def _preflight_deck_apis(targets: tuple[str, ...], sync_mode: str) -> None:
-    """Validasi API deck pada dry-run tanpa COM, renderer, atau jaringan."""
+    """Validasi API deck pada dry-run tanpa renderer atau jaringan."""
 
-    if {"pptx", "pdf"} & set(targets) or ("slides" in targets and sync_mode == "push"):
+    if "pptx" in targets or ("slides" in targets and sync_mode == "push"):
         _require_pptx_renderer_class()
-    if "pdf" in targets:
-        _require_pptx_pdf_adapter()
     if "slides" in targets:
         _require_google_operation(sync_mode)
 
@@ -840,17 +617,6 @@ def _require_pptx_renderer_class() -> None:
         raise CliError(
             "renderer PPTX (PptxRenderer) tidak tersedia; build deck dihentikan tanpa output",
             code="CLI-RENDERER",
-            exit_code=1,
-        )
-
-
-def _require_pptx_pdf_adapter() -> None:
-    from autooffice.pdf import export_pptx_pdf
-
-    if not callable(export_pptx_pdf):
-        raise CliError(
-            "API ekspor PDF PPTX tidak tersedia",
-            code="CLI-PDF",
             exit_code=1,
         )
 
@@ -907,15 +673,6 @@ def _ordered_files(planned: Sequence[Path], written: Sequence[Path]) -> tuple[Pa
     ordered = [path for path in planned if path in present]
     ordered.extend(path for path in written if path not in planned)
     return tuple(dict.fromkeys(ordered))
-
-
-def _is_within(path: Path, root: Path) -> bool:
-    try:
-        resolved = path.resolve()
-        resolved_root = root.resolve()
-    except OSError, RuntimeError:
-        return False
-    return resolved == resolved_root or resolved.is_relative_to(resolved_root)
 
 
 def _cleanup_build_directory(

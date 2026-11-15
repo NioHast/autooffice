@@ -22,9 +22,9 @@ perintah yang bisa dijalankan, latihan, dan tautan ke halaman berikutnya.
 | Halaman | Isi utama | Prasyarat |
 | --- | --- | --- |
 | [00 - Mulai di Sini](00-start-here.md) | Orientasi repo, setup, perintah aman, peta belajar. | Terminal dan Git dasar. |
-| [01 - Model Mental](01-mental-model.md) | Empat lapisan, sumber versus artefak, satu load/satu save, batas Word, zero-fallback. | 00. |
-| [02 - Build Pertama](02-first-build.md) | `check`, build DOCX, nama output, target PDF, peringatan tanpa Word. | 00 dan 01. |
-| [03 - Tahap Pipeline](03-pipeline-stages.md) | 18 stage, urutan, guard, `StageResult`, artifact, workspace. | 01 dan 02. |
+| [01 - Model Mental](01-mental-model.md) | Empat lapisan, sumber versus artefak, satu load/satu save, batas Word manual, zero-fallback. | 00. |
+| [02 - Build Pertama](02-first-build.md) | `check`, build DOCX, nama output, field manual, ekspor PDF manual. | 00 dan 01. |
+| [03 - Tahap Pipeline](03-pipeline-stages.md) | 16 stage, urutan, guard, `StageResult`, artifact, workspace. | 01 dan 02. |
 | [04 - Model DOCX](04-docx-model.md) | Package OPC, peta modul, helper kanonis, field, terms. | 03 dan dasar XML/ZIP. |
 | [05 - Tes dan Debugging](05-testing-and-debugging.md) | Domain, contract, CLI, packaging, golden, alur debug. | 02 sampai 04. |
 | [06 - Resep Perubahan](06-change-recipes.md) | Resep konten, data format, helper DOCX, stage, terms, docs. | 00 sampai 05. |
@@ -76,8 +76,9 @@ uv run --extra dev pytest tests/docx
 - Jika perintah dijalankan dari direktori lain, tambahkan
   `--project <path-repo>` pada `uv`, misalnya
   `uv run --project <path-repo> autooffice --version`.
-- Output build adalah artefak. Jangan menyunting DOCX atau PDF sebagai
+- Output build adalah artefak. Jangan menyunting DOCX atau PPTX sebagai
   sumber; perbaiki `document.md` atau data di `src/autooffice/docx/data/`.
+  PDF adalah hasil ekspor manual, bukan output build.
 
 ## Cara memakai latihan
 

@@ -8,13 +8,12 @@ Artefak pengguna ada di [outputs.md](outputs.md).
 
 Workspace default adalah `.laporan-build/` di samping `document.md`. Isinya
 antara lain Markdown hasil `front_matter`, PNG Mermaid, `reference.docx`
-turunan, dan DOCX intermediate untuk target PDF. Tanpa
-`--keep-intermediate`, workspace dihapus di blok `finally`, termasuk saat
-build gagal.
+turunan, dan DOCX intermediate. Tanpa `--keep-intermediate`, workspace dihapus
+di blok `finally`, termasuk saat build gagal.
 
-Untuk target `pdf` tanpa DOCX final, DOCX intermediate ditulis di workspace
-dan tidak pernah disalin ke direktori output. Dengan `--keep-intermediate`,
-workspace dan DOCX intermediate dipertahankan untuk diperiksa.
+Tidak ada target PDF, sehingga workspace tidak pernah dipakai untuk DOCX
+intermediate khusus PDF. Dengan `--keep-intermediate`, workspace dan DOCX
+intermediate dipertahankan untuk diperiksa.
 
 ## Workspace deck
 
@@ -23,14 +22,15 @@ Workspace deck default adalah `.autooffice-build/<stem>/` di samping
 Mermaid persisten berada di `.autooffice/cache/`, sedangkan state dan review
 berada di `.autooffice/state/` dan `.autooffice/review/`.
 
-Dengan `--keep-intermediate`, staging `slides` dan PPTX intermediate untuk
-target PDF dipertahankan kecuali memang dipublikasikan sebagai output final.
+Dengan `--keep-intermediate`, staging `slides` dan PPTX intermediate
+dipertahankan kecuali memang dipublikasikan sebagai output final.
 
 ## Penulisan atomic
 
 Penulisan output memakai file sementara di direktori tujuan dan `os.replace`.
 DOCX/PPTX intermediate hanya berada di workspace dan tidak pernah ditulis ke
-direktori output sebagai deliverable.
+direktori output sebagai deliverable. PDF adalah hasil ekspor manual dan tidak
+ditulis oleh pipeline.
 
 ## Referensi resmi
 

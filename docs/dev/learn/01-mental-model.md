@@ -12,7 +12,7 @@ Setelah halaman ini, pembaca bisa:
 1. menempatkan suatu berkas atau nilai ke lapisan yang benar;
 2. menjelaskan mengapa DOCX tidak boleh menjadi sumber kebenaran;
 3. menjelaskan alur package DOCX dari Pandoc sampai save;
-4. menjelaskan apa yang Word lakukan dan apa yang terjadi tanpa Word;
+4. menjelaskan peran manual Word untuk field dan ekspor PDF;
 5. mengenali error zero-fallback dan tidak menggantinya dengan tebakan.
 
 ## Prasyarat
@@ -63,15 +63,15 @@ bukan daftar path berkas. Tidak ada folder `chapters/` dan tidak ada
 ## Sumber kebenaran dan artefak
 
 Sumber kebenaran adalah `document.md` beserta aset yang dirujuknya. DOCX,
-PDF, manifest, review istilah, dan workspace adalah artefak turunan.
+manifest, review istilah, dan workspace adalah artefak turunan. PDF adalah
+hasil ekspor manual pengguna, bukan artefak build.
 
 ```text
 Sumber                         Artefak
 document.md                    <report_name>.docx
-references.bib                 <report_name>.pdf
-gambar/                        .laporan/manifest.json
-istilah.tsv                    .laporan/istilah-baru.txt
-                               .laporan-build/ (sementara)
+references.bib                 .laporan/manifest.json
+gambar/                        .laporan/istilah-baru.txt
+istilah.tsv                    .laporan-build/ (sementara)
 ```
 
 Konsekuensi:
@@ -95,16 +95,15 @@ Pipeline dapat dibaca dalam tiga kelompok besar:
 | --- | --- | --- |
 | Persiapan | `validate`, `mermaid`, `style_reference`, `front_matter`, `pandoc` | Markdown final dan package DOCX awal. |
 | Mutasi package | `sections` sampai `lists` | DOCX di memori dengan section, caption, field, nomor halaman, dan daftar. |
-| Finalisasi | `office`, `pdf` | Field diperbarui Word dan PDF diekspor. |
 
-Urutan lengkap 18 stage dibahas di
+Tidak ada stage Word atau PDF. Urutan lengkap 16 stage dibahas di
 [03 - Tahap Pipeline](03-pipeline-stages.md). Untuk model mental, cukup ingat
 bahwa setelah `pandoc`, semua stage bekerja pada satu `DocumentPackage` di
 memori.
 
 `style_reference` adalah pengecualian yang sah: ia memuat `reference.docx`
-sumber dan menyimpan versi turunan di workspace. `office` juga pengecualian
-karena Word dapat menulis ulang package dari luar.
+sumber dan menyimpan versi turunan di workspace. Tidak ada stage yang memanggil
+Word atau menulis ulang package setelah save.
 
 ## Satu load dan satu save
 
@@ -117,7 +116,6 @@ Aturan ini menjaga determinisme dan mencegah stage saling menimpa file.
 4. Hook Adeu menambahkan bookmark dan menyiapkan manifest di memori.
 5. `Pipeline` memanggil `save` tepat satu kali ke path output.
 6. Manifest ditulis setelah save.
-7. `office` dan `pdf` berjalan setelah save.
 
 Stage tidak boleh memanggil `DocumentPackage.load` atau
 `DocumentPackage.save` untuk package target. Jika stage butuh membaca part,
@@ -135,22 +133,14 @@ Pembagian tanggung jawab:
 | --- | --- | --- |
 | Python | Validasi, orkestrasi, mutasi XML, field, caption, nomor halaman, manifest. | Menjalankan Word atau mengisi hasil field. |
 | Pandoc | Mengubah Markdown yang sudah dimaterialisasi menjadi DOCX awal dan memproses sitasi. | Membuat TOC native atau caption final. |
-| Word | Memperbarui field, repaginasi, dan mengekspor PDF. | Menentukan isi naskah. |
+| Word (manual) | Memperbarui field dan mengekspor PDF setelah pengguna membuka DOCX. | Menentukan isi naskah atau menjadi bagian build. |
 
-Tanpa Word:
-
-- `--target docx` tetap menghasilkan DOCX.
-- Stage `office` dilewati dengan peringatan:
-  `Microsoft Word tidak tersedia; field DOCX tidak diperbarui dan TOC memakai cache terakhir. DOCX tetap dihasilkan.`
-- Field TOC yang baru dibuat belum memiliki entri cache. Akibatnya TOC bisa
-  tampil kosong sampai dibuka di Word dan field diperbarui.
-- `--target pdf` selalu gagal karena tidak ada output yang diminta.
-- `--target all` gagal karena PDF tidak dapat dihasilkan; DOCX dapat sudah
-  tertulis sebelum error. Tidak ada flag yang menurunkan `all` menjadi DOCX.
-
-Di Word, field dapat diperbarui dengan memilih seluruh dokumen lalu menekan
-F9, atau lewat menu Update Field. Word juga yang menghasilkan PDF dari DOCX
-final, bukan dari Markdown.
+AutoOffice tidak memanggil Word. Field TOC yang baru dibuat belum memiliki
+entri cache, sehingga TOC bisa tampil kosong sampai dokumen dibuka di Word dan
+field diperbarui. Pengguna memilih seluruh dokumen dengan Ctrl+A lalu menekan
+F9, atau memakai References > Update Table. Word juga yang menghasilkan PDF
+manual dari DOCX final, bukan dari Markdown. Alur lengkap ada di
+[Ekspor PDF Manual](../../user/pdf-export.md).
 
 ## Zero-fallback sebagai kontrak
 
@@ -198,8 +188,8 @@ ctx.package.save(docx_path)
 ctx.artifacts.put("docx", docx_path)
 ```
 
-Setelah baris itu, `office` dan `pdf` berjalan. Semua mutasi stage sebelumnya
-sudah selesai.
+Setelah baris itu, pipeline selesai. Semua mutasi stage sebelumnya sudah
+selesai dan tidak ada pass Word atau PDF.
 
 Verifikasi model mental dengan perintah read-only:
 
@@ -207,8 +197,8 @@ Verifikasi model mental dengan perintah read-only:
 uv run python -c "from autooffice.docx.pipeline import CANONICAL_ORDER; print(len(CANONICAL_ORDER)); print(', '.join(item.value for item in CANONICAL_ORDER))"
 ```
 
-Hasil yang diharapkan adalah `18` dan daftar stage dari `validate` sampai
-`pdf`.
+Hasil yang diharapkan adalah `16` dan daftar stage dari `validate` sampai
+`lists`.
 
 ## Latihan
 
@@ -235,7 +225,7 @@ uv run autooffice check examples/thesis-single/document.md
 ```
 
 Cara memeriksa: exit code 0 dan output `[OK] check <path>: bersih`. Perintah
-ini tidak memanggil Pandoc atau Word.
+ini tidak memanggil Pandoc atau Office.
 
 ### 3. Uji zero-fallback pada salinan
 
@@ -265,10 +255,10 @@ pertama dan melihat lokasi output.
 | Format dan struktur | [formats.md](../formats.md) |
 | Kontrak DOCX | [contracts/docx.md](../../contracts/docx.md) |
 | Kontrak CLI | [contracts/cli.md](../../contracts/cli.md) |
-| PDF dan batas Word | [pdf.md](../pdf.md) |
+| Ekspor PDF manual | [pdf-export.md](../../user/pdf-export.md) |
 
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Python 3.15 pathlib`, `Pandoc
-manual`, `OOXML ECMA-376`, dan `Word COM object model (VBA reference)`. URL
-resminya ada di [registry referensi](../references.md).
+manual`, dan `OOXML ECMA-376`. URL resminya ada di
+[registry referensi](../references.md).

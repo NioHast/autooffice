@@ -16,7 +16,6 @@ class OutputTarget(StrEnum):
     """Target output yang didukung renderer deck."""
 
     PPTX = "pptx"
-    PDF = "pdf"
     SLIDES = "slides"
 
 

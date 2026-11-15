@@ -26,7 +26,7 @@ pilih jalur baca yang sesuai di indeks materi belajar.
 | --- | --- |
 | [pipeline/README.md](pipeline/README.md) | Indeks dokumentasi pipeline. |
 | [pipeline/overview.md](pipeline/overview.md) | Model eksekusi, satu load/save, Adeu hook, idempotensi, logging. |
-| [pipeline/stages.md](pipeline/stages.md) | Urutan 18 stage dan guard. |
+| [pipeline/stages.md](pipeline/stages.md) | Urutan 16 stage dan guard. |
 | [pipeline/options.md](pipeline/options.md) | Flag build dan matriks target. |
 | [pipeline/outputs.md](pipeline/outputs.md) | `report_name` dan artefak pengguna. |
 | [pipeline/artifacts.md](pipeline/artifacts.md) | Workspace dan artefak antara. |
@@ -57,7 +57,6 @@ pilih jalur baca yang sesuai di indeks materi belajar.
 | --- | --- |
 | [../contracts/docx.md](../contracts/docx.md) | Kontrak DOCX: API `build_docx`, stage, invariant parity, dan output. |
 | [../contracts/cli.md](../contracts/cli.md) | Permukaan CLI, matriks target, output, flag, dan exit code. |
-| [../contracts/pdf.md](../contracts/pdf.md) | Word/PowerPoint COM, ekspor PDF, timeout, cleanup, dan embedding font. |
 | [../contracts/documentation.md](../contracts/documentation.md) | Struktur dokumentasi, TOC, tautan, dan aturan isi. |
 
 Kontrak internal lama sudah dihapus. Acuan aktif berada di
@@ -69,8 +68,6 @@ Kontrak internal lama sudah dihapus. Acuan aktif berada di
 | --- | --- |
 | [formats.md](formats.md) | Skema format dan struktur yang tersedia. |
 | [adeu-integration.md](adeu-integration.md) | Adeu (MCP eksternal DOCX↔LLM): bookmark `pNNNN`, manifest, source scan, dan modul rekonsiliasi internal. |
-| [pdf.md](pdf.md) | Ekspor PDF lewat Word/PowerPoint, embedding font, dan batas platform. |
-| [com.md](com.md) | Guard COM Word/PowerPoint, watchdog, PID, lock, dan cleanup proses. |
 | [security.md](security.md) | Batas keamanan resource input tidak tepercaya: ZIP DOCX/PPTX, parser XML, dan `deck.yaml`. |
 | [packaging.md](packaging.md) | Entry point, package data, dan pemakaian repo-local. |
 
@@ -81,7 +78,7 @@ Kontrak internal lama sudah dihapus. Acuan aktif berada di
 | [contributing.md](contributing.md) | Alur kontribusi, tes, dan aturan perubahan. |
 | [testing.md](testing.md) | Golden invariant dan cara menjalankan tes. |
 | [performance.md](performance.md) | Tes performa deck besar, marker `slow`, dan batas waktu. |
-| [visual-testing.md](visual-testing.md) | Smoke harness render PPTX ke PNG lewat PowerPoint COM. |
+| [visual-testing.md](visual-testing.md) | Status harness visual PPTX setelah penghapusan COM. |
 | [quality-gates.md](quality-gates.md) | Gate lokal AutoOffice, checker, dan urutan verifikasi. |
 | [f3-cleanup.md](f3-cleanup.md) | Status pembersihan legacy F3, verifikasi, dan tautan ke ADR 0011. |
 | [test-quality.md](test-quality.md) | Prinsip memilih kasus test dan alat pemeriksa deterministik. |
@@ -94,7 +91,7 @@ Kontrak internal lama sudah dihapus. Acuan aktif berada di
 
 | Dokumen | Isi |
 | --- | --- |
-| [decisions/](decisions/) | Delapan ADR keputusan arsitektur. |
+| [decisions/](decisions/) | Delapan ADR arsitektur historis. |
 | [archive/](archive/) | Rencana historis yang sudah superseded. |
 
 ADR yang tersedia:

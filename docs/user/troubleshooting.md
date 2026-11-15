@@ -7,8 +7,10 @@ masalah naskah:
 uv run --project <repo> autooffice doctor
 ```
 
-Perintah itu memeriksa Python, Pandoc, `mmdc`, Word/PowerPoint COM, font, dan
-izin tulis workspace. Exit code 1 berarti dependensi wajib belum lengkap.
+Perintah itu memeriksa Python, Pandoc, `mmdc`, integritas aset font pengukuran
+Liberation Sans, extra Google, kredensial OAuth, dan izin tulis workspace.
+Exit code 1 berarti dependensi wajib belum lengkap. AutoOffice tidak memeriksa
+Word, PowerPoint, COM, atau `pywin32`.
 
 ## Daftar isi
 
@@ -18,7 +20,7 @@ izin tulis workspace. Exit code 1 berarti dependensi wajib belum lengkap.
 - [Python terlalu lama](#python-terlalu-lama)
 - [`ruamel.yaml` atau YAML tidak valid](#ruamelyaml-atau-yaml-tidak-valid)
 - [Word atau PDF](#word-atau-pdf)
-- [Debian dan Linux](#debian-dan-linux)
+- [Linux dan macOS](#linux-dan-macos)
 - [Path dan aset](#path-dan-aset)
 - [Output terkunci atau gagal ditulis](#output-terkunci-atau-gagal-ditulis)
 - [Istilah dan review file](#istilah-dan-review-file)
@@ -126,36 +128,34 @@ Periksa juga:
 
 ## Word atau PDF
 
-Gejala di Windows:
+DOCX hasil build memakai field native. AutoOffice tidak memperbarui field,
+tidak mengisi daftar isi, dan tidak mengekspor PDF.
 
-- `Microsoft Word tidak tersedia; PDF tidak dapat dihasilkan`
-- `Word selesai tanpa error tetapi PDF tidak ditemukan`
-- nomor halaman daftar isi masih `0`
+Gejala:
+
+- daftar isi atau daftar tabel kosong;
+- nomor halaman daftar isi masih `0` atau memakai cache lama;
+- PDF belum ada setelah build.
 
 Tindakan:
 
-1. Pasang Microsoft Word desktop. Word Online tidak menyediakan COM.
-2. Tutup DOCX atau PDF tujuan yang sedang dibuka aplikasi lain.
-3. Jalankan ulang build.
-4. Bila field belum diperbarui, buka DOCX di Word, perbarui field, simpan, lalu
-   ekspor ulang.
+1. Buka DOCX hasil build di Microsoft Word.
+2. Pilih seluruh dokumen dengan Ctrl+A, lalu tekan F9. Untuk daftar isi,
+   pengguna juga dapat memakai References > Update Table.
+3. Periksa nomor halaman, caption, dan page break.
+4. Ekspor PDF manual dari Word: File > Save As atau File > Export > Create
+   PDF/XPS.
 
-`--target all` atau `--target pdf` membutuhkan Word. Bila Word tidak ada,
-target PDF gagal dan tidak ada PDF yang ditulis; DOCX yang sudah selesai dari
-target `all` tetap ada. Gunakan `--target docx` untuk menghasilkan DOCX saja.
+Tidak ada target `pdf` atau `all`. Build tidak memanggil Word, PowerPoint,
+COM, atau `pywin32`. Alur ekspor lengkap ada di [pdf-export.md](pdf-export.md).
 
-## Debian dan Linux
+## Linux dan macOS
 
-Di Debian, PDF tidak didukung. Gunakan:
+Di Linux dan macOS, DOCX dan PPTX dapat dibangun tanpa Word, PowerPoint, COM,
+atau `pywin32`. Field DOCX tetap belum final sampai pengguna membuka DOCX di
+Word dan menekan Ctrl+A lalu F9. PDF diekspor manual dari Word atau PowerPoint.
 
-```bash
-uv run --project <repo> autooffice build document.md --target docx
-```
-
-DOCX di Debian bersifat best-effort. Pandoc dan stage Python berjalan, tetapi
-finalisasi field Word tidak tersedia. TOC dan nomor halaman dapat tetap kosong
-sampai DOCX dibuka dan diperbarui di Word. Jangan memakai LibreOffice sebagai
-pengganti jalur PDF resmi.
+Build tidak membutuhkan Office desktop dan tidak memiliki jalur PDF tersembunyi.
 
 ## Path dan aset
 
@@ -186,14 +186,15 @@ file is being used by another process
 
 Tindakan:
 
-1. Tutup Word, LibreOffice, atau PDF viewer yang membuka berkas output DOCX
-   atau PDF (nama mengikuti `report_name`, misalnya `Tugas.docx` atau
-   `Tugas.pdf`).
+1. Tutup Word, LibreOffice, atau PDF viewer yang membuka berkas output. DOCX
+   mengikuti `report_name`, misalnya `Tugas.docx`. PDF manual dapat terkunci
+   bila sedang dibuka saat pengguna mengekspor ulang.
 2. Pastikan direktori dokumen dapat ditulis.
 3. Build ulang.
 
-Pipeline menulis output secara atomic. Kegagalan tidak boleh meninggalkan DOCX
-atau PDF setengah jadi di direktori tujuan.
+Pipeline menulis output DOCX secara atomic. Kegagalan tidak boleh meninggalkan
+DOCX setengah jadi di direktori tujuan. PDF adalah hasil ekspor manual dan
+tidak ditulis oleh pipeline.
 
 ## Istilah dan review file
 

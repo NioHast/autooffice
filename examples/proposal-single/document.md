@@ -76,7 +76,8 @@ diwakili AST Markdown tetap diterapkan secara eksplisit.
 
 Bahan penelitian berupa naskah Markdown, berkas BibTeX, dan gambar lokal.
 Alat yang dipakai meliputi Python 3.15, Pandoc, `python-docx`, `lxml`, dan
-`ruamel.yaml`. Microsoft Word diperlukan hanya untuk ekspor PDF pada Windows.
+`ruamel.yaml`. Microsoft Word diperlukan hanya untuk memperbarui field DOCX
+dan mengekspor PDF secara manual.
 
 ## Prosedur Penelitian
 

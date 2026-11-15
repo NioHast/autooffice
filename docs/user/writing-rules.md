@@ -22,7 +22,8 @@ editorial; paket AutoOffice tidak menyertakan pemeriksa prosa terpisah.
 2. Jangan mengarang rujukan. Tulis `TODO-SITASI: <klaim>` bila sumber belum
    tersedia.
 3. Jangan menebak istilah asing. Tulis `{{?istilah?}}` sampai diputuskan.
-4. Jangan menyunting DOCX (Word) atau PDF hasil build. Perbaiki `document.md`.
+4. Jangan menyunting DOCX (Word) atau PPTX hasil build. Perbaiki `document.md`
+   atau `deck.yaml`.
 5. Jangan memindahkan, menghapus, atau mengganti sitasi saat menyunting prosa.
 6. Jangan memakai em dash.
 

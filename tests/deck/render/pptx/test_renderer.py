@@ -2,15 +2,13 @@
 
 from dataclasses import replace
 
-import pytest
 from _edge_helpers import has_percentage_line_spacing, line_spacing_points
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.text import MSO_AUTO_SIZE
+from pptx.oxml.ns import qn
 
 from autooffice.deck.render.pptx import PptxRenderer
-from autooffice.deck.render.pptx import renderer as renderer_module
-from autooffice.deck.render.pptx.fonts import DEFERRED, FontEmbeddingResult
 from autooffice.deck.render.pptx.xml import forbidden_node_paths
 from autooffice.deck.render.protocol import OutputTarget, RenderRequest
 
@@ -26,10 +24,6 @@ def _render(case, theme, *, target: OutputTarget = OutputTarget.PPTX):
     return PptxRenderer().render(request)
 
 
-def _stub_embed_fonts(_path, _theme) -> FontEmbeddingResult:
-    return FontEmbeddingResult(status=DEFERRED, warnings=(), font_files=(), blocker=None)
-
-
 def test_minimal_deck_writes_artifact_and_metadata(minimal_case, theme) -> None:
     result = _render(minimal_case, theme)
 
@@ -41,20 +35,18 @@ def test_minimal_deck_writes_artifact_and_metadata(minimal_case, theme) -> None:
     assert result.coverage.missing_alt == ()
     assert len(result.content_hash) == 64
     assert int(result.content_hash, 16) >= 0
-    assert any("font-embedding" in warning for warning in result.warnings)
+    assert not any("font-embedding" in warning for warning in result.warnings)
     assert result.target_metadata["renderer"] == "pptx"
     assert result.target_metadata["target"] == "pptx"
     assert result.target_metadata["slides"] == "2"
-    assert result.target_metadata["font_embedding"] == "deferred"
+    assert "font_embedding" not in result.target_metadata
 
 
 def test_font_weight_fallback_warning_is_returned_in_render_result(
     minimal_case,
     theme,
-    monkeypatch,
 ) -> None:
     fallback_theme = replace(theme, typography=replace(theme.typography, family="Inter"))
-    monkeypatch.setattr(renderer_module, "embed_fonts", _stub_embed_fonts)
 
     result = _render(minimal_case, fallback_theme)
 
@@ -179,6 +171,21 @@ def test_table_cells_and_source_have_key_metadata(minimal_case, theme) -> None:
     assert source_node.get("title") == "s01.source.text"
 
 
+def test_default_theme_emits_arial_bullet_typeface(minimal_case, theme) -> None:
+    result = _render(minimal_case, theme)
+    presentation = Presentation(str(result.artifact_path))
+    bullet_shape = next(
+        shape
+        for shape in presentation.slides[0].shapes
+        if shape.name == "autooffice:key:s01.body.item1.text"
+    )
+
+    bullet_font = bullet_shape._element.find(".//" + qn("a:buFont"))
+    assert bullet_font is not None
+    assert theme.typography.family == "Arial"
+    assert bullet_font.get("typeface") == "Arial"
+
+
 def test_renderer_never_writes_timing_or_transition(minimal_case, theme) -> None:
     result = _render(minimal_case, theme)
 
@@ -194,24 +201,15 @@ def test_render_is_deterministic_for_same_input(minimal_case, theme) -> None:
     assert first.coverage == second.coverage
 
 
-def test_pdf_target_returns_warning_but_pptx_artifact(minimal_case, theme) -> None:
-    result = _render(minimal_case, theme, target=OutputTarget.PDF)
-
-    assert result.artifact_path.suffix == ".pptx"
-    assert result.target_metadata["target"] == "pdf"
-    assert any("konversi PDF" in warning for warning in result.warnings)
-
-
-def test_slides_target_uses_google_fonts_without_ppt_embedding_warning(minimal_case, theme) -> None:
+def test_slides_target_has_no_ppt_font_embedding_metadata(minimal_case, theme) -> None:
     result = _render(minimal_case, theme, target=OutputTarget.SLIDES)
 
     assert not any("font-embedding" in warning for warning in result.warnings)
-    assert result.target_metadata["font_embedding"] == "google"
+    assert "font_embedding" not in result.target_metadata
 
 
-@pytest.mark.parametrize("target", [OutputTarget.PPTX, OutputTarget.PDF])
-def test_chart_block_renders_native_chart_part(chart_case, theme, target) -> None:
-    result = _render(chart_case, theme, target=target)
+def test_chart_block_renders_native_chart_part(chart_case, theme) -> None:
+    result = _render(chart_case, theme)
     presentation = Presentation(str(result.artifact_path))
     charts = [shape for shape in presentation.slides[0].shapes if shape.has_chart]
 

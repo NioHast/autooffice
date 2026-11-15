@@ -50,7 +50,6 @@ CRITICAL_MODULES: tuple[str, ...] = (
 
 ADAPTER_PATTERNS: tuple[str, ...] = (
     "autooffice.google.*",
-    "autooffice.pdf.*",
     "autooffice.cli.*",
     "autooffice.docx.*",
 )

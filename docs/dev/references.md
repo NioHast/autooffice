@@ -17,7 +17,6 @@ bila merujuk dokumentasi eksternal. Label harus unik; URL harus memakai skema
 | OOXML ECMA-376 | https://ecma-international.org/publications-and-standards/standards/ecma-376/ | Struktur package dan WordprocessingML; `src/autooffice/docx/package/package.py`, `src/autooffice/docx/package/xml.py`, `docs/dev/docx/README.md`, `docs/contracts/docx.md`. |
 | Open XML SDK | https://learn.microsoft.com/en-us/office/open-xml/open-xml-sdk | Pemetaan API OOXML ke elemen Word; `docs/dev/docx/overview.md`. |
 | WordprocessingML API reference | https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing?view=openxml-3.0.1 | Nama elemen dan properti `w:*`; `src/autooffice/docx/package/` (`fields.py`, `sections.py`, `numbering.py`, `page.py`, `paragraphs.py`, `terms/model.py`), `docs/dev/docx/`, `docs/contracts/docx.md`. |
-| Word COM object model (VBA reference) | https://learn.microsoft.com/en-us/office/vba/api/overview/word | Otomasi Word melalui COM; `src/autooffice/docx/stages/office.py`, `src/autooffice/pdf/word.py`, `src/autooffice/pdf/powerpoint.py`, `docs/dev/pdf.md`, dan `docs/dev/com.md`. |
 | Pandoc manual | https://pandoc.org/MANUAL.html | Konversi Markdown ke DOCX dan opsi CLI; `src/autooffice/docx/stages/pandoc.py`, `src/autooffice/docx/stages/front_matter.py`, `README.md`, `docs/dev/pipeline/overview.md`. |
 | Pandoc installation | https://pandoc.org/installing.html | Prasyarat pemasangan Pandoc; `README.md`, `docs/user/troubleshooting.md`. |
 | Pandoc Lua filters | https://pandoc.org/lua-filters.html | Referensi filter Lua; pipeline tidak memakai `--lua-filter`, tetapi kontrak historis menyebut paritasnya. |
@@ -43,7 +42,7 @@ bila merujuk dokumentasi eksternal. Label harus unik; URL harus memakai skema
 | mypy configuration | https://mypy.readthedocs.io/en/stable/config_file.html | Konfigurasi `[tool.mypy]`; `pyproject.toml`, `docs/dev/code-style.md`. |
 | mypy error codes | https://mypy.readthedocs.io/en/stable/error_code_list.html | Kode error dan `# type: ignore[kode]`; `docs/dev/code-style.md`. |
 | pytest documentation | https://docs.pytest.org/en/stable/ | Penulisan dan menjalankan tes; `tests/`, `docs/dev/testing.md`. |
-| pytest markers | https://docs.pytest.org/en/stable/how-to/mark.html | Marker `unit`, `integration`, `word`, dan `windows`; `pytest.ini`, `docs/dev/testing.md`. |
+| pytest markers | https://docs.pytest.org/en/stable/how-to/mark.html | Marker `unit`, `integration`, `packaging`, dan `slow`; `pytest.ini`, `docs/dev/testing.md`. |
 | Google Testing Blog - Test Behavior | https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html | Alasan test berfokus pada perilaku, bukan implementasi; `docs/dev/test-quality.md`. |
 | Google Testing Blog - Code Coverage Best Practices | https://testing.googleblog.com/2020/08/code-coverage-best-practices.html | Coverage sebagai alat risiko, diminishing returns 100%, dan bahaya test tanpa assertion; `docs/contracts/coverage.md`, `docs/decisions/0010-risk-based-coverage.md`. |
 | CMU SEI - Don't Play Developer Testing Roulette | https://www.sei.cmu.edu/blog/dont-play-developer-testing-roulette-how-to-use-test-coverage/ | Partial coverage sebagai risiko dan hubungan coverage dengan test yang efektif; `docs/contracts/coverage.md`, `docs/decisions/0010-risk-based-coverage.md`. |
@@ -65,7 +64,6 @@ bila merujuk dokumentasi eksternal. Label harus unik; URL harus memakai skema
 | Mermaid documentation | https://mermaid.js.org/ | Sintaks diagram Mermaid; `docs/user/mermaid.md`. |
 | lxml documentation | https://lxml.de/ | API `lxml.etree`; `src/autooffice/docx/package/`, `docs/contracts/docx.md`. |
 | python-docx documentation | https://python-docx.readthedocs.io/ | Referensi pembanding untuk API DOCX; `docs/contracts/docx.md`. |
-| pypdf documentation | https://pypdf.readthedocs.io/ | Pemeriksaan PDF pada tes; `tests/docx/test_pdf.py`. |
 | ruamel.yaml documentation | https://yaml.dev/doc/ruamel.yaml/ | Parser YAML dan penanganan duplicate key; `src/autooffice/docx/config/common.py`. |
 | Adeu GitHub | https://github.com/dealfluence/adeu | Source resmi SDK/CLI Adeu; `docs/dev/adeu-integration.md`. |
 | Adeu PyPI | https://pypi.org/project/adeu/ | Distribusi paket Python SDK/CLI Adeu; `docs/dev/adeu-integration.md`. |

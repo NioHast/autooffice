@@ -1,5 +1,9 @@
 *.sh text eol=lf
 *.py text eol=lf
+# Teks aset font harus LF di semua checkout supaya hash SHA256 stabil.
+src/autooffice/assets/fonts/** text eol=lf
+# Font biner tidak boleh dinormalisasi EOL; byte CRLF muncul di dalam data font.
+src/autooffice/assets/fonts/**/*.ttf binary
 *.docx binary
 *.pdf binary
 *.jpg binary

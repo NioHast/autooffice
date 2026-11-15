@@ -5,6 +5,15 @@ AutoOffice. Kontrak normatifnya ada di
 [kontrak design token](../contracts/design-token.md); halaman ini adalah
 panduan konsep dan contoh pemakaian.
 
+## Daftar Isi
+
+- [Alur token](#alur-token)
+- [Token dasar](#token-dasar)
+- [Theme](#theme)
+- [Font](#font)
+- [Kontras](#kontras)
+- [Aturan implementasi](#aturan-implementasi)
+
 ## Alur token
 
 Token adalah data package, bukan berkas kerja pengguna:
@@ -83,24 +92,35 @@ memakai turunan empat warna di atas. Batas empat slot berlaku untuk seri
 
 ## Font
 
-Deck memakai satu family: `Plus Jakarta Sans` weight 400, 600, 700, dan 800.
-File TTF dan lisensi disimpan di:
+Deck memakai satu family: `Arial` weight 400, 600, 700, dan 800. Family
+disimpan di token typography; tidak ada embedding font ke PPTX.
 
-```text
-src/autooffice/assets/fonts/plus-jakarta-sans/
-  PlusJakartaSans-Regular.ttf
-  PlusJakartaSans-SemiBold.ttf
-  PlusJakartaSans-Bold.ttf
-  PlusJakartaSans-ExtraBold.ttf
-  OFL.txt
+```yaml
+typography:
+  family: "Arial"
+  weights: [400, 600, 700, 800]
 ```
 
-`autooffice.design.fonts` mengekspos direktori font, daftar berkas, dan hash
-SHA256. Test memverifikasi setiap berkas ada, magic bytes TTF valid, dan hash
-cocok. Lisensi yang dipakai adalah SIL Open Font License 1.1.
+Pengukuran layout memakai Liberation Sans, font metrik-kompatibel Arial. Dua
+berkas TTF Liberation Sans (Regular dan Bold) serta lisensi SIL Open Font
+License 1.1 dibundel di `src/autooffice/assets/fonts/liberation-sans/` hanya
+untuk pengukuran. Berkas itu tidak ditanam ke PPTX dan tidak dipakai sebagai
+family tampilan.
 
-DOCX tidak memakai Plus Jakarta Sans; DOCX mempertahankan font format baseline
-DOCX. Google Slides memakai nama family `Plus Jakarta Sans` dari Google Fonts.
+Konsekuensi platform:
+
+- Di Windows dan macOS, Arial umumnya tersedia sehingga PPTX tampil sesuai
+  pengukuran.
+- Di Android, Linux, atau lingkungan tanpa Arial, PowerPoint, Google Slides,
+  LibreOffice, atau aplikasi lain dapat mengganti Arial dengan Liberation Sans
+  atau font substitusi. Tata letak umumnya tetap sama karena metrik
+  kompatibel, tetapi bentuk glyph dan rendering dapat berbeda.
+- Bila PDF harus tampil identik di semua perangkat, aktifkan embedding font
+  saat mengekspor dari PowerPoint atau Word. AutoOffice tidak menanam font.
+
+DOCX tidak memakai design system deck; DOCX mempertahankan font format
+baseline DOCX. Google Slides memakai nama family `Arial` dan dapat melakukan
+substitusi font sesuai lingkungan Google.
 
 ## Kontras
 
@@ -142,4 +162,5 @@ renderer.
 - Theme tidak menambah zona aksen atau mengubah geometri layout.
 
 Bukti kontrak ada di `tests/design/test_themes.py`, `test_contrast.py`, dan
-`test_design_fonts.py`.
+`test_design_fonts.py`. Tes font memeriksa aset Liberation Sans untuk
+pengukuran, bukan font tertanam di PPTX.

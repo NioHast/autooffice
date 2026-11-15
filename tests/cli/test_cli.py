@@ -130,7 +130,7 @@ def test_build_markdown_dry_run_does_not_call_build_docx(
     assert main(["build", str(source), "--target", "docx", "--dry-run"]) == 0
 
 
-def test_build_markdown_dry_run_lists_pdf_and_terms(
+def test_build_markdown_dry_run_lists_terms(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -141,7 +141,7 @@ def test_build_markdown_dry_run_lists_pdf_and_terms(
                 "build",
                 str(source),
                 "--target",
-                "docx,pdf",
+                "docx",
                 "--terms",
                 "--dry-run",
             ]
@@ -149,7 +149,7 @@ def test_build_markdown_dry_run_lists_pdf_and_terms(
         == 0
     )
     output = capsys.readouterr().out
-    assert str(tmp_path / "Laporan Uji.pdf") in output
+    assert str(tmp_path / "Laporan Uji.docx") in output
     assert str(tmp_path / ".laporan" / "istilah-baru.txt") in output
 
 
@@ -157,6 +157,17 @@ def test_build_requires_target(tmp_path: Path, capsys: pytest.CaptureFixture[str
     source = _document(tmp_path)
     assert main(["build", str(source)]) == 2
     assert "--target" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("target", ["pdf", "all", "docx,pdf", "all,docx"])
+def test_build_rejects_removed_targets(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    target: str,
+) -> None:
+    source = _document(tmp_path)
+    assert main(["build", str(source), "--target", target]) == 2
+    assert "target tidak valid" in capsys.readouterr().err
 
 
 def test_build_rejects_invalid_target(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -188,6 +199,15 @@ def test_build_rejects_sync_without_slides(
     source = tmp_path / "deck.yaml"
     source.write_text("schema: autooffice.deck/v1\n", encoding="utf-8")
     assert main(["build", str(source), "--target", "pptx", "--sync", "diff"]) == 2
+    assert "--sync" in capsys.readouterr().err
+
+
+def test_build_rejects_sync_for_markdown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _document(tmp_path)
+    assert main(["build", str(source), "--target", "docx", "--sync", "diff"]) == 2
     assert "--sync" in capsys.readouterr().err
 
 
@@ -284,7 +304,9 @@ def test_doctor_json(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = main(["doctor", "--json"])
     data = json.loads(capsys.readouterr().out)
     names = {check["name"] for check in data["checks"]}
-    assert {"python", "pandoc", "mmdc", "word", "powerpoint", "fonts"} <= names
+    assert {"python", "pandoc", "mmdc", "font-assets"} <= names
+    assert "fonts" not in names
+    assert {"word", "powerpoint", "pywin32"} & names == set()
     assert data["ok"] is (exit_code == 0)
 
 
@@ -313,10 +335,10 @@ def test_doctor_json_without_google_extra_is_valid_json(
     assert google["detail"] == "google extra tidak terpasang"
 
 
-def test_help_does_not_import_deck_google_or_pdf_domain() -> None:
+def test_help_does_not_import_deck_or_google_domain() -> None:
     code = (
         "import sys; import autooffice.cli.main; "
-        "prefixes = ('autooffice.deck', 'autooffice.google', 'autooffice.pdf'); "
+        "prefixes = ('autooffice.deck', 'autooffice.google'); "
         "print(','.join(sorted(m for m in sys.modules if m.startswith(prefixes))))"
     )
     environment = dict(os.environ)
@@ -333,3 +355,7 @@ def test_help_does_not_import_deck_google_or_pdf_domain() -> None:
     )
     assert completed.returncode == 0
     assert completed.stdout.strip() == ""
+
+
+def test_removed_pdf_module_is_not_importable() -> None:
+    assert importlib.util.find_spec("autooffice.pdf") is None

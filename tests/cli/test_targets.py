@@ -20,15 +20,11 @@ from autooffice.cli.targets import (
     ("raw", "suffix", "expected"),
     [
         ("docx", ".md", ("docx",)),
-        ("pdf", ".md", ("pdf",)),
-        ("pdf, docx", ".md", ("docx", "pdf")),
         ("docx,docx", ".md", ("docx",)),
-        ("all", ".md", ("docx", "pdf")),
         ("pptx", ".yaml", ("pptx",)),
         ("slides", ".yaml", ("slides",)),
-        ("pdf,slides", ".yaml", ("pdf", "slides")),
-        ("slides, pptx, pdf", ".yaml", ("pptx", "pdf", "slides")),
-        ("all", ".yaml", ("pptx", "pdf", "slides")),
+        ("slides, pptx", ".yaml", ("pptx", "slides")),
+        ("pptx,slides,pptx", ".yaml", ("pptx", "slides")),
     ],
 )
 def test_parse_targets_matrix(raw: str, suffix: str, expected: tuple[str, ...]) -> None:
@@ -39,12 +35,19 @@ def test_parse_targets_matrix(raw: str, suffix: str, expected: tuple[str, ...]) 
 @pytest.mark.parametrize(
     ("raw", "suffix", "match"),
     [
-        ("all,docx", ".md", "all"),
+        ("pdf", ".md", "target tidak valid"),
+        ("docx,pdf", ".md", "target tidak valid"),
+        ("all", ".md", "target tidak valid"),
+        ("all,docx", ".md", "target tidak valid"),
+        ("pdf", ".yaml", "target tidak valid"),
+        ("pptx,pdf", ".yaml", "target tidak valid"),
+        ("all", ".yaml", "target tidak valid"),
+        ("all,pptx", ".yaml", "target tidak valid"),
         ("ppt", ".md", "target tidak valid"),
         ("pptx", ".md", "target tidak valid"),
         ("docx", ".yaml", "target tidak valid"),
         ("", ".md", "tidak valid"),
-        ("docx,,pdf", ".md", "tidak valid"),
+        ("docx,,pptx", ".md", "tidak valid"),
     ],
 )
 def test_parse_targets_rejects_invalid(raw: str, suffix: str, match: str) -> None:
@@ -63,8 +66,8 @@ def test_parse_targets_optional_for_check() -> None:
 
 
 def test_default_check_targets_cover_all_valid_targets() -> None:
-    assert default_check_targets(InputKind.MARKDOWN) == ("docx", "pdf")
-    assert default_check_targets(InputKind.DECK) == ("pptx", "pdf", "slides")
+    assert default_check_targets(InputKind.MARKDOWN) == ("docx",)
+    assert default_check_targets(InputKind.DECK) == ("pptx", "slides")
 
 
 @pytest.mark.parametrize("name", ["document.txt", "document.yml", "document"])
@@ -81,10 +84,15 @@ def test_parse_doctor_targets_canonical_order() -> None:
     assert parse_doctor_targets("pptx, docx") == ("docx", "pptx")
 
 
-def test_parse_doctor_targets_all() -> None:
-    assert parse_doctor_targets("all") == DOCTOR_TARGETS
+def test_parse_doctor_targets_rejects_all() -> None:
+    with pytest.raises(CliError, match="target doctor tidak valid"):
+        parse_doctor_targets("all")
 
 
-def test_parse_doctor_targets_rejects_mixed_all() -> None:
-    with pytest.raises(CliError, match="all"):
-        parse_doctor_targets("all,docx")
+def test_parse_doctor_targets_rejects_pdf() -> None:
+    with pytest.raises(CliError, match="target doctor tidak valid"):
+        parse_doctor_targets("docx,pdf")
+
+
+def test_doctor_targets_match_cli_surface() -> None:
+    assert DOCTOR_TARGETS == ("docx", "pptx", "slides")

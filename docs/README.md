@@ -4,7 +4,7 @@ Dokumentasi dipisahkan menurut pembaca. Mulai dari [README utama](../README.md)
 bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 
 - **Pengguna dan penulis**: menulis `document.md` atau `deck.yaml`, memilih
-  struktur atau layout, dan membangun DOCX/PDF atau PPTX/Slides.
+  struktur atau layout, dan membangun DOCX atau PPTX/Slides.
 - **Developer**: memahami arsitektur, pipeline, lapisan DOCX, dan kontrak.
 - **Referensi**: kontrak, glosarium, registry resmi, ADR, dan arsip.
 
@@ -17,6 +17,8 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 | [user/cli.md](user/cli.md) | Perintah `autooffice`, target, output, flag, dan kode keluar. |
 | [user/deck-authoring.md](user/deck-authoring.md) | Authoring `deck.yaml`: meta, 19 layout preset, custom rows, block, aset, transkrip, copy, dan build. |
 | [user/document-format.md](user/document-format.md) | Front matter, heading, caption, gambar, tabel, kode, persamaan, dan sitasi. |
+| [user/pdf-export.md](user/pdf-export.md) | Ekspor PDF manual dari Word atau PowerPoint, field DOCX, dan catatan font. |
+| [user/google-oauth.md](user/google-oauth.md) | Tutorial OAuth Google untuk target Slides. |
 | [user/single-file.md](user/single-file.md) | Alur satu berkas `document.md` dan asetnya. |
 | [user/mermaid.md](user/mermaid.md) | Diagram Mermaid, caption wajib, dan `mmdc`. |
 | [user/writing-rules.md](user/writing-rules.md) | Aturan prosa, istilah, sitasi, dan perintah pemeriksa. |
@@ -32,12 +34,10 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 | [dev/docx/README.md](dev/docx/README.md) | Model package DOCX, modul internal, field, bookmark, dan istilah. |
 | [dev/formats.md](dev/formats.md) | Skema `format.yml`, `structure.yml`, dan struktur yang tersedia. |
 | [dev/docx/terms.md](dev/docx/terms.md) | Glosarium, penanda istilah, stage `terms`, dan verifikasi. |
-| [dev/pdf.md](dev/pdf.md) | Ekspor PDF lewat Word/PowerPoint, embedding font, dan batas platform. |
 | [dev/adeu-integration.md](dev/adeu-integration.md) | Adeu (MCP DOCX↔LLM): bookmark `pNNNN`, manifest, source scan, dan modul rekonsiliasi internal. |
 | [dev/packaging.md](dev/packaging.md) | Entry point, package data, dan pemakaian repo-local. |
 | [dev/repo-map.md](dev/repo-map.md) | Peta direktori dan tanggung jawab berkas. |
 | [dev/contributing.md](dev/contributing.md) | Alur kontribusi, tes, dan aturan perubahan. |
-| [dev/com.md](dev/com.md) | Guard COM Word/PowerPoint, watchdog, PID, lock, dan cleanup proses. |
 | [dev/security.md](dev/security.md) | Batas keamanan resource input tidak tepercaya. |
 | [dev/f3-cleanup.md](dev/f3-cleanup.md) | Status pembersihan legacy F3, verifikasi, dan tautan ke ADR 0011. |
 | [dev/testing.md](dev/testing.md) | Golden invariant dan cara menjalankan tes. |
@@ -60,8 +60,10 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 
 Kontrak normatif ada di [contracts/README.md](contracts/README.md) dan
 keputusan ada di [decisions/README.md](decisions/README.md). Materi konsep
-bertahap ada di [learn/README.md](learn/README.md). Riwayat pembersihan
-legacy ada di [dev/f3-cleanup.md](dev/f3-cleanup.md) dan
+bertahap ada di [learn/README.md](learn/README.md). Keputusan menghapus PDF
+dan COM ada di
+[decisions/0013-remove-pdf-arial.md](decisions/0013-remove-pdf-arial.md).
+Riwayat pembersihan legacy ada di [dev/f3-cleanup.md](dev/f3-cleanup.md) dan
 [decisions/0011-f3-cleanup.md](decisions/0011-f3-cleanup.md). Dokumen
 [AUTO_OFFICE_PLAN.md](../AUTO_OFFICE_PLAN.md) adalah rencana migrasi dan
 bukan dokumentasi pengguna.
@@ -74,7 +76,7 @@ bukan dokumentasi pengguna.
 | [dev/references.md](dev/references.md) | Registry resmi label dan URL dokumentasi eksternal. |
 | [contracts/docx.md](contracts/docx.md) | Kontrak DOCX: API `build_docx`, stage, invariant, dan output. |
 | [contracts/cli.md](contracts/cli.md) | Permukaan CLI, target, output, flag, dan exit code. |
-| [contracts/pdf.md](contracts/pdf.md) | Word/PowerPoint COM, ekspor PDF, dan embedding font. |
+| [user/pdf-export.md](user/pdf-export.md) | Alur ekspor PDF manual dari Word atau PowerPoint. |
 | [dev/archive/refactor-plan.md](dev/archive/refactor-plan.md) | Rencana refactor (arsip) dan keputusan kerja. |
 | [dev/archive/restructure-plan.md](dev/archive/restructure-plan.md) | Arsip rencana restrukturisasi (superseded). |
 | [dev/archive/duplication-map.md](dev/archive/duplication-map.md) | Arsip peta duplikasi DOCX (superseded). |

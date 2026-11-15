@@ -238,9 +238,9 @@ Field yang ditulis pipeline:
 | `NUMPAGES` | Jumlah halaman bila diperlukan. |
 
 Python menulis instruksi dan hasil cache awal. Word yang menghitung hasil
-final, termasuk entri TOC dan nomor halaman. Karena itu build DOCX tanpa Word
-tetap menghasilkan file, tetapi field belum final. TOC yang baru bisa tampil
-kosong, dan pipeline memberi peringatan bahwa Word tidak tersedia.
+final, termasuk entri TOC dan nomor halaman. AutoOffice tidak memanggil Word,
+sehingga field belum final setelah build. TOC yang baru bisa tampil kosong
+sampai pengguna membuka DOCX di Word dan menekan Ctrl+A lalu F9.
 
 `fields.py` adalah satu-satunya parser `w:fldChar`/`w:fldSimple` dan scanner
 marker field. Modul stage dan DOCX lain memakai scanner ini. Jangan menulis

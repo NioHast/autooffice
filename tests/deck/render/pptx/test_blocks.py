@@ -1,6 +1,8 @@
 """Tes block teks tambahan: heading, quote, metric, code, divider, spacer."""
 
-from _edge_helpers import line_spacing_points
+from dataclasses import replace
+
+from _edge_helpers import line_spacing_points, new_slide
 from pptx import Presentation
 from pptx.oxml.ns import qn
 
@@ -13,7 +15,8 @@ from autooffice.deck.model.deck_ir import (
     SlideIR,
 )
 from autooffice.deck.render.pptx import PptxRenderer
-from autooffice.deck.render.pptx.shapes import primary_typeface
+from autooffice.deck.render.pptx.shapes import Box, primary_typeface
+from autooffice.deck.render.pptx.textbox import render_bullets_block
 from autooffice.deck.render.protocol import OutputTarget, RenderRequest
 from autooffice.design.theme import resolve_theme
 
@@ -138,12 +141,12 @@ def test_text_heading_quote_metric_and_code_shapes(workspace) -> None:
     assert code_run.font.name == primary_typeface(theme.code.family)
     display_run = shapes["autooffice:key:s01.kpi1.value"].text_frame.paragraphs[0].runs[0]
     body_run = shapes["autooffice:key:s01.lead.text"].text_frame.paragraphs[0].runs[0]
-    assert display_run.font.name == "Plus Jakarta Sans ExtraBold"
-    assert display_run.font.bold is False
-    assert _latin_typeface(display_run) == "Plus Jakarta Sans ExtraBold"
-    assert body_run.font.name == "Plus Jakarta Sans"
+    assert display_run.font.name == "Arial"
+    assert display_run.font.bold is True
+    assert _latin_typeface(display_run) == "Arial"
+    assert body_run.font.name == "Arial"
     assert body_run.font.bold is False
-    assert _latin_typeface(body_run) == "Plus Jakarta Sans"
+    assert _latin_typeface(body_run) == "Arial"
 
 
 def test_code_uses_exact_point_line_spacing(workspace) -> None:
@@ -168,6 +171,21 @@ def test_code_uses_exact_point_line_spacing(workspace) -> None:
         assert line_spacing_points(paragraph) == round(
             run.font.size.pt * theme.code.line_height * 100
         )
+
+
+def test_bullet_typeface_follows_non_arial_theme_family() -> None:
+    theme = resolve_theme("indigo")
+    non_arial = replace(theme, typography=replace(theme.typography, family="Georgia, serif"))
+    block = BlockIR("points", "bullets", None, None, {"items": ("Satu", "Dua")})
+    box = Box(left=0, top=0, width=4_000_000, height=3_000_000)
+
+    shapes = render_bullets_block(new_slide(), block, box, non_arial, slide_id="s01")
+
+    assert len(shapes) == 2
+    for shape in shapes:
+        bullet_font = shape._element.find(".//" + qn("a:buFont"))
+        assert bullet_font is not None
+        assert bullet_font.get("typeface") == "Georgia"
 
 
 def test_divider_is_chrome_and_spacer_has_no_shape(workspace) -> None:

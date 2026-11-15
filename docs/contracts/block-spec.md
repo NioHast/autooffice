@@ -96,7 +96,7 @@ Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
 - Table wajib native di PPTX dan Google Slides, bukan gambar atau kumpulan shape.
 - Table di PPTX memakai `shapes.add_table`; header adalah baris pertama.
 - Chart wajib native di PPTX dan linked Sheets chart di Google Slides.
-- Chart tidak boleh menjadi gambar, termasuk untuk PDF.
+- Chart tidak boleh menjadi gambar.
 - `divider` dan `spacer` tidak punya key, bukan konten teks, dan
   `allowed_in_preset` bernilai false.
 - `source` dan `notes` adalah field slide, bukan block.

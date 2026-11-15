@@ -1,9 +1,8 @@
-"""Tes edge case pipeline: validasi stage, target, workspace, dan run bercabang."""
+"""Tes edge case pipeline: validasi stage, workspace, dan run bercabang."""
 
 import logging
 import shutil
 import sys
-import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,14 +10,7 @@ import pytest
 
 import autooffice.docx.pipeline as pipeline_module
 from autooffice.docx.adeu.paragraph_ids import AdeuOptions
-from autooffice.docx.errors import (
-    DocgenError,
-    OutputError,
-    StageError,
-    StageOrderError,
-    ToolMissingError,
-    WordError,
-)
+from autooffice.docx.errors import OutputError, StageError, StageOrderError
 from autooffice.docx.package import DocumentPackage
 from autooffice.docx.package.bookmarks import PARAGRAPH_ID_RE
 from autooffice.docx.pipeline import (
@@ -34,12 +26,7 @@ from autooffice.docx.pipeline import (
     StageResult,
     StageSpec,
     Workspace,
-    _bookmark_names,
-    _find_word,
-    _platform_name,
-    _resolve_target,
     _specs_for_classes,
-    _verify_bookmarks,
     validate_stage_order,
 )
 
@@ -148,49 +135,12 @@ def _mark_workspace(ctx: StageContext) -> StageResult:
     return _result(StageName.MERMAID, changed=True)
 
 
-def _write_pdf(ctx: StageContext) -> StageResult:
-    path = ctx.output_dir / f"{ctx.document.metadata.report_name}.pdf"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"%PDF-1.4\n")
-    return _result(StageName.PDF, changed=True)
-
-
-def _raise_cleanup_error(ctx: StageContext) -> StageResult:
-    workspace = ctx.workspace.ensure()
-    (workspace / "partial.docx").write_bytes(b"PK\x03\x04partial")
-    raise WordError(
-        "worker Word masih hidup",
-        code="WORD-CLEANUP",
-        cleanup_ambiguous=True,
-    )
-
-
 def _raise_runtime(ctx: StageContext) -> StageResult:
     raise RuntimeError("boom")
 
 
 def _raise_stage_error(ctx: StageContext) -> StageResult:
     raise StageError("custom", "gagal", code="CUSTOM-ERROR")
-
-
-def _raise_office_error(ctx: StageContext) -> StageResult:
-    raise StageError(StageName.OFFICE.value, "office gagal", code="OFFICE-TEST")
-
-
-def _zip_docx(path: Path, document_xml: str) -> Path:
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("word/document.xml", document_xml)
-    return path
-
-
-def _bookmark_document(names: tuple[str, ...], *, close: bool = True) -> str:
-    starts = "".join(
-        f'<w:bookmarkStart w:id="{index}" w:name="{name}"/>' for index, name in enumerate(names)
-    )
-    ends = (
-        "".join(f'<w:bookmarkEnd w:id="{index}"/>' for index in range(len(names))) if close else ""
-    )
-    return f'<w:document xmlns:w="{W_NS}"><w:body><w:p>{starts}{ends}</w:p></w:body></w:document>'
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +156,7 @@ def test_validate_stage_order_rejects_duplicate_names() -> None:
 
 
 def test_validate_stage_order_reports_missing_and_extra_names() -> None:
-    with pytest.raises(StageOrderError, match="hilang: pdf"):
+    with pytest.raises(StageOrderError, match="hilang:"):
         validate_stage_order(CANONICAL_STAGES[:-1])
 
     extra = StageSpec(
@@ -273,7 +223,9 @@ def test_validate_stage_order_rejects_inverted_guard(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     new_order = list(CANONICAL_ORDER)
-    new_order[16], new_order[17] = new_order[17], new_order[16]
+    first = new_order.index(StageName.TOC)
+    second = new_order.index(StageName.PAGE_NUMBERS)
+    new_order[first], new_order[second] = new_order[second], new_order[first]
     by_name = {spec.name: spec for spec in CANONICAL_STAGES}
     specs: list[StageSpec] = []
     for index, name in enumerate(new_order):
@@ -349,7 +301,10 @@ def test_specs_for_classes_rejects_extra_registered_stage(
 ) -> None:
     monkeypatch.setattr(pipeline_module, "CANONICAL_STAGES", CANONICAL_STAGES[:-1])
 
-    with pytest.raises(StageOrderError, match="stage tidak dikenal: pdf"):
+    with pytest.raises(
+        StageOrderError,
+        match=f"stage tidak dikenal: {CANONICAL_STAGES[-1].name}",
+    ):
         _specs_for_classes(_stage_classes())
 
 
@@ -543,7 +498,7 @@ def test_artifact_store_rejects_duplicate_and_missing_key() -> None:
     with pytest.raises(OutputError, match="sudah ada") as duplicate:
         artifacts.put("docx", Path("b.docx"))
     with pytest.raises(OutputError, match="tidak ditemukan") as missing:
-        artifacts.get("pdf")
+        artifacts.get("terms_review")
 
     assert duplicate.value.code == "OUTPUT-ARTIFACT"
     assert missing.value.code == "OUTPUT-ARTIFACT"
@@ -558,193 +513,6 @@ def test_build_report_records_warnings_and_changed_count() -> None:
 
     assert report.changed == 1
     assert report.warnings == ["satu", "dua"]
-
-
-# ---------------------------------------------------------------------------
-# Platform, Word, dan target
-# ---------------------------------------------------------------------------
-
-
-def test_platform_name_maps_windows_and_other(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "platform", "win32")
-    assert _platform_name() == "windows"
-    monkeypatch.setattr(sys, "platform", "linux")
-    assert _platform_name() == "linux"
-
-
-def test_find_word_uses_office_finder(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(
-        "autooffice.docx.stages.office.find_word_executable",
-        lambda: "C:/Office/WINWORD.EXE",
-    )
-
-    assert _find_word() == "C:/Office/WINWORD.EXE"
-
-
-class _FakeWinreg(SimpleNamespace):
-    HKEY_LOCAL_MACHINE = 1
-    HKEY_CURRENT_USER = 2
-
-    @staticmethod
-    def OpenKey(hive: int, key_path: str) -> object:
-        raise OSError("tidak ada")
-
-
-def test_find_word_falls_back_to_program_files(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    office = tmp_path / "Microsoft Office" / "root" / "Office16"
-    office.mkdir(parents=True)
-    executable = office / "WINWORD.EXE"
-    executable.write_text("fake", encoding="utf-8")
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr("autooffice.docx.stages.office.find_word_executable", lambda: None)
-    monkeypatch.setitem(sys.modules, "winreg", _FakeWinreg())
-    monkeypatch.setenv("ProgramFiles", str(tmp_path))
-    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
-
-    assert _find_word() == str(executable)
-
-
-def test_find_word_returns_none_when_all_locations_missing(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr("autooffice.docx.stages.office.find_word_executable", lambda: None)
-    monkeypatch.setitem(sys.modules, "winreg", _FakeWinreg())
-    monkeypatch.setenv("ProgramFiles", str(tmp_path))
-    monkeypatch.setenv("ProgramFiles(x86)", str(tmp_path))
-
-    assert _find_word() is None
-
-
-def test_resolve_target_docx_short_circuits() -> None:
-    assert _resolve_target(BuildOptions(target="docx")) == ("docx", [])
-
-
-def test_resolve_target_non_windows_rejects_pdf_and_both_without_permission(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "linux")
-
-    with pytest.raises(ToolMissingError, match="PDF hanya didukung di Windows"):
-        _resolve_target(BuildOptions(target="pdf"))
-    with pytest.raises(ToolMissingError, match="target both tidak didukung"):
-        _resolve_target(BuildOptions(target="both"))
-
-
-def test_resolve_target_non_windows_degrades_both_with_permission(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "linux")
-
-    target, warnings = _resolve_target(BuildOptions(target="both", allow_missing_word=True))
-
-    assert target == "docx"
-    assert len(warnings) == 1
-    assert "diturunkan menjadi docx" in warnings[0]
-
-
-def test_resolve_target_windows_requires_word(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: None)
-
-    with pytest.raises(ToolMissingError, match="target pdf membutuhkan"):
-        _resolve_target(BuildOptions(target="pdf"))
-    with pytest.raises(ToolMissingError, match="target both membutuhkan"):
-        _resolve_target(BuildOptions(target="both"))
-
-
-def test_resolve_target_windows_degrades_both_without_word(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: None)
-
-    target, warnings = _resolve_target(BuildOptions(target="both", allow_missing_word=True))
-
-    assert target == "docx"
-    assert "PDF dilewati" in warnings[0]
-
-
-def test_resolve_target_windows_with_word_keeps_requested_target(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: "C:/WINWORD.EXE")
-
-    assert _resolve_target(BuildOptions(target="pdf")) == ("pdf", [])
-    assert _resolve_target(BuildOptions(target="both")) == ("both", [])
-
-
-# ---------------------------------------------------------------------------
-# Bookmark verification
-# ---------------------------------------------------------------------------
-
-
-def test_bookmark_names_reads_only_paragraph_ids(tmp_path: Path) -> None:
-    path = _zip_docx(
-        tmp_path / "out.docx",
-        _bookmark_document(("p0002", "lain", "p0001")),
-    )
-
-    assert _bookmark_names(path) == ("p0002", "p0001")
-
-
-def test_bookmark_names_reports_bad_zip_and_bad_xml(tmp_path: Path) -> None:
-    bad_zip = tmp_path / "bad.docx"
-    bad_zip.write_bytes(b"bukan zip")
-    with pytest.raises(StageError, match="tidak dapat dibaca") as excinfo:
-        _bookmark_names(bad_zip)
-    assert excinfo.value.code == "OFFICE-BOOKMARK"
-
-    bad_xml = _zip_docx(tmp_path / "bad-xml.docx", "<w:document")
-    with pytest.raises(StageError, match="bukan XML valid") as excinfo:
-        _bookmark_names(bad_xml)
-    assert excinfo.value.code == "OFFICE-BOOKMARK"
-
-
-def test_verify_bookmarks_accepts_exact_sequence(tmp_path: Path) -> None:
-    path = _zip_docx(tmp_path / "ok.docx", _bookmark_document(("p0001", "p0002")))
-    before = path.read_bytes()
-
-    assert _verify_bookmarks(path, ("p0001", "p0002")) is None
-
-    assert _bookmark_names(path) == ("p0001", "p0002")
-    assert path.read_bytes() == before
-
-
-def test_verify_bookmarks_rejects_start_without_end(tmp_path: Path) -> None:
-    path = _zip_docx(
-        tmp_path / "unclosed.docx",
-        _bookmark_document(("p0001",), close=False),
-    )
-
-    with pytest.raises(DocgenError, match="tidak memiliki bookmarkEnd") as excinfo:
-        _verify_bookmarks(path, ("p0001",))
-
-    assert excinfo.value.code == "OFFICE-BOOKMARK"
-
-
-def test_verify_bookmarks_reports_missing_extra_and_reordered(tmp_path: Path) -> None:
-    missing = _zip_docx(tmp_path / "missing.docx", _bookmark_document(("p0001",)))
-    with pytest.raises(DocgenError, match="hilang: p0002") as missing_error:
-        _verify_bookmarks(missing, ("p0001", "p0002"))
-    assert missing_error.value.code == "OFFICE-BOOKMARK"
-
-    extra = _zip_docx(tmp_path / "extra.docx", _bookmark_document(("p0001", "p0002")))
-    with pytest.raises(DocgenError, match="tambahan: p0002"):
-        _verify_bookmarks(extra, ("p0001",))
-
-    reordered = _zip_docx(
-        tmp_path / "reordered.docx",
-        _bookmark_document(("p0002", "p0001")),
-    )
-    with pytest.raises(DocgenError, match="urutan bookmark berubah"):
-        _verify_bookmarks(reordered, ("p0001", "p0002"))
 
 
 # ---------------------------------------------------------------------------
@@ -797,25 +565,6 @@ def test_run_batch_passes_domain_errors_and_wraps_unknown_errors() -> None:
     assert isinstance(wrapped.value.cause, RuntimeError)
 
 
-def test_run_batch_preserves_cleanup_ambiguity_on_unknown_error() -> None:
-    class CleanupError(RuntimeError):
-        cleanup_ambiguous = True
-
-    def raise_cleanup(ctx: StageContext) -> StageResult:
-        raise CleanupError("worker COM masih hidup")
-
-    pipeline = Pipeline(stages=_stage_classes())
-
-    with pytest.raises(StageError, match="worker COM masih hidup") as wrapped:
-        pipeline._run_batch(
-            [_make_stage(CANONICAL_STAGES[0], runner=raise_cleanup)()],
-            _batch_context(),
-        )
-
-    assert wrapped.value.code == "STAGE-UNHANDLED"
-    assert wrapped.value.cleanup_ambiguous is True
-
-
 # ---------------------------------------------------------------------------
 # Pipeline.run
 # ---------------------------------------------------------------------------
@@ -827,41 +576,17 @@ def test_pipeline_run_writes_docx_and_manifest_then_cleans_workspace(
     document = _project(tmp_path)
     pipeline = _pipeline(runners={StageName.PANDOC: _pandoc_loads_golden})
 
-    result = pipeline.run(document, BuildOptions(target="docx"))
+    result = pipeline.run(document, BuildOptions())
 
     expected_docx = document.parent / "Paritas.docx"
     expected_manifest = document.parent / ".laporan" / "manifest.json"
     assert result.docx == expected_docx
     assert expected_docx.is_file()
-    assert result.pdf is None
     assert result.manifest == expected_manifest
     assert expected_manifest.is_file()
     assert result.kept_workspace is None
     assert not (document.parent / ".laporan-build").exists()
     assert [stage.stage for stage in result.stages] == [name.value for name in CANONICAL_ORDER]
-
-
-def test_pipeline_run_preserves_workspace_on_ambiguous_cleanup(
-    tmp_path: Path,
-) -> None:
-    document = _project(tmp_path)
-    pipeline = _pipeline(
-        runners={
-            StageName.MERMAID: _mark_workspace,
-            StageName.PANDOC: _raise_cleanup_error,
-        }
-    )
-
-    with pytest.raises(WordError, match="WORD-CLEANUP") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
-
-    workspace = document.parent / ".laporan-build"
-    assert excinfo.value.code == "WORD-CLEANUP"
-    assert excinfo.value.cleanup_ambiguous is True
-    assert workspace.is_dir()
-    assert (workspace / "partial.docx").is_file()
-    assert (workspace / "mermaid.marker").is_file()
-    assert any("cleanup Office ambigu" in note for note in excinfo.value.__notes__)
 
 
 def test_pipeline_run_keeps_workspace_and_records_disabled_stage(tmp_path: Path) -> None:
@@ -877,7 +602,7 @@ def test_pipeline_run_keeps_workspace_and_records_disabled_stage(tmp_path: Path)
 
     result = pipeline.run(
         document,
-        BuildOptions(target="docx", keep=True, adeu=False),
+        BuildOptions(keep=True, adeu=False),
         output_dir=output_dir,
     )
 
@@ -891,106 +616,6 @@ def test_pipeline_run_keeps_workspace_and_records_disabled_stage(tmp_path: Path)
     assert any("dinonaktifkan" in warning for warning in result.warnings)
 
 
-def test_pipeline_run_both_allow_returns_docx_when_word_com_unavailable(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from autooffice.docx.stages.office import OfficeStage
-    from autooffice.docx.stages.pdf import PdfStage
-
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: "C:/WINWORD.EXE")
-    monkeypatch.setattr("autooffice.docx.stages.office.word_available", lambda: False)
-    document = _project(tmp_path)
-    classes: list[type[BaseStage]] = []
-    for spec in CANONICAL_STAGES:
-        if spec.name is StageName.PANDOC:
-            classes.append(_make_stage(spec, runner=_pandoc_loads_golden))
-        elif spec.name is StageName.OFFICE:
-            classes.append(OfficeStage)
-        elif spec.name is StageName.PDF:
-            classes.append(PdfStage)
-        else:
-            classes.append(_make_stage(spec))
-    pipeline = Pipeline(stages=classes)
-
-    result = pipeline.run(
-        document,
-        BuildOptions(target="both", allow_missing_word=True, adeu=False),
-    )
-
-    assert result.docx == document.parent / "Paritas.docx"
-    assert result.docx is not None
-    assert result.docx.is_file()
-    assert result.pdf is None
-    assert any("PDF dilewati" in warning for warning in result.warnings)
-
-
-def test_pipeline_run_degrades_both_to_docx_on_non_windows(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "linux")
-    document = _project(tmp_path)
-    pipeline = _pipeline(runners={StageName.PANDOC: _pandoc_loads_golden})
-
-    result = pipeline.run(
-        document,
-        BuildOptions(target="both", allow_missing_word=True, adeu=False),
-    )
-
-    assert result.docx == document.parent / "Paritas.docx"
-    assert result.pdf is None
-    assert any("diturunkan menjadi docx" in warning for warning in result.warnings)
-
-
-def test_pipeline_run_pdf_target_uses_and_removes_workspace(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: "C:/WINWORD.EXE")
-    document = _project(tmp_path)
-    pipeline = _pipeline(
-        runners={
-            StageName.PANDOC: _pandoc_loads_golden,
-            StageName.PDF: _write_pdf,
-        }
-    )
-
-    result = pipeline.run(document, BuildOptions(target="pdf", adeu=False))
-
-    assert result.docx is None
-    assert result.pdf == document.parent / "Paritas.pdf"
-    assert result.pdf is not None
-    assert result.pdf.is_file()
-    assert not (document.parent / ".laporan-build").exists()
-
-
-def test_pipeline_run_both_target_writes_docx_and_pdf(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(pipeline_module, "_platform_name", lambda: "windows")
-    monkeypatch.setattr(pipeline_module, "_find_word", lambda: "C:/WINWORD.EXE")
-    document = _project(tmp_path)
-    pipeline = _pipeline(
-        runners={
-            StageName.PANDOC: _pandoc_loads_golden,
-            StageName.PDF: _write_pdf,
-        }
-    )
-
-    result = pipeline.run(document, BuildOptions(target="both", adeu=False))
-
-    assert result.docx == document.parent / "Paritas.docx"
-    assert result.pdf == document.parent / "Paritas.pdf"
-    assert result.docx is not None
-    assert result.pdf is not None
-    assert result.docx.is_file()
-    assert result.pdf.is_file()
-
-
 def test_pipeline_run_rejects_output_dir_inside_workspace(tmp_path: Path) -> None:
     document = _project(tmp_path)
     pipeline = _pipeline(runners={StageName.PANDOC: _pandoc_loads_golden})
@@ -999,7 +624,7 @@ def test_pipeline_run_rejects_output_dir_inside_workspace(tmp_path: Path) -> Non
     with pytest.raises(OutputError, match="tidak boleh berada di dalam workspace") as excinfo:
         pipeline.run(
             document,
-            BuildOptions(target="docx", keep=False, adeu=False),
+            BuildOptions(keep=False, adeu=False),
             output_dir=workspace,
         )
 
@@ -1014,7 +639,7 @@ def test_pipeline_run_allows_output_dir_inside_kept_workspace(tmp_path: Path) ->
 
     result = pipeline.run(
         document,
-        BuildOptions(target="docx", keep=True, adeu=False),
+        BuildOptions(keep=True, adeu=False),
         output_dir=workspace,
     )
 
@@ -1026,27 +651,6 @@ def test_pipeline_run_allows_output_dir_inside_kept_workspace(tmp_path: Path) ->
     assert workspace.is_dir()
 
 
-def test_pipeline_run_rejects_missing_docx_after_save(tmp_path: Path) -> None:
-    document = _project(tmp_path)
-
-    def remove_saved_docx(ctx: StageContext) -> StageResult:
-        ctx.artifacts.require("docx").unlink()
-        return _result(StageName.OFFICE)
-
-    pipeline = _pipeline(
-        runners={
-            StageName.PANDOC: _pandoc_loads_golden,
-            StageName.OFFICE: remove_saved_docx,
-        }
-    )
-
-    with pytest.raises(OutputError, match="DOCX tidak terbentuk") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
-
-    assert excinfo.value.code == "OUTPUT-DOCX"
-    assert not (document.parent / ".laporan-build").exists()
-
-
 def test_pipeline_run_wraps_output_directory_mkdir_failure(tmp_path: Path) -> None:
     document = _project(tmp_path)
     blocker = tmp_path / "blocked"
@@ -1056,7 +660,7 @@ def test_pipeline_run_wraps_output_directory_mkdir_failure(tmp_path: Path) -> No
     with pytest.raises(OutputError, match="direktori output tidak dapat dibuat") as excinfo:
         pipeline.run(
             document,
-            BuildOptions(target="docx", adeu=False),
+            BuildOptions(adeu=False),
             output_dir=blocker,
         )
 
@@ -1077,7 +681,7 @@ def test_pipeline_cleanup_failure_does_not_mask_original_error(
     monkeypatch.setattr(Workspace, "cleanup", fail_cleanup)
 
     with pytest.raises(StageError, match="stage 'pandoc' gagal: boom") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
+        pipeline.run(document, BuildOptions(adeu=False))
 
     assert excinfo.value.code == "STAGE-UNHANDLED"
     assert any("gagal membersihkan" in note for note in excinfo.value.__notes__)
@@ -1096,16 +700,16 @@ def test_pipeline_cleanup_failure_raises_without_original_error(
     monkeypatch.setattr(Workspace, "cleanup", fail_cleanup)
 
     with pytest.raises(OutputError, match="gagal membersihkan workspace uji") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
+        pipeline.run(document, BuildOptions(adeu=False))
 
     assert excinfo.value.code == "OUTPUT-WORKSPACE"
 
 
-def test_pipeline_run_requires_package_after_presave_stages(tmp_path: Path) -> None:
+def test_pipeline_run_requires_package_before_save(tmp_path: Path) -> None:
     document = _project(tmp_path)
 
     with pytest.raises(StageError, match="package DOCX tidak terbentuk") as excinfo:
-        _pipeline().run(document, BuildOptions(target="docx", adeu=False))
+        _pipeline().run(document, BuildOptions(adeu=False))
 
     assert excinfo.value.code == "STAGE-PACKAGE"
     assert not (document.parent / ".laporan-build").exists()
@@ -1125,7 +729,7 @@ def test_pipeline_run_wraps_stage_failure_and_respects_keep(
     )
 
     with pytest.raises(StageError, match="stage 'pandoc' gagal: boom") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", keep=keep, adeu=False))
+        pipeline.run(document, BuildOptions(keep=keep, adeu=False))
 
     workspace = document.parent / ".laporan-build"
     assert excinfo.value.code == "STAGE-UNHANDLED"
@@ -1142,48 +746,10 @@ def test_pipeline_run_does_not_swallow_domain_stage_error(tmp_path: Path) -> Non
     )
 
     with pytest.raises(StageError, match="gagal") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
+        pipeline.run(document, BuildOptions(adeu=False))
 
     assert excinfo.value.code == "CUSTOM-ERROR"
     assert not (document.parent / ".laporan-build").exists()
-
-
-def test_pipeline_run_post_save_failure_happens_after_docx_write(tmp_path: Path) -> None:
-    document = _project(tmp_path)
-    pipeline = _pipeline(
-        runners={
-            StageName.PANDOC: _pandoc_loads_golden,
-            StageName.OFFICE: _raise_office_error,
-        }
-    )
-
-    with pytest.raises(StageError, match="office gagal") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx", adeu=False))
-
-    assert excinfo.value.code == "OFFICE-TEST"
-    assert (document.parent / "Paritas.docx").is_file()
-    assert not (document.parent / ".laporan-build").exists()
-
-
-def test_pipeline_run_bookmark_verification_failure_is_reported(tmp_path: Path) -> None:
-    document = _project(tmp_path)
-
-    def corrupt_bookmarks(ctx: StageContext) -> StageResult:
-        docx = ctx.artifacts.require("docx")
-        _zip_docx(docx, _bookmark_document(()))
-        return _result(StageName.OFFICE)
-
-    pipeline = _pipeline(
-        runners={
-            StageName.PANDOC: _pandoc_loads_golden,
-            StageName.OFFICE: corrupt_bookmarks,
-        }
-    )
-
-    with pytest.raises(DocgenError, match="bookmark pNNNN tidak dipertahankan") as excinfo:
-        pipeline.run(document, BuildOptions(target="docx"))
-
-    assert excinfo.value.code == "OFFICE-BOOKMARK"
 
 
 def test_pipeline_run_without_adeu_removes_bookmarks(tmp_path: Path) -> None:
@@ -1192,7 +758,7 @@ def test_pipeline_run_without_adeu_removes_bookmarks(tmp_path: Path) -> None:
 
     result = pipeline.run(
         document,
-        BuildOptions(target="docx", adeu=False),
+        BuildOptions(adeu=False),
         output_dir=tmp_path / "out",
     )
 

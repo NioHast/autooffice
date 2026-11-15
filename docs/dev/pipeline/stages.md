@@ -23,8 +23,6 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | 130 | `toc` | `autooffice/docx/stages/toc.py` | `word/document.xml`, `word/styles.xml` | Field TOC native bila `structure.toc`. |
 | 140 | `page_numbers` | `autooffice/docx/stages/page_numbers.py` | document, header/footer, rels, content types | Romawi front matter, Arab body. |
 | 150 | `lists` | `autooffice/docx/stages/lists.py` | `word/document.xml` | Daftar tabel/gambar dan field `SEQ`. |
-| 160 | `office` | `autooffice/docx/stages/office.py` | package | Word memperbarui field dan menyimpan DOCX. |
-| 170 | `pdf` | `autooffice/docx/stages/pdf.py` | - | Ekspor PDF internal, Windows only; CLI AutoOffice mengekspor PDF setelah `build_docx`. |
 
 ## Guard
 
@@ -32,11 +30,14 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 - `front_matter` sebelum `pandoc`;
 - `sections` sebelum `code`, lalu `captions`, `normalize`, `equations`;
 - `terms` sebelum `toc`, `toc` sebelum `page_numbers`, `page_numbers` sebelum
-  `lists`;
-- `office` sebelum `pdf`.
+  `lists`.
 
 Stage yang salah urutan, duplikat, atau memutasi part tidak dikenal
 menggagalkan `validate_stage_order`.
+
+Stage `toc`, `page_numbers`, dan `lists` menulis field native, tetapi tidak
+mengisi hasil field. Field diisi pengguna di Word dengan Ctrl+A lalu F9.
+Tidak ada stage `office` atau `pdf`; AutoOffice tidak memakai COM.
 
 ## Batas stage
 
@@ -46,6 +47,5 @@ Opsi yang mengaktifkan stage tertentu ada di [options.md](options.md).
 
 ## Referensi resmi
 
-Label registry yang dipakai halaman ini: `Pandoc manual`, `Mermaid CLI`,
-`Word COM object model (VBA reference)`. URL resminya ada di
-[registry referensi](../references.md).
+Label registry yang dipakai halaman ini: `Pandoc manual` dan `Mermaid CLI`.
+URL resminya ada di [registry referensi](../references.md).

@@ -112,7 +112,7 @@ konfigurasi sementara:
   "theme": "base",
   "themeVariables": {
     "background": "#FAFAFA",
-    "fontFamily": "Plus Jakarta Sans",
+    "fontFamily": "Arial",
     "primaryColor": "#EEF2FF",
     "primaryTextColor": "#0B0B0F",
     "lineColor": "#4338CA"
@@ -164,7 +164,7 @@ cache yang cocok, error instalasi `mmdc` baru dikembalikan.
 - Caption dirender sebagai text box berkey `<slide>.<block>.caption`.
 - Coverage memeriksa alt manusia dan key caption. Kegagalan render atau
   coverage membatalkan artefak final.
-- Diagram di Google Slides dan PDF tetap berupa gambar, bukan node native.
+- Diagram di Google Slides tetap berupa gambar, bukan node native.
 
 ## Acceptance
 

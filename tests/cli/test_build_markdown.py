@@ -1,21 +1,14 @@
-"""Tes build Markdown/DOCX: hasil artefak, PDF, dan dry-run keep-intermediate."""
+"""Tes build Markdown/DOCX: hasil artefak dan dry-run keep-intermediate."""
 
-import shutil
 from pathlib import Path
 
 import pytest
 
-import autooffice.pdf
 from autooffice.cli import CliError
 from autooffice.cli.build import build_markdown
 from autooffice.docx.command import DocxResult
-from autooffice.docx.errors import WordError
-from autooffice.docx.stages import office
-from autooffice.pdf import WordCleanupError
-from tests._helpers.pandoc import pandoc_available
 
 REPORT_NAME = "Laporan Uji"
-DOCX_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "docx" / "minimal"
 
 
 def _markdown(tmp_path: Path) -> Path:
@@ -126,277 +119,24 @@ def test_build_markdown_docx_lists_manifest_terms_and_workspace(
     ]
 
 
-def test_build_markdown_pdf_only_preserves_preexisting_docx(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_build_markdown_rejects_pdf_target(tmp_path: Path) -> None:
     source = _markdown(tmp_path)
-    final_docx = tmp_path / f"{REPORT_NAME}.docx"
-    final_docx.write_bytes(b"DOCX lama")
-    _install_build_docx(monkeypatch, with_manifest=False)
-    exported: list[tuple[Path, Path]] = []
 
-    def fake_export(docx: Path, pdf: Path) -> Path:
-        exported.append((docx, pdf))
-        pdf.parent.mkdir(parents=True, exist_ok=True)
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("pdf",))
-
-    pdf = tmp_path / f"{REPORT_NAME}.pdf"
-    build_dir = tmp_path / ".laporan-build"
-    intermediate = build_dir / f"{REPORT_NAME}.docx"
-    assert outcome.files == (pdf,)
-    assert pdf.read_bytes() == b"%PDF-1.7 fake\n"
-    assert final_docx.read_bytes() == b"DOCX lama"
-    assert not build_dir.exists()
-    assert outcome.notes == (
-        "DOCX intermediate dihapus dari workspace karena --keep-intermediate tidak aktif",
-    )
-    assert exported[0][0] == intermediate
-
-
-@pytest.mark.skipif(
-    not pandoc_available(),
-    reason="Pandoc diperlukan untuk build DOCX nyata",
-)
-def test_build_markdown_pdf_only_real_docx_keeps_workspace_until_conversion(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(office, "word_available", lambda: False)
-    project = tmp_path / "project"
-    shutil.copytree(DOCX_FIXTURE, project)
-    source = project / "document.md"
-    final_docx = project / "Paritas.docx"
-    final_docx.write_bytes(b"DOCX lama")
-
-    build_dir = project / ".laporan-build"
-    intermediate = build_dir / "Paritas.docx"
-    converted: list[Path] = []
-
-    def fake_export(docx: Path, pdf: Path) -> Path:
-        assert docx == intermediate
-        assert docx.is_file()
-        assert build_dir.is_dir()
-        converted.append(docx)
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("pdf",))
-
-    pdf = project / "Paritas.pdf"
-    assert converted == [intermediate]
-    assert set(outcome.files) == {pdf, project / ".laporan" / "manifest.json"}
-    assert pdf.read_bytes() == b"%PDF-1.7 fake\n"
-    assert final_docx.read_bytes() == b"DOCX lama"
-    assert not build_dir.exists()
-
-
-def test_build_markdown_pdf_keep_intermediate_keeps_and_reports_docx(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    final_docx = tmp_path / f"{REPORT_NAME}.docx"
-    final_docx.write_bytes(b"DOCX lama")
-    _install_build_docx(monkeypatch, with_manifest=False, with_workspace=True)
-
-    def fake_export(_docx: Path, pdf: Path) -> Path:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("pdf",), keep_intermediate=True)
-
-    intermediate = tmp_path / ".laporan-build" / f"{REPORT_NAME}.docx"
-    assert outcome.files == (tmp_path / f"{REPORT_NAME}.pdf", intermediate)
-    assert intermediate.is_file()
-    assert final_docx.read_bytes() == b"DOCX lama"
-    assert f"intermediate dipertahankan: {tmp_path / '.laporan-build'}" in outcome.notes
-    assert f"workspace dipertahankan: {tmp_path / '.laporan-build'}" in outcome.notes
-
-
-def test_build_markdown_docx_and_pdf_keep_both_outputs(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def fake_export(_docx: Path, pdf: Path) -> Path:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("docx", "pdf"))
-
-    docx = tmp_path / f"{REPORT_NAME}.docx"
-    pdf = tmp_path / f"{REPORT_NAME}.pdf"
-    assert outcome.files == (docx, pdf)
-    assert docx.is_file()
-    assert pdf.is_file()
-    assert outcome.notes == ()
-
-
-def test_build_markdown_calls_export_pdf_directly(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def hidden_convert(_docx: Path, _pdf: Path) -> Path:
-        raise AssertionError("convert_docx_to_pdf tidak boleh dipanggil")
-
-    def fake_export(_docx: Path, pdf: Path) -> Path:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return pdf
-
-    monkeypatch.setattr(autooffice.pdf, "convert_docx_to_pdf", hidden_convert, raising=False)
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("pdf",))
-
-    assert outcome.files == (tmp_path / f"{REPORT_NAME}.pdf",)
-
-
-def test_build_markdown_pdf_failure_names_completed_docx(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def fake_export(_docx: Path, _pdf: Path) -> Path:
-        return tmp_path / "tidak-ada.pdf"
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    with pytest.raises(CliError, match="DOCX selesai di") as error:
+    with pytest.raises(CliError, match="target tidak valid") as error:
         build_markdown(source, ("pdf",))
 
-    docx = tmp_path / ".laporan-build" / f"{REPORT_NAME}.docx"
-    assert error.value.code == "CLI-ARTIFACT"
-    assert error.value.exit_code == 1
-    assert error.value.path == str(docx)
-    assert docx.is_file()
+    assert error.value.code == "CLI-TARGET-INVALID"
+    assert error.value.exit_code == 2
 
 
-def test_build_markdown_preserves_build_dir_on_ambiguous_docx_cleanup(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_build_markdown_rejects_all_target(tmp_path: Path) -> None:
     source = _markdown(tmp_path)
-    build_dir = tmp_path / ".laporan-build"
 
-    def fail_build_docx(
-        *,
-        input: Path,
-        out: Path | None = None,
-        terms: bool = False,
-        keep_intermediate: bool = False,
-    ) -> DocxResult:
-        assert out is not None
-        out.mkdir(parents=True, exist_ok=True)
-        intermediate = out / f"{REPORT_NAME}.docx"
-        intermediate.write_bytes(b"PK partial")
-        (out / "office-temp.tmp").write_text("worker masih menulis", encoding="utf-8")
-        raise WordError(
-            "worker Word masih hidup",
-            code="WORD-CLEANUP",
-            cleanup_ambiguous=True,
-        )
+    with pytest.raises(CliError, match="target tidak valid") as error:
+        build_markdown(source, ("all",))
 
-    monkeypatch.setattr("autooffice.docx.command.build_docx", fail_build_docx)
-
-    with pytest.raises(WordError, match="WORD-CLEANUP") as error:
-        build_markdown(source, ("pdf",))
-
-    assert error.value.code == "WORD-CLEANUP"
-    assert error.value.cleanup_ambiguous is True
-    assert (build_dir / f"{REPORT_NAME}.docx").is_file()
-    assert (build_dir / "office-temp.tmp").is_file()
-
-
-def test_build_markdown_preserves_build_dir_on_ambiguous_pdf_cleanup(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-    build_dir = tmp_path / ".laporan-build"
-
-    def fail_export(_docx: Path, _pdf: Path) -> None:
-        (build_dir / "office-temp.pdf").write_text("worker masih menulis", encoding="utf-8")
-        raise WordCleanupError("worker Word masih hidup")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fail_export)
-
-    with pytest.raises(CliError, match="PDF-CLEANUP") as error:
-        build_markdown(source, ("pdf",))
-
-    assert error.value.code == "PDF-CLEANUP"
-    assert error.value.cleanup_ambiguous is True
-    assert (build_dir / f"{REPORT_NAME}.docx").is_file()
-    assert (build_dir / "office-temp.pdf").is_file()
-
-
-def test_build_markdown_pdf_converter_may_return_path(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def fake_export(_docx: Path, pdf: Path) -> str:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-        return str(pdf)
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    outcome = build_markdown(source, ("pdf",))
-
-    assert outcome.files == (tmp_path / f"{REPORT_NAME}.pdf",)
-
-
-def test_build_markdown_pdf_converter_invalid_result_reports_artifact_error(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", lambda _docx, _pdf: object())
-
-    with pytest.raises(CliError, match="tidak mengembalikan path") as error:
-        build_markdown(source, ("pdf",))
-
-    assert error.value.code == "CLI-ARTIFACT"
-
-
-def test_build_markdown_pdf_converter_none_result_reports_artifact_error(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def fake_export(_docx: Path, pdf: Path) -> None:
-        pdf.write_bytes(b"%PDF-1.7 fake\n")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fake_export)
-
-    with pytest.raises(CliError, match="tidak mengembalikan path") as error:
-        build_markdown(source, ("pdf",))
-
-    assert error.value.code == "CLI-ARTIFACT"
+    assert error.value.code == "CLI-TARGET-INVALID"
+    assert error.value.exit_code == 2
 
 
 def test_build_markdown_dry_run_keep_intermediate_note(
@@ -444,41 +184,3 @@ def test_build_markdown_expands_out_before_build_and_outputs(
     expected = home / "records"
     assert calls[0]["out"] == expected
     assert outcome.files[0] == expected / f"{REPORT_NAME}.docx"
-
-
-def test_build_markdown_dry_run_requires_pdf_api(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", None)
-
-    with pytest.raises(CliError, match="ekspor PDF") as error:
-        build_markdown(source, ("pdf",), dry_run=True)
-
-    assert error.value.code == "CLI-PDF"
-    assert error.value.exit_code == 1
-    assert not (tmp_path / f"{REPORT_NAME}.pdf").exists()
-    assert not (tmp_path / ".laporan-build").exists()
-
-
-def test_build_markdown_pdf_os_error_is_wrapped_with_docx_path(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    source = _markdown(tmp_path)
-    _install_build_docx(monkeypatch, with_manifest=False)
-
-    def fail_export(_docx: Path, _pdf: Path) -> None:
-        raise OSError("Word menolak berkas")
-
-    monkeypatch.setattr(autooffice.pdf, "export_pdf", fail_export)
-
-    with pytest.raises(CliError, match="Word menolak berkas") as error:
-        build_markdown(source, ("pdf",))
-
-    intermediate = tmp_path / ".laporan-build" / f"{REPORT_NAME}.docx"
-    assert error.value.code == "CLI-PDF"
-    assert error.value.exit_code == 1
-    assert error.value.path == str(intermediate)
-    assert intermediate.is_file()

@@ -36,11 +36,51 @@ def test_autooffice_console_script_is_installed() -> None:
 
 
 def test_font_package_data_resolves() -> None:
-    """All bundled fonts and the OFL license exist inside the package."""
+    """All bundled Arial-metric fonts and the license exist inside the package."""
 
     for file_name in fonts.FONT_FILES:
         assert fonts.font_path(file_name).is_file(), file_name
     assert fonts.font_path(fonts.LICENSE_FILE).is_file()
+
+
+def test_font_assets_use_arial_metrics_without_plus_jakarta() -> None:
+    """PPTX uses Arial names backed by Liberation assets, not Plus Jakarta Sans."""
+
+    assert fonts.FONT_FAMILY == "Arial"
+    folded_dir = str(fonts.FONT_DIR).casefold()
+    assert "plus-jakarta" not in folded_dir
+    assert "plusjakarta" not in folded_dir
+    assert all("liberation" in name.casefold() for name in fonts.FONT_FILES), fonts.FONT_FILES
+    assert not any(
+        marker in name.casefold()
+        for name in fonts.ASSET_FILES
+        for marker in ("plusjakarta", "jakarta")
+    )
+
+
+def test_pyproject_removes_pdf_and_windows_surface() -> None:
+    """The distribution declares no PDF or Windows COM extras anymore."""
+
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = pyproject["project"]
+    extras = project.get("optional-dependencies", {})
+
+    assert "pdf" not in extras
+    assert "windows" not in extras
+    declared = [*project["dependencies"], *(dep for values in extras.values() for dep in values)]
+    assert not any("pywin32" in dependency.casefold() for dependency in declared)
+    assert not any("pypdf" in dependency.casefold() for dependency in declared)
+
+
+def test_package_data_includes_bundled_assets() -> None:
+    """Setuptools package data keeps fonts and design/docx data in the wheel."""
+
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_data = pyproject["tool"]["setuptools"]["package-data"]["autooffice"]
+
+    assert "assets/**/*" in package_data
+    assert "design/data/**/*" in package_data
+    assert "docx/data/**/*" in package_data
 
 
 def test_design_package_data_resolves() -> None:

@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-import autooffice.pdf
 from autooffice.deck.model import compile_deck_file
 from autooffice.google.fake import FakeGoogleServices
 from autooffice.google.slides import (
@@ -203,16 +202,6 @@ def _write_deck(
     deck.write_text(text, encoding="utf-8")
     (root / "transcripts.md").write_text(transcript, encoding="utf-8")
     return deck
-
-
-@pytest.fixture(autouse=True)
-def fake_font_embedding(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Jangan sentuh PowerPoint COM di test CLI; embedding diuji di tests/pdf."""
-
-    def fake_embed(path: Path) -> Path:
-        return Path(path)
-
-    monkeypatch.setattr(autooffice.pdf, "embed_pptx_fonts", fake_embed)
 
 
 @pytest.fixture

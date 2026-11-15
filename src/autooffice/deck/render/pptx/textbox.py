@@ -22,6 +22,7 @@ from .shapes import (
     field_optional_text,
     field_sequence,
     field_text,
+    primary_typeface,
     record_render_warning,
     set_chrome_shape,
     set_keyed_shape,
@@ -659,6 +660,7 @@ def _write_paragraphs(
     text_frame.clear()  # type: ignore[no-untyped-call]
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
     lines = normalized.split("\n")
+    typeface = primary_typeface(style.family)
     for index, line in enumerate(lines):
         paragraph = (
             text_frame.paragraphs[0] if index == 0 else text_frame.add_paragraph()  # type: ignore[no-untyped-call]
@@ -676,6 +678,7 @@ def _write_paragraphs(
                 indent_emu=theme.spacing.md_emu,
                 ordered=ordered,
                 start_at=bullet_start + index,
+                typeface=typeface,
             )
         for run in paragraph.runs:
             warning = apply_run_style(
@@ -698,12 +701,13 @@ def _set_bullet(
     indent_emu: int,
     ordered: bool,
     start_at: int,
+    typeface: str,
 ) -> None:
     p_pr = paragraph._p.get_or_add_pPr()
     p_pr.set("marL", str(indent_emu))
     p_pr.set("indent", str(-indent_emu))
     font = OxmlElement("a:buFont")
-    font.set("typeface", "Arial")
+    font.set("typeface", typeface)
     p_pr.insert_element_before(font, "a:tabLst", "a:defRPr", "a:extLst")
     if ordered:
         command = OxmlElement("a:buAutoNum")

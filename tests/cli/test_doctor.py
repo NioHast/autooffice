@@ -1,152 +1,75 @@
-"""Tes pemeriksaan font terpasang di ``autooffice doctor``."""
+"""Tes kontrak doctor: aset font terbundel, bukan font terpasang."""
 
 from pathlib import Path
 
 import pytest
 
 from autooffice.cli import doctor
-from autooffice.design.fonts import FONT_FILES
+from autooffice.design import fonts
 
 
-def _write_fonts(directory: Path, names: tuple[str, ...]) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    for name in names:
-        (directory / name).write_bytes(b"font")
-
-
-def test_font_install_detects_per_user_store(tmp_path: Path) -> None:
-    per_user = tmp_path / "user-fonts"
-    system = tmp_path / "system-fonts"
-    _write_fonts(per_user, FONT_FILES)
-
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=per_user,
-        system_dir=system,
-        registry_values={},
-        font_files=FONT_FILES,
-    )
-
-    assert ok is True
-    assert "per-user" in detail
-    assert str(per_user) in detail
-
-
-def test_font_install_detects_system_store(tmp_path: Path) -> None:
-    per_user = tmp_path / "user-fonts"
-    system = tmp_path / "system-fonts"
-    _write_fonts(system, FONT_FILES)
-
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=per_user,
-        system_dir=system,
-        registry_values={},
-        font_files=FONT_FILES,
-    )
-
-    assert ok is True
-    assert "sistem" in detail
-    assert str(system) in detail
-
-
-def test_font_install_detects_registry_with_absolute_path(tmp_path: Path) -> None:
-    per_user = tmp_path / "user-fonts"
-    system = tmp_path / "system-fonts"
-    _write_fonts(per_user, FONT_FILES)
-    values = {
-        "Plus Jakarta Sans (TrueType)": str(per_user / FONT_FILES[0]),
-        "Plus Jakarta Sans SemiBold (TrueType)": str(per_user / FONT_FILES[1]),
-        "Plus Jakarta Sans Bold (TrueType)": str(per_user / FONT_FILES[2]),
-        "Plus Jakarta Sans ExtraBold (TrueType)": str(per_user / FONT_FILES[3]),
-    }
-
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=per_user,
-        system_dir=system,
-        registry_values=values,
-        font_files=FONT_FILES,
-    )
-
-    assert ok is True
-    assert "per-user" in detail
-
-
-def test_font_install_ignores_unrelated_weights(tmp_path: Path) -> None:
-    per_user = tmp_path / "user-fonts"
-    system = tmp_path / "system-fonts"
-    _write_fonts(per_user, ("PlusJakartaSans-Light.ttf", "PlusJakartaSans-Medium.ttf"))
-    values = {
-        "Plus Jakarta Sans Light (TrueType)": str(per_user / "PlusJakartaSans-Light.ttf"),
-        "Plus Jakarta Sans Medium (TrueType)": str(per_user / "PlusJakartaSans-Medium.ttf"),
-    }
-
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=per_user,
-        system_dir=system,
-        registry_values=values,
-        font_files=FONT_FILES,
-    )
-
-    assert ok is False
-    assert "belum terpasang" in detail
-    assert "0/4" not in detail
-
-
-def test_font_install_reports_partial_install_with_command(tmp_path: Path) -> None:
-    per_user = tmp_path / "user-fonts"
-    system = tmp_path / "system-fonts"
-    _write_fonts(per_user, (FONT_FILES[0],))
-
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=per_user,
-        system_dir=system,
-        registry_values={},
-        font_files=FONT_FILES,
-    )
-
-    assert ok is False
-    assert "sebagian" in detail
-    assert "python tools/install_fonts.py" in detail
-
-
-def test_font_install_reports_missing_with_command(tmp_path: Path) -> None:
-    ok, detail = doctor.evaluate_font_install(
-        per_user_dir=tmp_path / "user-fonts",
-        system_dir=tmp_path / "system-fonts",
-        registry_values={},
-        font_files=FONT_FILES,
-    )
-
-    assert ok is False
-    assert "belum terpasang" in detail
-    assert "python tools/install_fonts.py" in detail
-
-
-def test_doctor_fonts_check_reports_install_hint(
+def _patch_report(
     monkeypatch: pytest.MonkeyPatch,
+    *,
+    tools: dict[str, str] | None = None,
+    font_assets_status: tuple[bool, str] = (True, "aset font siap"),
 ) -> None:
-    monkeypatch.setattr(doctor, "_font_assets_status", lambda: (True, "aset font lengkap"))
+    available = tools or {}
+
+    monkeypatch.setattr(doctor, "_find_tool", lambda name: available.get(name))
     monkeypatch.setattr(
         doctor,
-        "_font_install_status",
-        lambda: (False, "belum terpasang; jalankan `python tools/install_fonts.py`"),
+        "_tool_version",
+        lambda command: f"{command} 1.0" if command else None,
+    )
+    monkeypatch.setattr(doctor, "_font_assets_status", lambda: font_assets_status)
+    monkeypatch.setattr(doctor, "_google_status", lambda: (True, "google siap"))
+    monkeypatch.setattr(doctor.os, "access", lambda *_args: True)
+
+
+@pytest.mark.parametrize("targets", [None, ("pptx",)])
+def test_doctor_does_not_require_installed_fonts(
+    monkeypatch: pytest.MonkeyPatch,
+    targets: tuple[str, ...] | None,
+) -> None:
+    _patch_report(monkeypatch, tools={"pandoc": "pandoc"})
+
+    report = doctor.doctor_report(targets)
+
+    names = {check.name for check in report.checks}
+    assert "fonts" not in names
+    assert "font-assets" in names
+    assert report.ok is True
+
+
+@pytest.mark.parametrize("targets", [None, ("pptx",), ("slides",)])
+def test_doctor_requires_bundled_font_assets(
+    monkeypatch: pytest.MonkeyPatch,
+    targets: tuple[str, ...] | None,
+) -> None:
+    _patch_report(
+        monkeypatch,
+        tools={"pandoc": "pandoc"},
+        font_assets_status=(False, "aset font hilang: LiberationSans-Regular.ttf"),
     )
 
-    report = doctor.doctor_report(("pptx",))
-    check = next(item for item in report.checks if item.name == "fonts")
+    report = doctor.doctor_report(targets)
 
+    check = next(item for item in report.checks if item.name == "font-assets")
     assert check.required is True
     assert check.ok is False
-    assert "python tools/install_fonts.py" in check.detail
     assert report.ok is False
 
 
-def test_doctor_fonts_check_accepts_installed_font(
+def test_font_assets_failure_has_no_remediation_hint(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(doctor, "_font_assets_status", lambda: (True, "aset font lengkap"))
-    monkeypatch.setattr(doctor, "_font_install_status", lambda: (True, "terpasang per-user"))
+    monkeypatch.setattr(fonts, "FONT_DIR", tmp_path)
+    monkeypatch.setattr(fonts, "ASSET_HASHES", {"hilang.ttf": "hash"})
 
-    report = doctor.doctor_report(("pptx",))
-    check = next(item for item in report.checks if item.name == "fonts")
+    ok, detail = doctor._font_assets_status()
 
-    assert check.ok is True
+    assert ok is False
+    assert detail == "aset font hilang: hilang.ttf"
+    assert "python tools" not in detail

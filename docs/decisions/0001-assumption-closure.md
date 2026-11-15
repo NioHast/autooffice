@@ -1,6 +1,10 @@
 # ADR 0001: Penutupan Asumsi F0
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Asumsi
+> font Plus Jakarta Sans (A6) dan asumsi yang bergantung pada PDF/COM tidak
+> lagi berlaku.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Rujukan: `AUTO_OFFICE_PLAN.md` bagian 19

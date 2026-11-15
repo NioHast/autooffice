@@ -47,12 +47,10 @@ Build DOCX:
 uv run --project <repo> autooffice build examples/thesis-single/document.md --target docx
 ```
 
-Di Windows dengan Microsoft Word terpasang, `--target all` juga menghasilkan
-PDF. Di Debian atau lingkungan tanpa Word, gunakan `--target docx`.
-
-```bash
-uv run --project <repo> autooffice build examples/thesis-single/document.md --target all
-```
+DOCX memakai field native yang tidak diisi otomatis. Buka DOCX di Word, tekan
+Ctrl+A lalu F9, sebelum review atau ekspor PDF. PDF diekspor manual dari Word;
+lihat [docs/user/pdf-export.md](../docs/user/pdf-export.md). Tidak ada target
+`pdf` atau `all`.
 
 ## Artefak
 
@@ -65,8 +63,7 @@ examples/thesis-single/
 |-- references.bib
 |-- gambar/
 |-- out/
-|   |-- Tugas.docx
-|   `-- Tugas.pdf
+|   `-- Tugas.docx
 |-- .laporan/
 |   `-- manifest.json
 `-- .laporan-build/      # hanya dengan --keep-intermediate
@@ -74,8 +71,8 @@ examples/thesis-single/
 
 `out/`, `.laporan/`, dan `.laporan-build/` di-ignore Git. Nama berkas
 mengikuti `report_name` yang wajib ditulis eksplisit di front matter; tidak
-ada nama default. DOCX dan PDF memakai stem yang sama. Tidak ada output di
-`build/` atau `review/`.
+ada nama default. PDF tidak ditulis oleh build. Tidak ada output di `build/`
+atau `review/`.
 
 ## Catatan
 

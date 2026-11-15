@@ -85,7 +85,6 @@ examples/demo-deck/
   transcripts.md
   out/
     deck.pptx
-    deck.pdf
     deck.transcript.md
 ```
 

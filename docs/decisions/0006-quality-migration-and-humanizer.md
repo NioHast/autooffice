@@ -1,6 +1,9 @@
 # ADR 0006: Quality, Migrasi, dan Humanizer
 
-- Status: diterima
+> **Superseded sebagian oleh [ADR 0013](0013-remove-pdf-arial.md).** Kewajiban
+> fake COM dan smoke Office tidak lagi berlaku karena COM dihapus.
+
+- Status: diterima; sebagian superseded oleh ADR 0013
 - Tanggal: 2026-11-14
 - Pemilik: integration owner
 - Keputusan terkunci: L17, L18, L19, L21, L23, L24, L25

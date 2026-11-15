@@ -11,8 +11,6 @@ from autooffice.docx.errors import StageError
 from autooffice.docx.package.fields import (
     FieldKind,
     iter_fields_in_part,
-    strip_update_fields,
-    update_fields_enabled,
 )
 from autooffice.docx.package.package import (
     CONTENT_TYPES_PART,
@@ -44,9 +42,6 @@ DOCUMENT_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 )
 STYLES_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
-SETTINGS_CONTENT_TYPE = (
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"
-)
 
 STYLES_XML = (
     f'<w:styles xmlns:w="{W_NS}">'
@@ -57,24 +52,13 @@ STYLES_XML = (
     "</w:styles>"
 ).encode()
 
-SETTINGS_XML = (
-    f'<w:settings xmlns:w="{W_NS}">'
-    '<w:updateFields w:val="true"/>'
-    '<w:compat><w:compatSetting w:name="compatibilityMode" '
-    'w:uri="http://schemas.microsoft.com/office/word" w:val="15"/>'
-    "</w:compat></w:settings>"
-).encode()
-
 
 # ---------------------------------------------------------------------------
 # Helper package minimal
 # ---------------------------------------------------------------------------
 
 
-def _content_types(*, settings: bool = False) -> bytes:
-    extra = ""
-    if settings:
-        extra = f'<Override PartName="/word/settings.xml" ContentType="{SETTINGS_CONTENT_TYPE}"/>'
+def _content_types() -> bytes:
     return (
         f'<Types xmlns="{CT_NS}">'
         f'<Default Extension="rels" ContentType="{RELS_CONTENT_TYPE}"/>'
@@ -83,7 +67,7 @@ def _content_types(*, settings: bool = False) -> bytes:
         f'ContentType="{DOCUMENT_CONTENT_TYPE}"/>'
         '<Override PartName="/word/styles.xml" '
         f'ContentType="{STYLES_CONTENT_TYPE}"/>'
-        f"{extra}</Types>"
+        "</Types>"
     ).encode()
 
 
@@ -130,19 +114,16 @@ def _write_package(
     tmp_path: Path,
     body: str,
     *,
-    settings: bool = False,
     name: str = "test.docx",
 ) -> Path:
     path = tmp_path / name
     entries = {
-        CONTENT_TYPES_PART: _content_types(settings=settings),
+        CONTENT_TYPES_PART: _content_types(),
         PACKAGE_RELS_PART: _package_rels(),
         DOCUMENT_PART: _document(body),
         "word/_rels/document.xml.rels": _document_rels(),
         "word/styles.xml": STYLES_XML,
     }
-    if settings:
-        entries["word/settings.xml"] = SETTINGS_XML
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for entry_name, data in entries.items():
             archive.writestr(entry_name, data)
@@ -339,23 +320,6 @@ def test_page_numbers_stage_does_not_create_blank_page(tmp_path: Path) -> None:
     paragraphs = [child for child in body if child.tag == qn("w:p")]
     assert paragraphs
     assert [paragraph for paragraph in paragraphs if _has_page_break(paragraph)] == []
-
-
-def test_strip_update_fields_only_removes_update_fields(tmp_path: Path) -> None:
-    package = DocumentPackage.load(
-        _write_package(
-            tmp_path,
-            _paragraph("BAB I", style="Heading1"),
-            settings=True,
-        )
-    )
-    assert update_fields_enabled(package) is True
-    assert strip_update_fields(package) is True
-    assert update_fields_enabled(package) is False
-    assert package.has_part("word/settings.xml")
-    assert strip_update_fields(package) is False
-    settings = package.xml("word/settings.xml")
-    assert settings.find(qn("w:compat")) is not None
 
 
 def test_page_numbers_stage_requires_package() -> None:

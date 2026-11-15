@@ -40,19 +40,23 @@ adalah data package `autooffice.design`, bukan berkas kerja pengguna.
    yang memakai turunan `chartSeries` untuk aksesibilitas.
 8. Chart dibatasi empat slot warna: seri untuk `bar`/`line`, kategori untuk
    `donut`.
-9. Tipografi deck memakai `Plus Jakarta Sans` weight 400, 600, 700, dan 800.
+9. Tipografi deck memakai `Arial` weight 400, 600, 700, dan 800.
    Judul 40 px / 30 pt, body 22 px / 16.5 pt, minimal teks 10 pt. Mono
    memakai system mono stack
    `ui-monospace, 'Cascadia Mono', Consolas, monospace`. Tidak ada font
    family lain di deck.
-10. DOCX mempertahankan font format baseline DOCX dan tidak memakai Plus
-    Jakarta Sans.
-11. Kontras teks normal minimal 4.5:1, teks besar minimal 3:1. Status tidak
+10. DOCX mempertahankan font format baseline DOCX dan tidak memakai font
+    theme deck.
+11. PPTX tidak menanam font. Aset Liberation Sans (Regular dan Bold) dibundel
+    hanya untuk pengukuran; family tampilan tetap Arial. Di Android/Linux tanpa
+    Arial, aplikasi dapat mengganti Arial dengan Liberation Sans atau font
+    substitusi lain.
+12. Kontras teks normal minimal 4.5:1, teks besar minimal 3:1. Status tidak
     boleh menjadi satu-satunya pembeda; selalu ada label.
-12. Dilarang gradient dekoratif selain cover, glow, glass, blur, blob 3D,
+13. Dilarang gradient dekoratif selain cover, glow, glass, blur, blob 3D,
     pola acak, aksen pada body/caption/footer/page number, hex atau ukuran
     font di YAML, dan font di luar design system.
-13. F0 membekukan bentuk, sumber, dan aturan token, bukan nilai akhir. Nilai
+14. F0 membekukan bentuk, sumber, dan aturan token, bukan nilai akhir. Nilai
     final dibekukan setelah audit kontras pada F1-DESIGN; perubahan nilai
     memerlukan ADR dan pembaruan golden visual.
 
@@ -111,7 +115,7 @@ theme = Theme(
         grid="#E5E7EB", axis="#6B7280", legend="#374151", title="#0B0B0F",
     ),
     typography=Typography(
-        family="Plus Jakarta Sans", weights=(400, 600, 700, 800),
+        family="Arial", weights=(400, 600, 700, 800),
         title_pt=30, body_pt=16.5, minimum_pt=10, line_height=1.2,
         tracking_em=-0.01,
     ),
@@ -153,7 +157,7 @@ Catatan F0: test bentuk ada di `tests/contract/test_contract_shapes.py` dan `tes
 | Dua theme dan mode light | `tests/design/test_themes.py` (planned); golden visual `hitam`. |
 | `chartSeries` empat warna dan kontras 3:1 | `tests/design/test_contrast.py` (planned); F2-CHARTS. |
 | Tidak ada hex di renderer | Contract test scan `deck/render/**`; review F1-DESIGN. |
-| Font dan embedding | `tests/design/test_design_fonts.py` (planned); `tests/deck/render/pptx/test_pptx_fonts.py` (planned). |
+| Font dan pengukuran | `tests/design/test_themes.py`; `tests/design/test_design_fonts.py`; `tests/deck/layout/`. |
 | Tipografi dan ukuran minimum | Golden PPTX dan visual test; bagian 18.4. |
 | Larangan desain | Contract test dan review golden; bagian 11.5. |
 

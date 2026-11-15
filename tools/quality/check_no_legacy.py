@@ -108,7 +108,6 @@ ALLOWED_FILES: frozenset[str] = frozenset(
         "AUTO_OFFICE_EXECUTION_LOG.md",
         "docs/dev/f3-cleanup.md",
         "tests/cli/test_cli.py",
-        "tests/docx/test_office.py",
         "tests/packaging/test_autooffice_package.py",
         "tests/packaging/test_wheel_contents.py",
         "tests/tools/test_no_legacy.py",

@@ -22,7 +22,6 @@ from . import image as image_renderer
 from . import table as table_renderer
 from . import textbox as text_renderer
 from .coverage import collect_coverage, raise_if_incomplete
-from .fonts import FontEmbeddingResult, embed_fonts
 from .notes import set_notes
 from .shapes import (
     CHART_MARKER,
@@ -49,10 +48,6 @@ from .xml import (
 _CHART_PLACEHOLDER_WARNING = (
     "chart: {count} chart memakai placeholder {marker}<chart_id> untuk target slides; "
     "placeholder diganti linked chart oleh Google Slides."
-)
-_PDF_WARNING = (
-    "target pdf: PptxRenderer hanya menghasilkan PPTX intermediate; konversi PDF "
-    "ditangani adapter PDF."
 )
 
 
@@ -102,8 +97,6 @@ class PptxRenderer:
                     )
         remove_animation_nodes(presentation)
         warnings: list[str] = list(render_warnings)
-        if request.target == OutputTarget.PDF:
-            warnings.append(_PDF_WARNING)
         if chart_count and request.target == OutputTarget.SLIDES:
             warnings.append(
                 _CHART_PLACEHOLDER_WARNING.format(count=chart_count, marker=CHART_MARKER)
@@ -116,9 +109,6 @@ class PptxRenderer:
             presentation.save(str(temporary))
             coverage = collect_coverage(PresentationFactory(str(temporary)), request.deck)
             raise_if_incomplete(coverage)
-            font_result = embed_fonts(temporary, request.theme)
-            if request.target != OutputTarget.SLIDES:
-                warnings.extend(font_result.warnings)
             normalize_embedded_workbooks(temporary)
             assert_no_forbidden_nodes(temporary)
             validate_package(temporary)
@@ -134,7 +124,6 @@ class PptxRenderer:
             target_metadata=_target_metadata(
                 request,
                 chart_count=chart_count,
-                font_result=font_result,
                 slide_count=len(request.deck.slides),
             ),
         )
@@ -262,7 +251,6 @@ def _target_metadata(
     request: RenderRequest,
     *,
     chart_count: int,
-    font_result: FontEmbeddingResult,
     slide_count: int,
 ) -> dict[str, str]:
     return {
@@ -276,9 +264,6 @@ def _target_metadata(
             else "placeholder"
             if request.target == OutputTarget.SLIDES
             else "native"
-        ),
-        "font_embedding": (
-            "google" if request.target == OutputTarget.SLIDES else font_result.status
         ),
     }
 

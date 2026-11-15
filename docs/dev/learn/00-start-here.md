@@ -8,10 +8,10 @@ menjalankan perintah yang aman, dan memilih halaman berikutnya sesuai tujuan.
 
 Setelah halaman ini, pembaca bisa:
 
-1. menjelaskan alur singkat `document.md` menjadi DOCX dan PDF;
+1. menjelaskan alur singkat `document.md` menjadi DOCX;
 2. membedakan konten, struktur, format, dan pipeline;
 3. menyiapkan environment dengan `uv`;
-4. menjalankan `autooffice --version`, `doctor`, dan `check` tanpa memanggil Word;
+4. menjalankan `autooffice --version`, `doctor`, dan `check` tanpa Office;
 5. menemukan nama output dari `report_name` di front matter.
 
 ## Prasyarat
@@ -19,8 +19,9 @@ Setelah halaman ini, pembaca bisa:
 - Terminal di Windows, Linux, atau lingkungan Unix lain.
 - Git dasar untuk membaca status dan diff.
 - Tidak perlu memahami Python, Pandoc, atau OOXML untuk halaman ini.
-- Tidak perlu Microsoft Word. Word hanya dibutuhkan untuk PDF dan finalisasi
-  field pada tahap lanjut.
+- Tidak perlu Microsoft Word, PowerPoint, COM, atau `pywin32`. Word hanya
+  dibutuhkan bila pengguna ingin memperbarui field DOCX atau mengekspor PDF
+  secara manual.
 - Semua perintah dijalankan dari akar repo (path checkout masing-masing).
 
 ## Daftar isi
@@ -61,20 +62,19 @@ document.md + references.bib + gambar/
         |
         |  stage Python: sections, captions, fields, TOC, nomor halaman
         v
-   DOCX final secara struktur
+   DOCX dengan field native
         |
-        |  Word di Windows: perbarui field/TOC, repaginasi
+        |  Word: Ctrl+A, F9 (manual)
         v
-   DOCX final Word -> PDF
+   DOCX final -> PDF (ekspor manual)
 ```
 
 DOCX dibuat oleh pipeline Python; Pandoc dipakai sebagai konverter Markdown
-ke DOCX di dalam pipeline. Word tidak dipakai untuk menulis isi. Word dipakai
-untuk finalisasi field seperti TOC, `PAGEREF`, nomor halaman, dan ekspor PDF.
-Tanpa Word, DOCX tetap bisa dibuat dengan `--target docx`, tetapi field tidak
-diperbarui. Pipeline memberi peringatan bahwa TOC memakai cache terakhir;
-karena field TOC baru belum punya entri cache, TOC bisa tampil kosong sampai
-dokumen dibuka di Word dan field diperbarui.
+ke DOCX di dalam pipeline. Word tidak dipakai untuk menulis isi dan tidak
+dipanggil oleh AutoOffice. Field seperti TOC, `PAGEREF`, `SEQ`, dan nomor
+halaman ditulis sebagai field native, tetapi hasilnya tidak dihitung. Pengguna
+membuka DOCX di Word, menekan Ctrl+A lalu F9, sebelum review atau ekspor PDF.
+Tanpa langkah itu, TOC dapat tampil kosong atau memakai cache terakhir.
 
 ## Istilah singkat
 
@@ -84,7 +84,7 @@ dokumen dibuka di Word dan field diperbarui.
 | OOXML | Office Open XML, format XML di dalam package DOCX. |
 | YAML | Format teks untuk front matter `document.md` dan data konfigurasi. |
 | Front matter | Blok di awal `document.md` di antara `---` pembuka dan penutup. |
-| Artefak | Hasil build seperti DOCX, PDF, manifest, dan review istilah. |
+| Artefak | Hasil build seperti DOCX, PPTX, manifest, dan review istilah. |
 | TOC | Table of Contents, daftar isi native Word. |
 | Field | Instruksi Word seperti TOC, PAGE, atau SEQ yang hasil finalnya dihitung Word. |
 
@@ -114,11 +114,10 @@ berada di berkas yang sama.
 | `src/autooffice/docx/config/` | Package pembaca dan validator `format.yml` serta `structure.yml`. |
 | `src/autooffice/docx/document.py` | Parser `document.md` dan validasi body. |
 | `src/autooffice/docx/package/` | Model package DOCX dan helper XML. |
-| `src/autooffice/docx/stages/` | 18 stage kanonik pipeline. |
+| `src/autooffice/docx/stages/` | Stage kanonik pipeline. |
 | `src/autooffice/docx/data/` | Format, struktur, template, glosarium, logo, CSL, `reference.docx`. |
 | `examples/` | Tiga contoh single-file: assignment, proposal, thesis. |
-| `src/autooffice/pdf/` | Adapter COM Word/PowerPoint untuk PDF dan embedding font. |
-| `tests/docx/`, `tests/cli/`, `tests/pdf/` | Suite AutoOffice dan fixture golden. |
+| `tests/docx/`, `tests/cli/`, `tests/deck/` | Suite AutoOffice dan fixture golden. |
 | `docs/dev/` | Dokumentasi developer, kontrak, ADR, dan materi belajar ini. |
 
 ## Menyiapkan environment
@@ -139,16 +138,16 @@ dependensi pengembangan seperti pytest. Setelah itu, periksa perkakas:
 uv run autooffice doctor
 ```
 
-`doctor` memeriksa Python, Pandoc, `mmdc`, COM Word/PowerPoint, `pywin32`,
-aset font, dan status font terpasang. Di Linux, Word dan PowerPoint ditampilkan
-sebagai tidak berlaku.
-Exit code 1 berarti dependensi wajib untuk DOCX belum lengkap, misalnya
-Python di bawah 3.15 atau Pandoc tidak ditemukan. `mmdc` hanya wajib bila
-dokumen memakai blok Mermaid.
+`doctor` memeriksa Python, Pandoc, `mmdc`, integritas aset font pengukuran
+Liberation Sans, extra Google, kredensial OAuth, dan izin tulis workspace.
+Tidak ada pemeriksaan Word, PowerPoint, COM, atau `pywin32`. Exit code 1
+berarti dependensi wajib untuk DOCX belum lengkap, misalnya Python di bawah
+3.15 atau Pandoc tidak ditemukan. `mmdc` hanya wajib bila dokumen memakai blok
+Mermaid.
 
 ## Perintah aman pertama
 
-Perintah `check` tidak memanggil Pandoc atau Word. Perintah ini membaca front
+Perintah `check` tidak memanggil Pandoc atau Office. Perintah ini membaca front
 matter, format, struktur, template, aset, urutan Heading 1, dan caption
 Markdown. Contoh:
 
@@ -172,8 +171,7 @@ Subperintah yang ada adalah `check`, `build`, dan `doctor`. Tidak ada perintah
 ## report_name dan lokasi output
 
 `report_name` wajib di front matter. Tidak ada nilai default `"Tugas"` dan
-tidak ada flag CLI `--report-name`. Nilai ini menjadi nama berkas DOCX dan
-PDF.
+tidak ada flag CLI `--report-name`. Nilai ini menjadi nama berkas DOCX.
 
 Contoh ringkas dari `examples/assignment-single/document.md`; field lain di
 berkas asli tidak ditampilkan:
@@ -241,9 +239,8 @@ uv run autooffice doctor
 
 Cara memeriksa: `--version` harus mencetak `autooffice 0.1.0` atau versi paket
 yang lebih baru. Pada `doctor`, baris Python harus menunjukkan versi 3.15 atau
-lebih baru dan baris Pandoc harus menemukan executable. Jika Word tidak ada,
-baris Word boleh menunjukkan tidak ditemukan selama target yang dipakai hanya
-DOCX.
+lebih baru dan baris Pandoc harus menemukan executable. Tidak ada baris Word
+atau COM.
 
 ### 2. Verifikasi perintah yang tersedia
 
@@ -293,5 +290,5 @@ alur data sebelum menjalankan build.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Python 3.15 language reference`,
-`uv documentation`, `Pandoc installation`, dan `Word COM object model (VBA
-reference)`. URL resminya ada di [registry referensi](../references.md).
+`uv documentation`, dan `Pandoc installation`. URL resminya ada di
+[registry referensi](../references.md).

@@ -2,7 +2,8 @@
 
 Folder ini berisi panduan untuk pengguna dan penulis `document.md` serta
 `deck.yaml`: memilih struktur atau layout, menulis naskah, memeriksa, dan
-membangun DOCX/PDF atau PPTX/Slides. Dokumentasi ini ditujukan untuk manusia.
+membangun DOCX atau PPTX/Slides. PDF diekspor manual dari Word atau PowerPoint.
+Dokumentasi ini ditujukan untuk manusia.
 
 ## Daftar panduan
 
@@ -12,6 +13,8 @@ membangun DOCX/PDF atau PPTX/Slides. Dokumentasi ini ditujukan untuk manusia.
 | [cli.md](cli.md) | Perintah `autooffice`, target, output, flag, dan kode keluar. |
 | [deck-authoring.md](deck-authoring.md) | Authoring `deck.yaml`: meta, layout, block, aset, transkrip, copy, dan build. |
 | [document-format.md](document-format.md) | Front matter, heading, caption, gambar, tabel, kode, persamaan, dan sitasi. |
+| [pdf-export.md](pdf-export.md) | Ekspor PDF manual dari Word/PowerPoint, field DOCX, dan catatan font. |
+| [google-oauth.md](google-oauth.md) | Tutorial OAuth Google untuk target Slides. |
 | [single-file.md](single-file.md) | Alur satu berkas `document.md` dan asetnya. |
 | [mermaid.md](mermaid.md) | Diagram Mermaid, caption wajib, dan `mmdc`. |
 | [writing-rules.md](writing-rules.md) | Aturan prosa, istilah, sitasi, dan perintah pemeriksa. |

@@ -7,6 +7,10 @@ Kontrak ada di [contracts/docx.md](../../contracts/docx.md).
 hasil, dan `end`. Pipeline tidak menulis cache nomor halaman palsu. Word atau
 aplikasi yang membuka dokumen mengisi hasil field.
 
+AutoOffice tidak menjalankan Word. Setelah build, field masih berisi hasil
+kosong atau cache terakhir. Pengguna membuka DOCX di Word, menekan Ctrl+A lalu
+F9, sebelum review atau ekspor PDF.
+
 | Field | Dipakai untuk |
 | --- | --- |
 | `TOC \o "1-3" \h \z \u` | Daftar isi native di dalam `w:sdt`. |

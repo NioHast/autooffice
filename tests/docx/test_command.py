@@ -5,9 +5,7 @@ seluruh part dibandingkan dengan baseline JSON ternormalisasi di
 ``tests/fixtures/golden/docx/minimal/baseline.json``. Normalisasi menutup
 timestamp, Id relationship, path data paket, dan part biner.
 
-Word dinonaktifkan pada test golden agar output deterministik dan tidak
-bergantung pada versi Word. Perilaku Word nyata tidak menjadi bagian baseline
-ini; stage office diuji terpisah dengan fake Word.
+DOCX dihasilkan murni oleh pipeline Python.
 """
 
 import importlib.util
@@ -21,7 +19,6 @@ import pytest
 
 from autooffice.docx.command import build_docx
 from autooffice.docx.package import DocumentPackage
-from autooffice.docx.stages import office
 from tests._helpers.pandoc import pandoc_available
 
 pytestmark = pytest.mark.skipif(
@@ -38,9 +35,6 @@ EXPECTED_WARNINGS = (
     "stage 'terms' dinonaktifkan oleh opsi build.",
     "stage 'toc' dinonaktifkan oleh opsi build.",
     "stage 'lists' dinonaktifkan oleh opsi build.",
-    "Microsoft Word tidak tersedia; field DOCX tidak diperbarui dan TOC memakai "
-    "cache terakhir. DOCX tetap dihasilkan.",
-    "stage 'pdf' dinonaktifkan oleh opsi build.",
 )
 
 
@@ -62,10 +56,6 @@ def _copy_project(tmp_path: Path) -> Path:
     return project / "document.md"
 
 
-def _disable_word(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(office, "word_available", lambda: False)
-
-
 def _parts(package: DocumentPackage) -> dict[str, bytes]:
     return {name: package.part(name) for name in package.part_names()}
 
@@ -76,8 +66,7 @@ def _assert_parts_match(actual: dict[str, Any], expected: dict[str, Any]) -> Non
         assert actual[name] == expected[name], f"part berbeda: {name}"
 
 
-def test_build_docx_matches_golden_parts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _disable_word(monkeypatch)
+def test_build_docx_matches_golden_parts(tmp_path: Path) -> None:
     document = _copy_project(tmp_path)
     out_dir = tmp_path / "out"
 
@@ -118,9 +107,7 @@ def test_build_docx_matches_golden_parts(tmp_path: Path, monkeypatch: pytest.Mon
 
 def test_build_docx_terms_and_workspace_opt_in(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _disable_word(monkeypatch)
     document = _copy_project(tmp_path)
     out_dir = tmp_path / "out"
 
