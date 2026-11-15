@@ -108,6 +108,9 @@ memeriksa perkakas build:
 uv run autooffice doctor
 ```
 
+Untuk diagram, pasang Java 21 dan PlantUML 1.2026.10, lalu set
+`AUTOOFFICE_PLANTUML`. Rinciannya ada di [plantuml.md](plantuml.md).
+
 ## 5. Build
 
 Bangun DOCX:
@@ -122,7 +125,8 @@ isi, pengguna juga dapat memakai References > Update Table.
 
 Tambahkan `--keep-intermediate` bila workspace `.laporan-build/` perlu
 diperiksa setelah build. Tambahkan `--terms` bila ingin mengaktifkan gate
-glosarium.
+glosarium. Diagram ditulis sebagai fence `{.plantuml caption="..."}` dan
+dirender menjadi PNG saat build.
 
 ## 6. Periksa output
 
@@ -193,11 +197,11 @@ flag di [CLI AutoOffice](cli.md), dan konsep pipeline di
 ## Contoh
 
 - [assignment-single](../../examples/assignment-single/document.md): tiga bab,
-  satu tabel, satu diagram Mermaid.
+  satu tabel, satu diagram PlantUML.
 - [proposal-single](../../examples/proposal-single/document.md): empat bab,
   satu tabel, daftar isi.
 - [thesis-single](../../examples/thesis-single/document.md): lima bab, front
-  matter lengkap, gambar, Mermaid, persamaan, kode, dan lampiran.
+  matter lengkap, gambar, PlantUML, persamaan, kode, dan lampiran.
 
 Lanjutkan ke [writing-rules.md](writing-rules.md) sebelum menulis naskah
 panjang. Bila ada kegagalan, lihat [troubleshooting.md](troubleshooting.md).

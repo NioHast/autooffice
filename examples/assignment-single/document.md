@@ -57,21 +57,25 @@ Struktur tidak menyimpan teks naskah. Dengan begitu, struktur yang sama dapat di
 
 ## Lapisan Konten dan Pipeline
 
-Konten berisi front matter, bab Markdown, gambar, dan bibliografi. Perintah `autooffice check` memvalidasi front matter, format, struktur, template, aset, dan urutan bab. Perintah `autooffice build` menjalankan pipeline Python: render Mermaid, materialisasi front matter, konversi Pandoc, lalu stage DOCX untuk caption, persamaan, penomoran, daftar isi, dan nomor halaman.
+Konten berisi front matter, bab Markdown, gambar, dan bibliografi. Perintah `autooffice check` memvalidasi front matter, format, struktur, template, aset, dan urutan bab. Perintah `autooffice build` menjalankan pipeline Python: render PlantUML, materialisasi front matter, konversi Pandoc, lalu stage DOCX untuk caption, persamaan, penomoran, daftar isi, dan nomor halaman.
 
 ```bash
 uv run --project . autooffice check examples/assignment-single/document.md
 uv run --project . autooffice build examples/assignment-single/document.md --target docx
 ```
 
-```{.mermaid caption="Alur check dan build satu berkas"}
-flowchart LR
-  A[document.md] --> B[autooffice check]
-  B --> C[autooffice build]
-  C --> D[Pandoc]
-  D --> E[Stage Python DOCX]
-  E --> F[DOCX]
-  F --> G[PDF manual]
+```{.plantuml caption="Alur check dan build satu berkas"}
+@startuml
+start
+:document.md;
+:autooffice check;
+:autooffice build;
+:Pandoc;
+:Stage Python DOCX;
+:DOCX;
+:PDF manual;
+stop
+@enduml
 ```
 
 Pandoc menangani konversi dokumen [@pandoc2024], sedangkan stage Python bekerja pada paket Office Open XML [@iso2021openxml] untuk merapikan caption, persamaan, dan penomoran. Sumber Markdown yang sama dipakai untuk DOCX. PDF diekspor manual dari DOCX melalui Microsoft Word setelah pengguna memperbarui field dengan Ctrl+A lalu F9.

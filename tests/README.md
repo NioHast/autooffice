@@ -24,10 +24,10 @@ DOCX. Jalankan pytest dari akar repo dengan `uv run --project . pytest`.
 
 | Path | Isi dan kapan dipakai |
 | --- | --- |
-| `acceptance/` | Build PPTX demo deck nyata dengan font Arial tanpa embedding; marker `integration` dan `slow`. |
+| `acceptance/` | Build PPTX demo deck nyata dengan font Arial tanpa embedding dan render diagram PlantUML; marker `integration` dan `slow`. |
 | `cli/` | Parser, target, output, doctor, build Markdown/deck, dan entry point. |
 | `contract/` | Bentuk API dan scaffold kontrak. |
-| `deck/` | Model, layout, chart, copy, transcript, renderer PPTX, dan Mermaid. |
+| `deck/` | Model, layout, chart, copy, transcript, renderer PPTX, dan PlantUML. |
 | `design/` | Token, theme, Arial, Liberation Sans, dan kontras. |
 | `docx/` | Pipeline DOCX, package, stage, terms, dan golden part. |
 | `google/` | Auth, Drive, Sheets, Slides, state, dan fake contract. |
@@ -35,8 +35,17 @@ DOCX. Jalankan pytest dari akar repo dengan `uv run --project . pytest`.
 | `performance/` | Deck besar dengan marker `slow`. |
 | `property/` | Property test schema, key, layout, dan chart. |
 | `tools/` | Checker quality dan mutation tooling. |
-| `fixtures/` | Baseline golden, fixture DOCX, chart, copy, deck, dan reconcile. |
+| `fixtures/` | Baseline golden, fixture DOCX, chart, copy, deck dengan diagram PlantUML, dan reconcile. |
 | `_helpers/` | Helper path dan utilitas bersama yang tidak bergantung cwd. |
+
+## Prasyarat PlantUML
+
+Tes acceptance demo deck merender diagram PlantUML dari
+`examples/demo-deck/diagrams/*.puml`. Pasang PlantUML 1.2026.10 atau lebih baru
+dan Java 21. Bila executable belum ada di `PATH`, set `AUTOOFFICE_PLANTUML` ke
+path executable `plantuml` atau berkas `.jar`, lalu set `AUTOOFFICE_JAVA` ke
+path `java` bila Java juga tidak ada di `PATH`. Tanpa prasyarat itu tes
+acceptance di-skip, bukan dianggap lulus.
 
 ## Tanpa Word, PowerPoint, dan COM
 

@@ -78,7 +78,7 @@ Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
 - `code`: literal plain text, tidak diparse sebagai Markdown; nomor baris
   adalah chrome; code tidak boleh di-shrink.
 - `quote`: `text` inline Markdown; `attribution` satu baris.
-- `diagram`: satu file `.mmd` per block, dirender oleh `mmdc` menjadi gambar.
+- `diagram`: satu file `.puml` per block, dirender oleh PlantUML menjadi gambar.
 - `divider`: ketebalan dan warna dari token, tanpa field teks.
 - `spacer`: `size` hanya `sm`, `md`, atau `lg`; bukan tinggi absolut.
 - `metric`: `status` hanya `neutral`, `success`, `warning`, atau `danger`.

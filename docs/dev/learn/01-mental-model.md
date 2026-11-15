@@ -93,7 +93,7 @@ Pipeline dapat dibaca dalam tiga kelompok besar:
 
 | Kelompok | Stage | Hasil |
 | --- | --- | --- |
-| Persiapan | `validate`, `mermaid`, `style_reference`, `front_matter`, `pandoc` | Markdown final dan package DOCX awal. |
+| Persiapan | `validate`, `plantuml`, `style_reference`, `front_matter`, `pandoc` | Markdown final dan package DOCX awal. |
 | Mutasi package | `sections` sampai `lists` | DOCX di memori dengan section, caption, field, nomor halaman, dan daftar. |
 
 Tidak ada stage Word atau PDF. Urutan lengkap 16 stage dibahas di

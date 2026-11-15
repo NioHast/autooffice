@@ -33,7 +33,7 @@ repo.
 |       |   |-- charts/          # chart native dan placeholder
 |       |   |-- copy/            # copy checker dan diagnosis prosa
 |       |   |-- transcript/      # parser transkrip
-|       |   `-- media/           # render Mermaid
+|       |   `-- media/           # render PlantUML
 |       |-- docx/
 |       |   |-- package/         # model DOCX/OPC dan seluruh mutasi XML
 |       |   |-- stages/          # stage kanonik pipeline DOCX
@@ -99,10 +99,11 @@ repo.
 | `src/autooffice/deck/model/` | Compiler `deck.yaml`, DeckIR, key manifest, dan coverage plan. |
 | `src/autooffice/deck/layout/` | Grid, preset layout, custom rows, measurement, dan overflow. |
 | `src/autooffice/deck/render/pptx/` | Renderer PPTX native, table, chart, image, notes, dan validasi package. |
+| `src/autooffice/deck/media/` | Render PlantUML dari berkas `.puml`, validasi PNG, dan cache `.autooffice/cache/plantuml/`. |
 | `src/autooffice/design/` | Token, theme `indigo`/`hitam`, family Arial, pengukuran Liberation Sans, dan kontras. |
 | `src/autooffice/assets/fonts/` | Liberation Sans Regular/Bold untuk pengukuran layout; tidak ditanam ke PPTX. |
 | `src/autooffice/google/` | Autentikasi, Drive, Sheets, Slides, state, dan diff. |
-| `examples/assignment-single/` | Contoh tiga bab, tabel, dan Mermaid. |
+| `examples/assignment-single/` | Contoh tiga bab, tabel, dan PlantUML. |
 | `examples/proposal-single/` | Contoh empat bab dan daftar isi. |
 | `examples/thesis-single/` | Contoh lengkap dengan front matter, gambar, kode, dan lampiran. |
 | `examples/demo-deck/` | Contoh deck YAML, transkrip, aset, dan diagram. |

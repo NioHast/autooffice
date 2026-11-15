@@ -53,7 +53,7 @@ if TYPE_CHECKING:  # pragma: no cover - hanya anotasi
 
 class StageName(StrEnum):
     VALIDATE = "validate"
-    MERMAID = "mermaid"
+    PLANTUML = "plantuml"
     STYLE_REFERENCE = "style_reference"
     FRONT_MATTER = "front_matter"
     PANDOC = "pandoc"
@@ -72,7 +72,7 @@ class StageName(StrEnum):
 
 CANONICAL_ORDER: tuple[StageName, ...] = (
     StageName.VALIDATE,
-    StageName.MERMAID,
+    StageName.PLANTUML,
     StageName.STYLE_REFERENCE,
     StageName.FRONT_MATTER,
     StageName.PANDOC,
@@ -108,7 +108,7 @@ class StageSpec:
 
 _RAW_STAGE_SPECS: tuple[tuple[StageName, int, str, frozenset[str], bool], ...] = (
     (StageName.VALIDATE, 10, "stages/validate.py", frozenset(), True),
-    (StageName.MERMAID, 20, "stages/mermaid.py", frozenset({"workspace"}), True),
+    (StageName.PLANTUML, 20, "stages/plantuml.py", frozenset({"workspace"}), True),
     (
         StageName.STYLE_REFERENCE,
         30,

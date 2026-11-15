@@ -50,7 +50,7 @@ def test_check_deck_missing_diagram_is_reported_as_asset_error(
 
     assert len(findings) == 1
     assert findings[0].key == "s05.diagram1"
-    assert "diagrams/missing.mmd" in findings[0].message
+    assert "diagrams/missing.puml" in findings[0].message
 
 
 def test_check_deck_incomplete_transcript_is_an_error(

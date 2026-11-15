@@ -10,7 +10,7 @@ dari `src/autooffice/docx/data/`.
 - [Heading](#heading)
 - [Caption tabel](#caption-tabel)
 - [Caption gambar](#caption-gambar)
-- [Mermaid](#mermaid)
+- [PlantUML](#plantuml)
 - [Blok kode](#blok-kode)
 - [Daftar](#daftar)
 - [Persamaan](#persamaan)
@@ -161,20 +161,24 @@ Aturan gambar:
 - lebar gambar dibatasi 14 cm secara otomatis;
 - jangan menulis nomor gambar manual.
 
-## Mermaid
+## PlantUML
 
-Diagram Mermaid ditulis sebagai code fence dengan `caption` wajib. Stage
-`mermaid` menggantinya menjadi PNG sebelum Pandoc berjalan.
+Diagram PlantUML ditulis sebagai code fence dengan `caption` wajib. Stage
+`plantuml` menggantinya menjadi PNG sebelum Pandoc berjalan.
 
 ````markdown
-```{.mermaid caption="Diagram pipeline"}
-flowchart LR
-  A[document.md] --> B[DOCX]
+```{.plantuml caption="Diagram pipeline"}
+@startuml
+start
+:document.md;
+:DOCX;
+stop
+@enduml
 ```
 ````
 
-Gambar hasil render ditulis ke `gambar/mermaid-<hash>.png`. Rincian ada di
-[mermaid.md](mermaid.md).
+Gambar hasil render ditulis ke `gambar/plantuml-<hash>.png`. Rincian ada di
+[plantuml.md](plantuml.md).
 
 ## Blok kode
 

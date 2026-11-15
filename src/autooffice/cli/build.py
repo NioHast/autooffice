@@ -533,17 +533,17 @@ def _render_pptx(
 
 
 def _restore_render_cache(cache: Path, workspace: Path) -> None:
-    """Salin cache Mermaid persisten ke workspace render.
+    """Salin cache PlantUML persisten ke workspace render.
 
-    Renderer menyimpan diagram di ``<workspace>/cache/mermaid`` lalu workspace
+    Renderer menyimpan diagram di ``<workspace>/cache/plantuml`` lalu workspace
     dibersihkan setelah build. Menyalin kedua arah membuat diagram bertahan di
-    ``.autooffice/cache/mermaid`` tanpa mengubah kontrak renderer.
+    ``.autooffice/cache/plantuml`` tanpa mengubah kontrak renderer.
     """
 
-    source = cache / "mermaid"
+    source = cache / "plantuml"
     if not source.is_dir():
         return
-    destination = workspace / "cache" / "mermaid"
+    destination = workspace / "cache" / "plantuml"
     ensure_directory(destination)
     try:
         for item in source.iterdir():
@@ -551,7 +551,7 @@ def _restore_render_cache(cache: Path, workspace: Path) -> None:
                 shutil.copy2(item, destination / item.name)
     except OSError as exc:
         raise CliError(
-            f"cache Mermaid tidak dapat dipulihkan dari {source}: {exc}",
+            f"cache PlantUML tidak dapat dipulihkan dari {source}: {exc}",
             code="CLI-CACHE",
             exit_code=1,
             path=str(source),
@@ -559,19 +559,19 @@ def _restore_render_cache(cache: Path, workspace: Path) -> None:
 
 
 def _persist_render_cache(workspace: Path, cache: Path) -> None:
-    """Simpan diagram Mermaid dari workspace ke cache persisten."""
+    """Simpan diagram PlantUML dari workspace ke cache persisten."""
 
-    source = workspace / "cache" / "mermaid"
+    source = workspace / "cache" / "plantuml"
     if not source.is_dir():
         return
-    destination = ensure_directory(cache / "mermaid")
+    destination = ensure_directory(cache / "plantuml")
     try:
         for item in source.iterdir():
             if item.is_file():
                 shutil.copy2(item, destination / item.name)
     except OSError as exc:
         raise CliError(
-            f"cache Mermaid tidak dapat disimpan ke {destination}: {exc}",
+            f"cache PlantUML tidak dapat disimpan ke {destination}: {exc}",
             code="CLI-CACHE",
             exit_code=1,
             path=str(destination),

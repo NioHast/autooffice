@@ -1,21 +1,31 @@
 """Media renderer deck: aset yang membutuhkan executable eksternal."""
 
-from .mermaid import (
-    MMDC_ENV_VAR,
-    MMDC_INSTALL_HINT,
-    MermaidError,
+from .plantuml import (
+    JAVA_ENV_VAR,
+    MIN_PLANTUML_VERSION,
+    PLANTUML_ENV_VAR,
+    PLANTUML_INSTALL_HINT,
+    PNG_SIGNATURE,
+    PlantUmlError,
     cache_digest,
-    find_mmdc,
-    render_mermaid,
-    resolve_mermaid_source,
+    find_java,
+    find_plantuml,
+    plantuml_version,
+    render_plantuml,
+    resolve_plantuml_source,
 )
 
 __all__ = [
-    "MMDC_ENV_VAR",
-    "MMDC_INSTALL_HINT",
-    "MermaidError",
+    "JAVA_ENV_VAR",
+    "MIN_PLANTUML_VERSION",
+    "PLANTUML_ENV_VAR",
+    "PLANTUML_INSTALL_HINT",
+    "PNG_SIGNATURE",
+    "PlantUmlError",
     "cache_digest",
-    "find_mmdc",
-    "render_mermaid",
-    "resolve_mermaid_source",
+    "find_java",
+    "find_plantuml",
+    "plantuml_version",
+    "render_plantuml",
+    "resolve_plantuml_source",
 ]

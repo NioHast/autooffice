@@ -89,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor_parser = subparsers.add_parser(
         "doctor",
-        help="Periksa Python, Pandoc, mmdc, dan font tanpa jaringan.",
+        help="Periksa Python, Pandoc, PlantUML, dan font tanpa jaringan.",
     )
     doctor_parser.add_argument(
         "--target",

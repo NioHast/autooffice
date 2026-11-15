@@ -8,7 +8,7 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | Order | Stage | Modul | Memutasi | Catatan |
 | ---: | --- | --- | --- | --- |
 | 10 | `validate` | `autooffice/docx/stages/validate.py` | - | Caption tabel dan alt text gambar. |
-| 20 | `mermaid` | `autooffice/docx/stages/mermaid.py` | workspace | Blok Mermaid menjadi PNG. |
+| 20 | `plantuml` | `autooffice/docx/stages/plantuml.py` | workspace | Blok PlantUML menjadi PNG. |
 | 30 | `style_reference` | `autooffice/docx/stages/style_reference.py` | workspace, cache | `reference.docx` turunan dari `format.yaml`. |
 | 35 | `front_matter` | `autooffice/docx/stages/front_matter.py` | workspace | Sampul, template, abstrak, nomor heading. |
 | 40 | `pandoc` | `autooffice/docx/stages/pandoc.py` | package | Markdown menjadi DOCX. |
@@ -23,6 +23,18 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | 130 | `toc` | `autooffice/docx/stages/toc.py` | `word/document.xml`, `word/styles.xml` | Field TOC native bila `structure.toc`. |
 | 140 | `page_numbers` | `autooffice/docx/stages/page_numbers.py` | document, header/footer, rels, content types | Romawi front matter, Arab body. |
 | 150 | `lists` | `autooffice/docx/stages/lists.py` | `word/document.xml` | Daftar tabel/gambar dan field `SEQ`. |
+
+Stage `plantuml` membaca fence `{.plantuml caption="..."}` dengan caption
+wajib dan isi tidak kosong, menulis PNG ke `gambar/plantuml-<hash>.png`, dan
+menulis Markdown hasil penggantian ke `plantuml.md` dengan artefak
+`plantuml.markdown`. Engine diambil dari `AUTOOFFICE_PLANTUML` (jar atau
+executable); `AUTOOFFICE_JAVA` opsional.
+
+Render memakai PlantUML 1.2026.10 atau lebih baru di Java 21 dengan `-pipe`,
+`-secure`, `--pragma layout=smetana`, dpi 192, `--disable-metadata`,
+`--threads 1`, `--stop-on-error`, dan `--no-error-image`. Tidak ada kebutuhan
+Node.js, Chromium, atau Graphviz. Rincian ada di
+[kontrak PlantUML](../../contracts/plantuml.md).
 
 ## Guard
 
@@ -47,5 +59,6 @@ Opsi yang mengaktifkan stage tertentu ada di [options.md](options.md).
 
 ## Referensi resmi
 
-Label registry yang dipakai halaman ini: `Pandoc manual` dan `Mermaid CLI`.
-URL resminya ada di [registry referensi](../references.md).
+Label registry yang dipakai halaman ini: `Pandoc manual`, `PlantUML command
+line`, dan `PlantUML security`. URL resminya ada di
+[registry referensi](../references.md).

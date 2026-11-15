@@ -70,7 +70,7 @@ package yang sama.
 | Order | Stage | Modul | Memutasi | Tugas utama |
 | ---: | --- | --- | --- | --- |
 | 10 | `validate` | `stages/validate.py` | - | Caption tabel dan alt text gambar di Markdown. |
-| 20 | `mermaid` | `stages/mermaid.py` | workspace | Render blok Mermaid menjadi PNG dan tulis `mermaid.md`. |
+| 20 | `plantuml` | `stages/plantuml.py` | workspace | Render blok PlantUML menjadi PNG dan tulis `plantuml.md`. |
 | 30 | `style_reference` | `stages/style_reference.py` | workspace, cache | Hasilkan `reference.docx` turunan dari `format.yaml`. |
 | 35 | `front_matter` | `stages/front_matter.py` | workspace | Sampul, template, abstrak, penomoran heading, Markdown final. |
 | 40 | `pandoc` | `stages/pandoc.py` | package | Markdown final menjadi DOCX awal. |
@@ -91,6 +91,14 @@ Beberapa stage tidak selalu berjalan:
 - `terms` hanya aktif dengan `--terms`;
 - `toc` dilewati jika `structure.toc` bernilai `false`;
 - `lists` dilewati jika tidak ada daftar tabel/gambar di struktur.
+
+Stage `plantuml` menemukan engine lewat `AUTOOFFICE_PLANTUML` (jar atau
+executable) dan memakai `AUTOOFFICE_JAVA` bila diberikan. Render memakai
+PlantUML 1.2026.10 atau lebih baru di Java 21 dengan `-pipe` (stdin/stdout),
+`-secure`, `--pragma layout=smetana`, dpi 192, `--disable-metadata`,
+`--threads 1`, `--stop-on-error`, dan `--no-error-image`. PNG ditulis ke
+`gambar/plantuml-<hash>.png`; tidak ada kebutuhan Node.js, Chromium, atau
+Graphviz.
 
 ## Guard dan alasan urutan
 
@@ -160,7 +168,7 @@ Error tidak dikembalikan sebagai `StageResult`. Error dilempar sebagai
 | Key | Isi |
 | --- | --- |
 | `markdown` | Markdown final untuk Pandoc dari `front_matter`. |
-| `mermaid.markdown` | Markdown mentah hasil render Mermaid. |
+| `plantuml.markdown` | Markdown mentah hasil render PlantUML. |
 | `reference_docx` | `reference.docx` turunan. |
 | `pandoc_docx` | DOCX sementara hasil Pandoc. |
 | `docx` | DOCX final di path output. |
@@ -173,7 +181,7 @@ tanpa deklarasi.
 Workspace default adalah `.laporan-build/` di samping `document.md`. Tanpa
 `--keep-intermediate`, workspace dihapus di blok `finally`, termasuk saat build
 gagal. Dengan `--keep-intermediate`, isinya dipertahankan untuk diperiksa,
-misalnya `front_matter.md`, `mermaid.md`, `reference.docx`,
+misalnya `front_matter.md`, `plantuml.md`, `reference.docx`,
 `pandoc-metadata.yaml`, dan DOCX antara.
 
 ## Membaca kegagalan stage
@@ -209,7 +217,7 @@ memiliki TOC dan daftar tabel/gambar. Tanpa `--terms`, alur efektifnya:
 
 ```text
 validate
--> mermaid
+-> plantuml
 -> style_reference
 -> front_matter
 -> pandoc
@@ -273,5 +281,5 @@ dimutasi stage.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Python 3.15 language reference`,
-`Pandoc manual`, dan `OOXML ECMA-376`. URL resminya ada di
-[registry referensi](../references.md).
+`Pandoc manual`, `OOXML ECMA-376`, dan `PlantUML command line`. URL resminya
+ada di [registry referensi](../references.md).

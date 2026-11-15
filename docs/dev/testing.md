@@ -117,6 +117,12 @@ Aturan yang ditegakkan checker dan review:
 - penulisan berkas hanya di `tmp_path` atau fixture turunannya;
 - golden membandingkan part yang sudah dinormalisasi, bukan binary mentah.
 
+Test renderer PlantUML di `tests/deck/media/test_plantuml.py` memakai
+executable `plantuml` palsu untuk menguji kontrak `-pipe`, validasi PNG, dan
+cache. Test integrasi memakai engine nyata bila PlantUML tersedia lewat
+`AUTOOFFICE_PLANTUML` atau `PATH`; tidak ada kebutuhan Node.js, Chromium, atau
+Graphviz.
+
 ## Verifikasi
 
 Jalankan checker kualitas test dan gate lokal:

@@ -5,8 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
+import autooffice.deck.media.plantuml as plantuml_module
 import autooffice.google
 from autooffice.cli import doctor
+from autooffice.deck.media.plantuml import PlantUmlError
 from autooffice.design import fonts
 
 
@@ -14,10 +16,22 @@ def _patch_offline(
     monkeypatch: pytest.MonkeyPatch,
     *,
     tools: dict[str, str] | None = None,
+    plantuml_release: str | None = "1.2026.10",
+    plantuml_error: PlantUmlError | None = None,
     font_assets_status: tuple[bool, str] = (True, "aset font siap"),
     google_status: tuple[bool, str] | None = (True, "google siap"),
 ) -> None:
     available = tools or {}
+    executable = available.get("plantuml")
+
+    def fake_find_plantuml() -> Path | None:
+        return Path(executable) if executable else None
+
+    def fake_plantuml_version(_executable: Path) -> str:
+        if plantuml_error is not None:
+            raise plantuml_error
+        assert plantuml_release is not None
+        return plantuml_release
 
     monkeypatch.setattr(doctor, "_find_tool", lambda name: available.get(name))
     monkeypatch.setattr(
@@ -25,6 +39,12 @@ def _patch_offline(
         "_tool_version",
         lambda command: f"{command} 1.0" if command else None,
     )
+    monkeypatch.setattr(plantuml_module, "find_plantuml", fake_find_plantuml)
+    monkeypatch.setattr(plantuml_module, "plantuml_version", fake_plantuml_version)
+    if hasattr(doctor, "find_plantuml"):
+        monkeypatch.setattr(doctor, "find_plantuml", fake_find_plantuml)
+    if hasattr(doctor, "plantuml_version"):
+        monkeypatch.setattr(doctor, "plantuml_version", fake_plantuml_version)
     monkeypatch.setattr(doctor, "_font_assets_status", lambda: font_assets_status)
     if google_status is not None:
         monkeypatch.setattr(doctor, "_google_status", lambda: google_status)
@@ -55,7 +75,7 @@ def test_doctor_required_checks_follow_targets(
     targets: tuple[str, ...] | None,
     required: set[str],
 ) -> None:
-    _patch_offline(monkeypatch, tools={"pandoc": "pandoc", "mmdc": "mmdc"})
+    _patch_offline(monkeypatch, tools={"pandoc": "pandoc", "plantuml": "/opt/plantuml"})
 
     report = doctor.doctor_report(targets)
 
@@ -63,6 +83,56 @@ def test_doctor_required_checks_follow_targets(
     assert report.ok is True
     assert report.targets == targets
     assert {"word", "powerpoint", "pywin32"} & {check.name for check in report.checks} == set()
+
+
+def test_doctor_plantuml_check_reports_version_and_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "plantuml.jar"
+    _patch_offline(monkeypatch, tools={"plantuml": str(executable)})
+
+    report = doctor.doctor_report(("pptx",))
+
+    check = next(check for check in report.checks if check.name == "plantuml")
+    assert check.ok is True
+    assert check.required is False
+    assert check.detail == f"1.2026.10 - {executable}"
+    assert report.ok is True
+
+
+def test_doctor_missing_plantuml_is_optional(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_offline(monkeypatch, tools={"pandoc": "pandoc"})
+
+    report = doctor.doctor_report(None)
+
+    check = next(check for check in report.checks if check.name == "plantuml")
+    assert check.ok is False
+    assert check.required is False
+    assert check.detail == "tidak ditemukan; diperlukan hanya untuk diagram PlantUML"
+    assert report.ok is True
+
+
+def test_doctor_plantuml_version_failure_reports_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "plantuml.jar"
+    _patch_offline(
+        monkeypatch,
+        tools={"plantuml": str(executable)},
+        plantuml_error=PlantUmlError("versi tidak terbaca"),
+    )
+
+    report = doctor.doctor_report(("pptx",))
+
+    check = next(check for check in report.checks if check.name == "plantuml")
+    assert check.ok is True
+    assert check.required is False
+    assert check.detail == str(executable)
+    assert report.ok is True
 
 
 def test_doctor_slides_requires_font_assets(
@@ -208,9 +278,13 @@ def test_find_tool_windows_non_pandoc_uses_which(
     monkeypatch.setattr(doctor.platform, "system", lambda: "Windows")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     monkeypatch.setenv("PROGRAMFILES", str(tmp_path / "program"))
-    monkeypatch.setattr(doctor.shutil, "which", lambda name: "mmdc" if name == "mmdc" else None)
+    monkeypatch.setattr(
+        doctor.shutil,
+        "which",
+        lambda name: "plantuml" if name == "plantuml" else None,
+    )
 
-    assert doctor._find_tool("mmdc") == "mmdc"
+    assert doctor._find_tool("plantuml") == "plantuml"
 
 
 def test_tool_version_none_command_returns_none() -> None:
@@ -340,7 +414,7 @@ def test_doctor_report_survives_google_auth_find_spec_error(
     names = {check.name for check in report.checks}
     assert google.ok is False
     assert "google.auth" in google.detail
-    assert {"pandoc", "mmdc", "font-assets"} <= names
+    assert {"pandoc", "plantuml", "font-assets"} <= names
     assert "fonts" not in names
     assert {"word", "powerpoint", "pywin32"} & names == set()
     assert report.ok is True

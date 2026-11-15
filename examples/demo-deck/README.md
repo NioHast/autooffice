@@ -2,7 +2,7 @@
 
 Deck demo penerimaan AutoOffice yang diporting dari demo `deck-studio`. Deck
 ini menjadi contoh authoring lengkap untuk schema `autooffice.deck/v1`: 24
-slide, 20 layout, 11 block type, chart native, tabel, gambar, diagram Mermaid,
+slide, 20 layout, 11 block type, chart native, tabel, gambar, diagram PlantUML,
 kutipan, divider, dan spacer.
 
 `theme.name` di `deck.yaml` adalah `indigo`. Deck yang sama juga dibangun
@@ -28,7 +28,7 @@ dengan `--theme hitam`; tidak ada token, warna, atau font yang ditulis di YAML.
 | `background` | s12 | Tiga poin konteks |
 | `flow` | s13 | Empat langkah proses |
 | `code` | s14 | Blok kode SQL |
-| `diagram` | s15, s21 | Diagram Mermaid dari berkas `.mmd` |
+| `diagram` | s15, s21 | Diagram PlantUML dari berkas `.puml` |
 | `image-split` | s16, s22 | Teks dan gambar |
 | `image-full` | s17 | Gambar penuh dengan caption |
 | `image-grid` | s18 | Tiga gambar |
@@ -46,7 +46,7 @@ dengan `--theme hitam`; tidak ada token, warna, atau font yang ditulis di YAML.
 | `chart` | s06, s07, s08 | Bar, line, dan donut |
 | `code` | s14 | SQL dengan nomor baris |
 | `quote` | s19 | Hanya di layout `custom` |
-| `diagram` | s15, s21 | Dua berkas `.mmd` |
+| `diagram` | s15, s21 | Dua berkas `.puml` |
 | `divider` | s19 | Hanya di layout `custom` |
 | `spacer` | s19 | Hanya di layout `custom` |
 | `metric` | s01, s05, s20 | Status metric memakai token |
@@ -135,15 +135,15 @@ Diagram di `diagrams/` berasal dari demo `deck-studio`:
 
 | Berkas | Slide |
 | --- | --- |
-| `diagrams/01-flowchart.mmd` | s15 |
-| `diagrams/05-sequence.mmd` | s21 |
+| `diagrams/01-flowchart.puml` | s15 |
+| `diagrams/05-sequence.puml` | s21 |
 
-Mermaid tidak ditulis inline di YAML. Setiap block `diagram` hanya menunjuk
-berkas `.mmd` dan menyertakan alt text.
+PlantUML tidak ditulis inline di YAML. Setiap block `diagram` hanya menunjuk
+berkas `.puml` dan menyertakan alt text.
 
 ## Status
 
 Deck ini mencakup 24 slide, termasuk dua slide `custom` (s19 dan s20) serta dua
-slide `diagram` (s15 dan s21). Custom grid, render Mermaid, dan penyalinan aset
+slide `diagram` (s15 dan s21). Custom grid, render PlantUML, dan penyalinan aset
 ke workspace build sudah tersedia; tidak ada slide yang ditunda. Validasi
 schema, layout, copy, dan transkrip berlaku untuk seluruh 24 slide.

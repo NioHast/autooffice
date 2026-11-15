@@ -17,7 +17,7 @@ laporan/
 |-- istilah.tsv          # opsional
 `-- gambar/
     |-- diagram.png
-    `-- mermaid-<hash>.png
+    `-- plantuml-<hash>.png
 ```
 
 Semua path di `document.md` relatif terhadap direktori berkas itu. Jangan
@@ -69,7 +69,7 @@ tidak melompati level.
 | Gambar | Letakkan di `gambar/`, rujuk dengan path relatif, dan beri alt text non-kosong. |
 | Bibliografi | Berkas `.bib` di direktori dokumen atau subdirektori, dirujuk lewat `bibliography`. |
 | Glosarium | `istilah.tsv` di samping `document.md` menimpa dan menambah glosarium paket. |
-| Mermaid | Tulis blok `{.mermaid caption="..."}`; PNG dibuat saat build. |
+| PlantUML | Tulis blok `{.plantuml caption="..."}`; PNG dibuat saat build dengan Java 21 dan PlantUML 1.2026.10. |
 
 `check` memastikan gambar dan bibliografi yang dirujuk ada. Berkas gambar di
 luar direktori dokumen ditolak.

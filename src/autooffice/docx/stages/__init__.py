@@ -20,11 +20,11 @@ def default_stages() -> tuple[type[BaseStage], ...]:
     from .equations import EquationsStage
     from .front_matter import FrontMatterStage
     from .lists import ListsStage
-    from .mermaid import MermaidStage
     from .normalize import NormalizeStage
     from .numbering import NumberingStage
     from .page_numbers import PageNumbersStage
     from .pandoc import PandocStage
+    from .plantuml import PlantUmlStage
     from .sections import SectionsStage
     from .style_reference import StyleReferenceStage
     from .terms import TermsStage
@@ -33,7 +33,7 @@ def default_stages() -> tuple[type[BaseStage], ...]:
 
     return (
         ValidateStage,
-        MermaidStage,
+        PlantUmlStage,
         StyleReferenceStage,
         FrontMatterStage,
         PandocStage,

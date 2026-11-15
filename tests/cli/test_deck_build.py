@@ -66,7 +66,7 @@ def test_build_pptx_keep_intermediate_preserves_staged_assets(
 
     build_dir = deck_path.parent / ".autooffice-build" / deck_path.stem
     assert (build_dir / "assets" / "hero.png").is_file()
-    assert (build_dir / "diagrams" / "flow.mmd").is_file()
+    assert (build_dir / "diagrams" / "flow.puml").is_file()
 
 
 def test_build_missing_asset_fails_with_slide_block_and_path(

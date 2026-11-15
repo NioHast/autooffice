@@ -9,7 +9,7 @@ Stage ini menyiapkan bagian Markdown yang harus final sebelum Pandoc:
 - page break dan section break front matter dengan margin dari ``format.yaml``.
 
 Output berupa Markdown yang siap dikonsumsi Pandoc. Body hanya dibaca dari
-artifact ``mermaid.markdown`` milik stage mermaid; tidak ada fallback ke
+artifact ``plantuml.markdown`` milik stage plantuml; tidak ada fallback ke
 ``document.body``. TOC dan daftar gambar/tabel **tidak** ditulis di sini;
 keduanya milik stage post-Pandoc.
 
@@ -486,7 +486,7 @@ def render_front_matter(
     """Bangun Markdown final sebelum Pandoc.
 
     ``body`` wajib diisi oleh pemanggil; tidak ada fallback ke
-    ``document.body``. Stage ``front_matter`` mengirim Markdown hasil Mermaid
+    ``document.body``. Stage ``front_matter`` mengirim Markdown hasil PlantUML
     lewat parameter ini. Logo default berasal dari ``format.assets.logo``;
     ``include_logo=False`` mematikan blok logo untuk pengujian atau format
     tanpa logo.
@@ -521,7 +521,7 @@ def render_front_matter(
 
 
 def _markdown_source(ctx: Any) -> str:
-    """Sumber body satu-satunya: artifact ``mermaid.markdown`` dari stage mermaid.
+    """Sumber body satu-satunya: artifact ``plantuml.markdown`` dari stage plantuml.
 
     Tidak ada fallback ke ``document.body`` maupun ke artifact ``markdown``
     milik stage ini sendiri. Artifact yang tidak dideklarasikan atau tidak
@@ -533,16 +533,16 @@ def _markdown_source(ctx: Any) -> str:
         keys = tuple(artifacts.keys()) if artifacts is not None else ()
     except AttributeError, TypeError:
         keys = ()
-    if artifacts is None or "mermaid.markdown" not in keys:
+    if artifacts is None or "plantuml.markdown" not in keys:
         raise FrontMatterError(
-            "artifact 'mermaid.markdown' dari stage mermaid tidak tersedia",
+            "artifact 'plantuml.markdown' dari stage plantuml tidak tersedia",
             code="FRONT-MATTER-INPUT",
-            key="mermaid.markdown",
+            key="plantuml.markdown",
         )
-    path = Path(artifacts.get("mermaid.markdown"))
+    path = Path(artifacts.get("plantuml.markdown"))
     if not path.is_file():
         raise FrontMatterError(
-            f"artifact mermaid.markdown tidak ditemukan atau bukan file: {path}",
+            f"artifact plantuml.markdown tidak ditemukan atau bukan file: {path}",
             code="FRONT-MATTER-INPUT",
             path=path,
         )
@@ -550,7 +550,7 @@ def _markdown_source(ctx: Any) -> str:
         return path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         raise FrontMatterError(
-            f"artifact mermaid.markdown tidak dapat dibaca: {exc}",
+            f"artifact plantuml.markdown tidak dapat dibaca: {exc}",
             code="FRONT-MATTER-INPUT",
             path=path,
         ) from exc
@@ -559,7 +559,7 @@ def _markdown_source(ctx: Any) -> str:
 class FrontMatterStage(BaseStage):
     """Stage materialisasi Markdown sebelum ``pandoc``.
 
-    Body hanya dibaca dari artifact ``mermaid.markdown`` milik stage mermaid;
+    Body hanya dibaca dari artifact ``plantuml.markdown`` milik stage plantuml;
     tidak ada fallback ke ``document.body`` atau artifact lain.
     """
 
@@ -567,7 +567,7 @@ class FrontMatterStage(BaseStage):
     order: ClassVar[int] = 35
     requires: ClassVar[tuple[StageName, ...]] = (
         StageName.VALIDATE,
-        StageName.MERMAID,
+        StageName.PLANTUML,
         StageName.STYLE_REFERENCE,
     )
     mutates: ClassVar[frozenset[str]] = frozenset({"workspace"})
@@ -591,7 +591,7 @@ class FrontMatterStage(BaseStage):
             path.write_text(text, encoding="utf-8", newline="\n")
 
         # Output final untuk Pandoc memakai key standar ``markdown``. Stage
-        # mermaid menyimpan bahan mentahnya di ``mermaid.markdown`` agar tidak
+        # plantuml menyimpan bahan mentahnya di ``plantuml.markdown`` agar tidak
         # dianggap output stage ini saat build dijalankan ulang.
         keys = set(ctx.artifacts.keys())
         if "markdown" not in keys:

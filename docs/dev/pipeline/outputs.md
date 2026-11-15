@@ -34,7 +34,7 @@ manual dari Word.
 | `.transcript.md` | output dir | Bila `transcripts.md` ada |
 | `.slides-upload.pptx` | output dir | Staging internal `slides`; bukan deliverable |
 | `.autooffice/state/` | samping YAML | Target `slides` atau sinkronisasi |
-| `.autooffice/cache/` | samping YAML | Cache Mermaid |
+| `.autooffice/cache/plantuml/` | samping YAML | Cache PlantUML |
 | `.autooffice/review/` | samping YAML | Mode sync `pull`, `diff`, atau `apply` |
 | `.autooffice-build/<stem>/` | samping YAML | Workspace deck |
 

@@ -21,7 +21,7 @@ from autooffice.docx.stages.front_matter import (
     render_template,
     spacer,
 )
-from autooffice.docx.stages.mermaid import MermaidStage
+from autooffice.docx.stages.plantuml import PlantUmlStage
 
 _TITLE = "Optimasi Pipeline Pemrosesan Dokumen Markdown untuk Laporan Tugas Akhir"
 _BODY = (
@@ -351,7 +351,7 @@ def test_placeholder_terms_unchanged() -> None:
 def _stage_context(
     tmp_path: Path,
     *,
-    with_mermaid: bool = True,
+    with_plantuml: bool = True,
     artifact_body: str = _BODY,
     document_body: str = _BODY,
 ) -> SimpleNamespace:
@@ -359,10 +359,10 @@ def _stage_context(
     format_ = load_format("undip-msi")
     document = _document(body=document_body)
     artifacts = ArtifactStore()
-    if with_mermaid:
-        source = tmp_path / "mermaid.md"
+    if with_plantuml:
+        source = tmp_path / "plantuml.md"
         source.write_text(artifact_body, encoding="utf-8", newline="\n")
-        artifacts.put("mermaid.markdown", source)
+        artifacts.put("plantuml.markdown", source)
     return SimpleNamespace(
         document=document,
         structure=structure,
@@ -391,7 +391,7 @@ def test_stage_front_matter_writes_markdown_idempotently(tmp_path: Path) -> None
     assert path.read_text(encoding="utf-8") == text
 
 
-def test_stage_reads_mermaid_artifact_not_document_body(tmp_path: Path) -> None:
+def test_stage_reads_plantuml_artifact_not_document_body(tmp_path: Path) -> None:
     ctx = _stage_context(
         tmp_path,
         artifact_body="# Pendahuluan\n\nTeks dari artifact.\n",
@@ -405,8 +405,8 @@ def test_stage_reads_mermaid_artifact_not_document_body(tmp_path: Path) -> None:
     assert "Teks dari body mentah." not in text
 
 
-def test_stage_rejects_missing_mermaid_artifact(tmp_path: Path) -> None:
-    ctx = _stage_context(tmp_path, with_mermaid=False)
+def test_stage_rejects_missing_plantuml_artifact(tmp_path: Path) -> None:
+    ctx = _stage_context(tmp_path, with_plantuml=False)
 
     with pytest.raises(FrontMatterError) as excinfo:
         FrontMatterStage().run(ctx)
@@ -415,10 +415,10 @@ def test_stage_rejects_missing_mermaid_artifact(tmp_path: Path) -> None:
     assert not ctx.workspace.path("front_matter.md").exists()
 
 
-def test_stage_rejects_mermaid_artifact_pointing_to_missing_file(tmp_path: Path) -> None:
-    ctx = _stage_context(tmp_path, with_mermaid=False)
-    missing = tmp_path / "mermaid-hilang.md"
-    ctx.artifacts.put("mermaid.markdown", missing)
+def test_stage_rejects_plantuml_artifact_pointing_to_missing_file(tmp_path: Path) -> None:
+    ctx = _stage_context(tmp_path, with_plantuml=False)
+    missing = tmp_path / "plantuml-hilang.md"
+    ctx.artifacts.put("plantuml.markdown", missing)
 
     with pytest.raises(FrontMatterError) as excinfo:
         FrontMatterStage().run(ctx)
@@ -428,11 +428,11 @@ def test_stage_rejects_mermaid_artifact_pointing_to_missing_file(tmp_path: Path)
     assert str(missing) in str(excinfo.value)
 
 
-def test_stage_rejects_mermaid_artifact_that_is_a_directory(tmp_path: Path) -> None:
-    ctx = _stage_context(tmp_path, with_mermaid=False)
-    directory = tmp_path / "mermaid-dir"
+def test_stage_rejects_plantuml_artifact_that_is_a_directory(tmp_path: Path) -> None:
+    ctx = _stage_context(tmp_path, with_plantuml=False)
+    directory = tmp_path / "plantuml-dir"
     directory.mkdir()
-    ctx.artifacts.put("mermaid.markdown", directory)
+    ctx.artifacts.put("plantuml.markdown", directory)
 
     with pytest.raises(FrontMatterError) as excinfo:
         FrontMatterStage().run(ctx)
@@ -441,8 +441,8 @@ def test_stage_rejects_mermaid_artifact_that_is_a_directory(tmp_path: Path) -> N
     assert excinfo.value.path == directory
 
 
-def test_stage_rejects_legacy_markdown_artifact_without_mermaid(tmp_path: Path) -> None:
-    ctx = _stage_context(tmp_path, with_mermaid=False)
+def test_stage_rejects_legacy_markdown_artifact_without_plantuml(tmp_path: Path) -> None:
+    ctx = _stage_context(tmp_path, with_plantuml=False)
     legacy = tmp_path / "front_matter-lama.md"
     legacy.write_text(_BODY, encoding="utf-8", newline="\n")
     ctx.artifacts.put("markdown", legacy)
@@ -453,19 +453,19 @@ def test_stage_rejects_legacy_markdown_artifact_without_mermaid(tmp_path: Path) 
     assert excinfo.value.code == "FRONT-MATTER-INPUT"
 
 
-def test_document_without_mermaid_can_still_pass_front_matter(tmp_path: Path) -> None:
-    ctx = _stage_context(tmp_path, with_mermaid=False)
+def test_document_without_plantuml_can_still_pass_front_matter(tmp_path: Path) -> None:
+    ctx = _stage_context(tmp_path, with_plantuml=False)
     ctx.document = replace(
         ctx.document,
         body="# Pendahuluan\n\nTeks tanpa diagram.\n",
     )
 
-    mermaid = MermaidStage().run(ctx)
+    diag = PlantUmlStage().run(ctx)
 
-    assert mermaid.status == "ok"
-    assert mermaid.metrics["blocks"] == 0
-    source = ctx.workspace.path("mermaid.md")
-    assert ctx.artifacts.get("mermaid.markdown") == source
+    assert diag.status == "ok"
+    assert diag.metrics["blocks"] == 0
+    source = ctx.workspace.path("plantuml.md")
+    assert ctx.artifacts.get("plantuml.markdown") == source
     assert source.read_text(encoding="utf-8") == ctx.document.body
 
     result = FrontMatterStage().run(ctx)

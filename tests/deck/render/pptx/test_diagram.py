@@ -1,4 +1,4 @@
-"""Tes integrasi block diagram Mermaid sebagai picture native PPTX."""
+"""Tes integrasi block diagram PlantUML sebagai picture native PPTX."""
 
 import base64
 from pathlib import Path
@@ -8,8 +8,9 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 
+import autooffice.deck.render.pptx.diagram as diagram_module
 from autooffice.deck.layout.spec import LayoutPlan, PlacedBlock, SlideLayout
-from autooffice.deck.media.mermaid import MMDC_ENV_VAR
+from autooffice.deck.media.plantuml import PLANTUML_ENV_VAR, PlantUmlError
 from autooffice.deck.model.deck_ir import (
     BlockIR,
     DeckIR,
@@ -22,60 +23,42 @@ from autooffice.deck.render.pptx import PptxRenderer
 from autooffice.deck.render.pptx.coverage import CoverageError
 from autooffice.deck.render.pptx.shapes import PptxRenderError
 from autooffice.deck.render.protocol import OutputTarget, RenderRequest, RenderResult
+from autooffice.design.theme import Theme
 
 PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
-FAKE_MMDC = """\
-import base64
-import json
-import os
-import pathlib
-import sys
 
-PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
-    "+A8AAQUBAScY42YAAAAASUVORK5CYII="
-)
+def _fake_plantuml(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    render_error: PlantUmlError | None = None,
+    resolve_error: PlantUmlError | None = None,
+) -> list[tuple[Path, Path, Theme]]:
+    """Ganti pemanggilan PlantUML dengan implementasi deterministik."""
+    calls: list[tuple[Path, Path, Theme]] = []
 
-arguments = sys.argv[1:]
-log = os.environ.get("FAKE_MMDC_LOG")
-if log:
-    with open(log, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(arguments) + "\\n")
+    def fake_resolve(deck_root: Path, relative_path: str) -> Path:
+        if resolve_error is not None:
+            raise resolve_error
+        source = deck_root / relative_path
+        assert source.is_file()
+        return source
 
-if arguments == ["--version"]:
-    print("12.2.0")
-    raise SystemExit(0)
+    def fake_render(source: Path, output: Path, *, theme: Theme, cache_dir: Path) -> Path:
+        calls.append((source, output, theme))
+        assert cache_dir == output.parent
+        assert output.suffix == ".png"
+        if render_error is not None:
+            raise render_error
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(PNG_1X1)
+        return output
 
-
-def option(flag):
-    try:
-        return arguments[arguments.index(flag) + 1]
-    except (ValueError, IndexError):
-        return None
-
-
-source = option("-i")
-target = option("-o")
-if source is None or target is None:
-    print("fake mmdc: butuh -i dan -o", file=sys.stderr)
-    raise SystemExit(2)
-pathlib.Path(source).read_text(encoding="utf-8")
-output = pathlib.Path(target)
-output.parent.mkdir(parents=True, exist_ok=True)
-output.write_bytes(PNG)
-"""
-
-
-def _fake_mmdc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    log = tmp_path / "mmdc-log.jsonl"
-    monkeypatch.setenv("FAKE_MMDC_LOG", str(log))
-    script = tmp_path / "fake_mmdc.py"
-    script.write_text(FAKE_MMDC, encoding="utf-8", newline="\n")
-    monkeypatch.setenv(MMDC_ENV_VAR, str(script))
-    return log
+    monkeypatch.setattr(diagram_module, "resolve_plantuml_source", fake_resolve)
+    monkeypatch.setattr(diagram_module, "render_plantuml", fake_render)
+    return calls
 
 
 def _binding(
@@ -102,7 +85,7 @@ def _diagram_case(
     *,
     alt: str = "Diagram alur build",
     caption: str = "Alur build",
-    source: str = "diagrams/flow.mmd",
+    source: str = "diagrams/flow.puml",
     with_caption_key: bool = True,
 ) -> tuple[DeckIR, LayoutPlan]:
     fields: dict[str, object] = {
@@ -145,7 +128,7 @@ def _render(
     deck: DeckIR,
     layout: LayoutPlan,
     workspace: Path,
-    theme,
+    theme: Theme,
 ) -> RenderResult:
     return PptxRenderer().render(
         RenderRequest(
@@ -159,19 +142,21 @@ def _render(
 
 
 def _write_diagram(workspace: Path) -> Path:
-    source = workspace / "diagrams" / "flow.mmd"
+    source = workspace / "diagrams" / "flow.puml"
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text("flowchart TD\n  A --> B\n", encoding="utf-8")
+    source.write_text(
+        "@startuml\nstart\n:Mulai;\n:Selesai;\nstop\n@enduml\n",
+        encoding="utf-8",
+    )
     return source
 
 
 def test_diagram_block_inserts_picture_caption_and_coverage(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _fake_mmdc(tmp_path, monkeypatch)
+    _fake_plantuml(monkeypatch)
     _write_diagram(workspace)
     deck, layout = _diagram_case()
 
@@ -189,17 +174,18 @@ def test_diagram_block_inserts_picture_caption_and_coverage(
     assert caption.text_frame.text == "Alur build"
     assert result.coverage.ok is True
     assert result.coverage.missing_alt == ()
-    assert len(list((workspace / "cache" / "mermaid").glob("*.png"))) >= 1
-    assert (workspace / "cache" / "mermaid" / "s01.process.png").is_file()
+    cache_dir = workspace / "cache" / "plantuml"
+    assert len(list(cache_dir.glob("*.png"))) == 1
+    assert (cache_dir / "s01.process.png").is_file()
+    assert sorted(path.name for path in (workspace / "cache").iterdir()) == ["plantuml"]
 
 
 def test_diagram_without_caption_has_only_picture(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _fake_mmdc(tmp_path, monkeypatch)
+    _fake_plantuml(monkeypatch)
     _write_diagram(workspace)
     deck, layout = _diagram_case(caption="")
 
@@ -211,33 +197,39 @@ def test_diagram_without_caption_has_only_picture(
     assert shapes[0].name == "autooffice:diagram:s01.process"
     assert shapes[0].shape_type == MSO_SHAPE_TYPE.PICTURE
     assert result.coverage.ok is True
+    assert (workspace / "cache" / "plantuml" / "s01.process.png").is_file()
 
 
-def test_diagram_missing_mmdc_fails_without_pptx_fallback(
+def test_diagram_missing_plantuml_fails_without_pptx_fallback(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(MMDC_ENV_VAR, str(tmp_path / "tidak-ada-mmdc.exe"))
+    error = PlantUmlError(
+        "PlantUML tidak ditemukan di PATH. Pasang PlantUML sebelum build diagram.",
+        code="PLANTUML-TOOL",
+    )
+    _fake_plantuml(monkeypatch, render_error=error)
     _write_diagram(workspace)
     deck, layout = _diagram_case()
 
-    with pytest.raises(PptxRenderError, match="npm install -g @mermaid-js/mermaid-cli"):
+    with pytest.raises(
+        PptxRenderError,
+        match=r"diagram PlantUML.*PlantUML tidak ditemukan",
+    ):
         _render(deck, layout, workspace, theme)
 
     assert not (workspace / "diagram-deck.pptx").exists()
     assert list(workspace.glob("*.pptx")) == []
-    assert list((workspace / "cache" / "mermaid").glob("*.png")) == []
+    assert list((workspace / "cache" / "plantuml").glob("*.png")) == []
 
 
 def test_diagram_missing_alt_fails_coverage(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _fake_mmdc(tmp_path, monkeypatch)
+    _fake_plantuml(monkeypatch)
     _write_diagram(workspace)
     deck, layout = _diagram_case(alt="")
 
@@ -250,11 +242,10 @@ def test_diagram_missing_alt_fails_coverage(
 
 def test_diagram_missing_caption_key_fails_coverage(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _fake_mmdc(tmp_path, monkeypatch)
+    _fake_plantuml(monkeypatch)
     _write_diagram(workspace)
     deck, layout = _diagram_case(with_caption_key=False)
 
@@ -267,26 +258,32 @@ def test_diagram_missing_caption_key_fails_coverage(
 
 def test_diagram_source_traversal_fails_before_render(
     workspace: Path,
-    theme,
-    tmp_path: Path,
+    theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _fake_mmdc(tmp_path, monkeypatch)
-    deck, layout = _diagram_case(source="../flow.mmd")
+    _fake_plantuml(
+        monkeypatch,
+        resolve_error=PlantUmlError(
+            "Path diagram tidak boleh memuat '..': '../flow.puml'.",
+            code="PLANTUML-SOURCE",
+        ),
+    )
+    deck, layout = _diagram_case(source="../flow.puml")
 
-    with pytest.raises(PptxRenderError, match="\\.\\."):
+    with pytest.raises(PptxRenderError, match=r"diagram PlantUML.*\.\."):
         _render(deck, layout, workspace, theme)
 
     assert not (workspace / "diagram-deck.pptx").exists()
 
 
-def test_minimal_deck_does_not_need_mmdc(
+def test_minimal_deck_does_not_need_plantuml(
     minimal_case,
-    theme,
+    theme: Theme,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(MMDC_ENV_VAR, str(tmp_path / "tidak-ada-mmdc.exe"))
+    calls = _fake_plantuml(monkeypatch)
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(tmp_path / "tidak-ada-plantuml"))
 
     result = PptxRenderer().render(
         RenderRequest(
@@ -298,5 +295,6 @@ def test_minimal_deck_does_not_need_mmdc(
         )
     )
 
+    assert calls == []
     assert result.artifact_path.is_file()
     assert result.coverage.ok is True

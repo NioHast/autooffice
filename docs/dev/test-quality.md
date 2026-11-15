@@ -61,7 +61,7 @@ itu menjadi kompas utama; sisanya adalah cara mencapainya.
 | DAMP over DRY | Descriptive And Meaningful Phrases lebih penting daripada menghapus semua duplikasi. Duplikasi kecil yang membuat skenario jelas dapat diterima. |
 
 Beberapa prinsip saling bertukar. Test yang lebih predictive biasanya lebih
-lambat dan lebih mahal karena memakai Pandoc, `mmdc`, atau seluruh pipeline.
+lambat dan lebih mahal karena memakai Pandoc, `plantuml`, atau seluruh pipeline.
 Test unit cepat, tetapi tidak memverifikasi integrasi di boundary. Pilih level
 terendah yang masih dapat menangkap risiko yang sedang dijaga; jangan
 memindahkan semua keyakinan ke level paling mahal.
@@ -91,7 +91,7 @@ diuji di level paling murah yang masih meyakinkan.
 - **Idempotency.** Operasi yang dijalankan dua kali harus menghasilkan keadaan
   yang sama. Package roundtrip, stage berulang, dan hash XML kanonis adalah
   contoh yang layak diuji.
-- **Integrasi dengan boundary eksternal.** Pandoc, `mmdc`, dan filesystem
+- **Integrasi dengan boundary eksternal.** Pandoc, `plantuml`, dan filesystem
   berperilaku di luar kendali repo. Satu test kontrak pada boundary nyata lebih
   bernilai daripada banyak test unit yang memalsukan semuanya.
 - **Trust dan security boundary.** Pastikan kode pipeline hanya berasal dari
@@ -132,7 +132,7 @@ perlu diperiksa, bukan vonis bahwa test tertentu buruk.
 | Assertion Roulette atau Eager Test | Banyak assertion dalam satu test tanpa pesan, atau satu test menjalankan beberapa skenario sekaligus. | Lokasi kegagalan sulit diketahui dan diagnosis menjadi lambat. | Pisahkan per perilaku, beri pesan assertion, dan batasi satu alasan utama gagal per test. |
 | Obscure Test atau Mystery Guest | Setup jauh dari test, nilai ajaib tanpa nama, atau fixture eksternal yang tidak dijelaskan. | Pembaca tidak tahu perilaku apa yang sedang diuji. | Susun data penting di dalam test, beri nama konstanta, dan jelaskan fixture di dekat pemakaian. |
 | Erratic Test | Hasil berubah antarjalankan karena waktu, urutan, jaringan, atau state bersama. | Test diabaikan atau dianggap gagal acak sehingga regresi nyata ikut tersembunyi. | Isolasi dengan `tmp_path`, suntikkan waktu, hindari jaringan, dan bersihkan state global. |
-| Slow Tests | Suite butuh menit karena selalu memanggil Pandoc atau `mmdc`. | Umpan balik lambat, test dilewati, dan commit kecil terhambat. | Pisahkan marker, kecilkan fixture, pakai fake di unit, dan jalankan test mahal di gate. |
+| Slow Tests | Suite butuh menit karena selalu memanggil Pandoc atau `plantuml`. | Umpan balik lambat, test dilewati, dan commit kecil terhambat. | Pisahkan marker, kecilkan fixture, pakai fake di unit, dan jalankan test mahal di gate. |
 | Test Code Duplication | Setup dan assertion disalin dengan sedikit perbedaan di banyak tempat. | Perbaikan harus diulang dan salinan mulai menyimpang. | Pakai fixture, helper, atau parametrize yang menyembunyikan noise, bukan perilaku. |
 
 ## Parameterized test
@@ -163,7 +163,7 @@ Mock bukan alat untuk mengganti kolaborator internal yang justru ingin diuji.
 
 Boundary eksternal yang biasa dimock atau difake di repo ini:
 
-- Pandoc dan `mmdc`, karena keduanya proses eksternal dengan versi berbeda.
+- Pandoc dan `plantuml`, karena keduanya proses eksternal dengan versi berbeda.
 - Filesystem, hanya untuk kegagalan yang sulit dibuat nyata, misalnya izin
   ditolak atau disk penuh. Untuk perilaku normal, `tmp_path` lebih baik karena
   file benar-benar ditulis dan dibaca.
@@ -181,7 +181,7 @@ Aturan praktisnya:
 - Jika satu test membutuhkan banyak mock untuk sekadar berjalan, level test atau
   desain seam perlu dipertanyakan. Pindahkan test ke level yang lebih tepat.
 - Fake lebih baik daripada mock bila perilaku yang ditiru cukup sederhana.
-  `tests/docx/test_mermaid_docx.py` memakai executable `mmdc` palsu untuk
+  `tests/docx/test_plantuml_docx.py` memakai executable `plantuml` palsu untuk
   menguji proses, path output, dan kegagalan render.
 
 Lihat [pytest fixtures](references.md#registry) untuk cara menyediakan fake dan
@@ -293,7 +293,7 @@ Beberapa pola perlu hati-hati, tetapi tetap bisa sah dalam konteks tertentu:
   mencapai error path atau bila helper tersebut memang kontrak internal yang
   sedang distabilkan. Terima bahwa test akan berubah bersama implementasi, dan
   jangan memeriksa nama helper atau urutan pemanggilan internal.
-- **Test yang bergantung pada Word, Pandoc, atau `mmdc`.** Sah sebagai test
+- **Test yang bergantung pada Word, Pandoc, atau `plantuml`.** Sah sebagai test
   integrasi yang dijalankan di gate atau mesin khusus. Wajib memakai marker,
   skip eksplisit saat alat tidak ada, dan tidak menjadi satu-satunya bukti
   untuk perilaku yang bisa diuji dengan fake di level unit.

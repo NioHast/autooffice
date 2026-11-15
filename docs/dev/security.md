@@ -84,6 +84,16 @@ objek Python. Kedalaman memakai `YAML.max_depth` milik ruamel dengan
 murni. Pelanggaran melempar `DeckLoadError` (subclass `DeckSchemaError`) dengan
 pesan yang menyebut batas dan saran perbaikan.
 
+## Render PlantUML
+
+Sumber diagram dari `document.md` dan berkas `.puml` diperlakukan sebagai
+input tidak tepercaya. Renderer memanggil PlantUML 1.2026.10 atau lebih baru
+dengan `-secure` yang membatasi akses berkas dan URL dari diagram. Sumber
+dikirim lewat stdin dan PNG diterima lewat stdout (`-pipe`); proses memakai
+`--threads 1`, `--stop-on-error`, dan `--no-error-image` agar kegagalan tidak
+menghasilkan gambar error. AutoOffice tidak memakai Node.js, Chromium, atau
+Graphviz.
+
 ## Verifikasi
 
 - `tests/docx/test_package_security.py`

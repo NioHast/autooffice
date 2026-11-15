@@ -131,8 +131,8 @@ def _pandoc_loads_golden(ctx: StageContext) -> StageResult:
 
 def _mark_workspace(ctx: StageContext) -> StageResult:
     workspace = ctx.workspace.ensure()
-    (workspace / "mermaid.marker").write_text("ok", encoding="utf-8")
-    return _result(StageName.MERMAID, changed=True)
+    (workspace / "plantuml.marker").write_text("ok", encoding="utf-8")
+    return _result(StageName.PLANTUML, changed=True)
 
 
 def _raise_runtime(ctx: StageContext) -> StageResult:
@@ -508,7 +508,7 @@ def test_artifact_store_rejects_duplicate_and_missing_key() -> None:
 def test_build_report_records_warnings_and_changed_count() -> None:
     report = BuildReport()
     report.record(_result(StageName.VALIDATE, changed=True, warnings=("satu",)))
-    report.record(_result(StageName.MERMAID))
+    report.record(_result(StageName.PLANTUML))
     report.add_warning("dua")
 
     assert report.changed == 1
@@ -594,7 +594,7 @@ def test_pipeline_run_keeps_workspace_and_records_disabled_stage(tmp_path: Path)
     output_dir = tmp_path / "out"
     pipeline = _pipeline(
         runners={
-            StageName.MERMAID: _mark_workspace,
+            StageName.PLANTUML: _mark_workspace,
             StageName.PANDOC: _pandoc_loads_golden,
         },
         disabled={StageName.TERMS},
@@ -612,7 +612,7 @@ def test_pipeline_run_keeps_workspace_and_records_disabled_stage(tmp_path: Path)
     assert result.docx.is_file()
     assert result.manifest is None
     assert result.kept_workspace == workspace
-    assert (workspace / "mermaid.marker").read_text(encoding="utf-8") == "ok"
+    assert (workspace / "plantuml.marker").read_text(encoding="utf-8") == "ok"
     assert any("dinonaktifkan" in warning for warning in result.warnings)
 
 
@@ -723,7 +723,7 @@ def test_pipeline_run_wraps_stage_failure_and_respects_keep(
     document = _project(tmp_path)
     pipeline = _pipeline(
         runners={
-            StageName.MERMAID: _mark_workspace,
+            StageName.PLANTUML: _mark_workspace,
             StageName.PANDOC: _raise_runtime,
         }
     )
@@ -740,7 +740,7 @@ def test_pipeline_run_does_not_swallow_domain_stage_error(tmp_path: Path) -> Non
     document = _project(tmp_path)
     pipeline = _pipeline(
         runners={
-            StageName.MERMAID: _mark_workspace,
+            StageName.PLANTUML: _mark_workspace,
             StageName.PANDOC: _raise_stage_error,
         }
     )

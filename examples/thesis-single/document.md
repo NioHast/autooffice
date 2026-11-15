@@ -18,7 +18,7 @@ abstract_id: |
   konsisten. Perubahan kecil pada naskah sering menggeser tata letak ketika
   dokumen disunting langsung di pengolah kata. Contoh ini membahas pipeline
   AutoOffice yang memisahkan naskah Markdown dari aturan format dan struktur.
-  Pipeline memvalidasi front matter, merender diagram Mermaid, memanggil
+  Pipeline memvalidasi front matter, merender diagram PlantUML, memanggil
   Pandoc, lalu merapikan caption, persamaan, penomoran, dan daftar isi pada
   berkas DOCX. Pembahasan difokuskan pada rancangan lapisan, mekanisme
   validasi, dan keterlacakan aset. Hasil yang ditunjukkan adalah keluaran
@@ -28,7 +28,7 @@ abstract_en: |
   Small edits often shift the layout when a document is edited directly in a
   word processor. This example discusses the AutoOffice pipeline, which
   separates Markdown manuscripts from formatting and structure rules. The
-  pipeline validates front matter, renders Mermaid diagrams, invokes Pandoc,
+  pipeline validates front matter, renders PlantUML diagrams, invokes Pandoc,
   and then normalizes captions, equations, numbering, and the table of
   contents in the DOCX file. The discussion focuses on the layer design,
   validation mechanism, and asset traceability. The results show sample output
@@ -135,17 +135,23 @@ Validasi dilakukan sebelum Pandoc, sedangkan perapian caption, persamaan, dan
 penomoran dilakukan setelah DOCX terbentuk. Hubungan antarbagian tersebut
 ditunjukkan pada diagram berikut.
 
-```{.mermaid caption="Alur validasi dan build dokumen"}
-flowchart LR
-  A[document.md] --> B[autooffice check]
-  B --> C{Valid?}
-  C -- Ya --> D[Pandoc]
-  C -- Tidak --> E[Perbaiki front matter]
-  D --> F[Stage DOCX]
-  F --> G[out/Tugas.docx]
+```{.plantuml caption="Alur validasi dan build dokumen"}
+@startuml
+start
+:document.md;
+:autooffice check;
+if (Valid?) then (Ya)
+  :Pandoc;
+  :Stage DOCX;
+  :out/Tugas.docx;
+else (Tidak)
+  :Perbaiki front matter;
+endif
+stop
+@enduml
 ```
 
-Stage `validate` memeriksa caption tabel dan alt text gambar. Stage `mermaid`
+Stage `validate` memeriksa caption tabel dan alt text gambar. Stage `plantuml`
 mengganti blok diagram menjadi PNG sebelum Pandoc membaca Markdown. Setelah
 Pandoc menulis DOCX, stage `code`, `captions`, `normalize`,
 `equations`, `numbering`, `blank_lines`, `terms`, `toc`, `page_numbers`, dan
@@ -189,31 +195,32 @@ Keluaran DOCX memuat naskah, gaya paragraf, penomoran, caption, dan aset
 gambar dalam satu paket. Pembagian tanggung jawab antara naskah dan bagian
 paket ditunjukkan pada gambar berikut.
 
-```{.mermaid caption="Arsitektur pipeline AutoOffice dari Markdown hingga DOCX"}
-flowchart TD
-  subgraph SUMBER["Naskah dan aturan"]
-    MD["document.md<br/>front matter, bab, dan aset"]
-    CFG["format.yaml + structure.yaml<br/>aturan visual dan urutan bab"]
-  end
-  subgraph ASET["Aset dokumen"]
-    IMG["gambar/"]
-    BIB["references.bib"]
-  end
-  DG["autooffice<br/>validasi dan orkestrasi stage"]
-  PD["Pandoc<br/>AST, sitasi, reference.docx"]
-  OUT["out/Tugas.docx"]
+```{.plantuml caption="Arsitektur pipeline AutoOffice dari Markdown hingga DOCX"}
+@startuml
+package "Naskah dan aturan" {
+  [document.md\nfront matter, bab, dan aset] as MD
+  [format.yaml + structure.yaml\naturan visual dan urutan bab] as CFG
+}
+package "Aset dokumen" {
+  [gambar/] as IMG
+  [references.bib] as BIB
+}
+[autooffice\nvalidasi dan orkestrasi stage] as DG
+[Pandoc\nAST, sitasi, reference.docx] as PD
+[out/Tugas.docx] as OUT
 
-  MD --> DG
-  CFG --> DG
-  DG --> PD
-  IMG --> PD
-  BIB --> PD
-  PD --> OUT
+MD --> DG
+CFG --> DG
+DG --> PD
+IMG --> PD
+BIB --> PD
+PD --> OUT
+@enduml
 ```
 
 ## Hasil Pemeriksaan Contoh
 
-Contoh tesis ini memuat lima bab, dua tabel, dua diagram Mermaid, satu
+Contoh tesis ini memuat lima bab, dua tabel, dua diagram PlantUML, satu
 persamaan display, satu blok kode, dan beberapa sitasi. Hasil
 pemeriksaan konfigurasi dirangkum pada tabel berikut.
 

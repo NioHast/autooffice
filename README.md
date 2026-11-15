@@ -23,7 +23,7 @@ masing-masing. Karena proyek tidak memiliki jalur rilis resmi, perubahan besar
 dari luar tidak dijamin akan diterima atau dipertahankan.
 
 - Tidak dipublikasikan ke PyPI; instalasi dari source.
-- Prasyarat: Python 3.15, `uv`, Pandoc, dan `mmdc` untuk diagram.
+- Prasyarat: Python 3.15, `uv`, Pandoc, Java 21, dan PlantUML 1.2026.10 untuk diagram.
 - Lisensi kode MIT; aset Liberation Sans memakai SIL OFL 1.1.
 - Tag `vX.Y.Z` adalah penanda milestone internal, bukan janji SemVer.
 
@@ -40,20 +40,21 @@ maupun transitif, dipasang otomatis dari `uv.lock`; jangan memasang `lxml`,
 | Python 3.15 | semua perintah | Dikelola `uv`; versi ada di `.python-version`. |
 | `uv` | semua perintah | Menyinkronkan `.venv` dan menjalankan `uv run`. |
 | Pandoc dengan `--citeproc` | DOCX dari Markdown | Versi 3.x disarankan; `doctor` memeriksa ketersediaannya. |
-| Node.js + Mermaid CLI (`mmdc`) | dokumen atau deck dengan diagram Mermaid | `npm install -g @mermaid-js/mermaid-cli`. |
+| Java 21 | dokumen atau deck dengan diagram PlantUML | Diperlukan untuk menjalankan `plantuml.jar`; `AUTOOFFICE_JAVA` opsional. |
+| PlantUML 1.2026.10 | dokumen atau deck dengan diagram PlantUML | Unduh `plantuml.jar` atau executable `plantuml`; set `AUTOOFFICE_PLANTUML`. |
 | Kredensial Google OAuth | hanya target `slides` | `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`; lihat [docs/user/google-oauth.md](docs/user/google-oauth.md). |
 | Microsoft Word atau PowerPoint | opsional, manual | Memperbarui field DOCX (Ctrl+A, F9) dan mengekspor PDF. |
 
 - Build DOCX dan PPTX tidak memerlukan Office, COM, `pywin32`, atau PowerShell.
 - Jaringan hanya diperlukan untuk target `slides`.
-- `uv run autooffice doctor` memeriksa Python, workspace, Pandoc, aset font
-  bundled, dan modul Google untuk target `slides`.
+- `uv run autooffice doctor` memeriksa Python, workspace, Pandoc, PlantUML,
+  aset font bundled, dan modul Google untuk target `slides`.
 
 ### Development
 
 | Kebutuhan | Catatan |
 | --- | --- |
-| Semua prasyarat runtime | Test acceptance memakai Pandoc; diagram memakai `mmdc`. |
+| Semua prasyarat runtime | Test acceptance memakai Pandoc; diagram memakai PlantUML. |
 | `uv sync --extra dev --extra google` | Memasang paket dev dan Google ke `.venv`. |
 | Python 3.15 dan `uv` | Sama seperti runtime. |
 
@@ -84,9 +85,15 @@ front matter ada di
 [docs/user/document-format.md](docs/user/document-format.md), dan alur ekspor
 PDF ada di [docs/user/pdf-export.md](docs/user/pdf-export.md).
 
+Diagram ditulis sebagai fence `{.plantuml caption="..."}`. Build merender PNG
+dengan Java 21 dan PlantUML 1.2026.10; rincian ada di
+[docs/user/plantuml.md](docs/user/plantuml.md).
+
 Deck dari YAML. Contoh demo sudah berisi 24 slide. Target `pptx` memakai
 family Arial tanpa embedding font. Layout diukur dengan Liberation Sans yang
-metrik-kompatibel Arial.
+metrik-kompatibel Arial. Block `diagram` menunjuk berkas `.puml` di
+`diagrams/`, misalnya `diagrams/01-flowchart.puml`; PlantUML merender PNG saat
+build.
 
 ```bash
 uv run autooffice check examples/demo-deck/deck.yaml
@@ -127,6 +134,7 @@ COM, atau Google.
 
 - [docs/user/quickstart.md](docs/user/quickstart.md): alur DOCX dan deck.
 - [docs/user/deck-authoring.md](docs/user/deck-authoring.md): authoring `deck.yaml`.
+- [docs/user/plantuml.md](docs/user/plantuml.md): diagram PlantUML, Java 21, dan instalasi engine.
 - [docs/user/pdf-export.md](docs/user/pdf-export.md): ekspor PDF manual dari Word/PowerPoint.
 - [docs/user/google-oauth.md](docs/user/google-oauth.md): tutorial OAuth Google.
 - [docs/dev/README.md](docs/dev/README.md): arsitektur, pipeline, testing, gate.

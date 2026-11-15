@@ -19,7 +19,7 @@ Setelah halaman ini, pembaca bisa:
 - [02 - Build Pertama](02-first-build.md) sampai
   [04 - Model DOCX](04-docx-model.md).
 - Mengenal pytest dasar: file tes, fungsi `test_*`, fixture, dan marker.
-- Pandoc hanya diperlukan untuk tes yang memang memakainya.
+- Pandoc dan PlantUML hanya diperlukan untuk tes yang memang memakainya.
 
 ## Daftar isi
 
@@ -52,14 +52,14 @@ tes berhenti gagal.
 
 | Tingkat | Lokasi | Ciri | Tool eksternal |
 | --- | --- | --- | --- |
-| Domain | `tests/docx/`, `tests/deck/`, `tests/design/` | Cepat, memakai objek di memori dan fixture kecil. | Tidak menyentuh Pandoc atau `mmdc`. |
+| Domain | `tests/docx/`, `tests/deck/`, `tests/design/` | Cepat, memakai objek di memori dan fixture kecil. | Tidak menyentuh Pandoc atau `plantuml`. |
 | Contract | `tests/contract/` | Membekukan bentuk API dan scaffold kontrak. | Tidak ada. |
 | CLI | `tests/cli/` | Menjalankan parser, target, output, dan entry point. | Fake Google. |
 | Performa | `tests/performance/` | Deck besar. | Marker `slow`. |
 
 Marker di `pytest.ini`:
 
-- `unit`: tes cepat tanpa Pandoc/mmdc;
+- `unit`: tes cepat tanpa Pandoc/plantuml;
 - `integration`: membutuhkan Pandoc atau artefak build;
 - `packaging`: packaging repo-local atau wheel;
 - `slow`: tes berat seperti deck 500 slide atau render PPTX.
@@ -155,7 +155,7 @@ Isi workspace antara lain:
 
 | Berkas | Arti |
 | --- | --- |
-| `mermaid.md` | Body setelah blok Mermaid diganti gambar. |
+| `plantuml.md` | Body setelah blok PlantUML diganti gambar. |
 | `front_matter.md` | Markdown final untuk Pandoc. |
 | `reference.docx` | Reference turunan dari `format.yaml`. |
 | `pandoc-metadata.yaml` | Metadata yang dikirim ke Pandoc. |

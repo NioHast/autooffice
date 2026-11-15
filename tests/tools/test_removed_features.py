@@ -1,4 +1,4 @@
-"""Tes pemeriksa fitur PDF, COM, dan aset font yang sudah dihapus AutoOffice."""
+"""Tes pemeriksa fitur PDF, COM, Mermaid, dan aset font yang sudah dihapus AutoOffice."""
 
 import json
 from pathlib import Path
@@ -16,6 +16,16 @@ dependencies = ["lxml==6.1.3"]
 dev = ["pytest==9.2.0"]
 google = ["google-auth-oauthlib==1.5.0"]
 """
+
+MERMAID_FORBIDDEN_PATHS: tuple[str, ...] = (
+    "src/autooffice/deck/media/mermaid.py",
+    "src/autooffice/docx/stages/mermaid.py",
+    "tests/deck/media/test_mermaid.py",
+    "tests/deck/media/test_mermaid_security.py",
+    "tests/docx/test_mermaid_docx.py",
+    "docs/user/mermaid.md",
+    "docs/contracts/mermaid.md",
+)
 
 
 def _write(root: Path, name: str, text: str) -> Path:
@@ -136,6 +146,62 @@ def test_plus_jakarta_sans_font_directory_fails(tmp_path: Path) -> None:
     assert check_removed_features.main([str(tmp_path)]) == 1
 
 
+@pytest.mark.parametrize("relative", MERMAID_FORBIDDEN_PATHS)
+def test_mermaid_path_is_a_forbidden_path(relative: str) -> None:
+    assert relative in check_removed_features.FORBIDDEN_PATHS
+
+
+@pytest.mark.parametrize("relative", MERMAID_FORBIDDEN_PATHS)
+def test_mermaid_path_is_detected(tmp_path: Path, relative: str) -> None:
+    _make_forbidden_path(tmp_path, relative)
+
+    findings = _violations(tmp_path)
+
+    assert [item.file for item in findings if item.rule == "forbidden-path"] == [relative]
+    assert check_removed_features.main([str(tmp_path)]) == 1
+
+
+@pytest.mark.parametrize("name", ["diagram.mmd", "diagram.MMD"])
+def test_mermaid_source_file_fails(tmp_path: Path, name: str) -> None:
+    _write(tmp_path, f"diagrams/{name}", "flowchart LR\n  A --> B\n")
+
+    findings = _violations(tmp_path)
+
+    assert [item.rule for item in findings] == ["mermaid-source"]
+    assert findings[0].file == f"diagrams/{name}"
+    assert "mmdc" in findings[0].message
+    assert check_removed_features.main([str(tmp_path)]) == 1
+
+
+@pytest.mark.parametrize("directory", [".git", ".venv", "dist"])
+def test_mermaid_source_in_skipped_directory_passes(tmp_path: Path, directory: str) -> None:
+    _write(tmp_path, f"{directory}/history/diagram.mmd", "flowchart LR\n")
+
+    assert _violations(tmp_path) == ()
+
+
+def test_mermaid_suffix_mentioned_as_text_passes(tmp_path: Path) -> None:
+    _write(tmp_path, "docs/dev/notes.md", "Simpan sumber diagram sebagai `diagram.mmd`.\n")
+    _write(tmp_path, "archive/history/lessons.md", "Berkas `.mmd` sudah dihapus.\n")
+    _write(tmp_path, "src/autooffice/notes.py", 'SOURCE_SUFFIX = ".mmd"\n')
+
+    assert _violations(tmp_path) == ()
+
+
+def test_mermaid_source_is_reported_in_json(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write(tmp_path, "diagram.mmd", "flowchart LR\n")
+
+    code = check_removed_features.main(["--format", "json", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert code == 1
+    assert payload["total"] == 1
+    assert payload["violations"][0]["rule"] == "mermaid-source"
+
+
 def test_unexpected_font_directory_fails(tmp_path: Path) -> None:
     _write(tmp_path, "src/autooffice/assets/fonts/open-sans/OpenSans-Regular.ttf", "")
 
@@ -241,9 +307,18 @@ def test_list_prints_targets(capsys: pytest.CaptureFixture[str]) -> None:
         "pythoncom",
         "pywin32",
         "src/autooffice/pdf",
+        "src/autooffice/deck/media/mermaid.py",
+        "src/autooffice/docx/stages/mermaid.py",
         "src/autooffice/assets/fonts/plus-jakarta-sans",
         "tests/visual",
+        "tests/deck/media/test_mermaid.py",
+        "tests/deck/media/test_mermaid_security.py",
+        "tests/docx/test_mermaid_docx.py",
+        "docs/user/mermaid.md",
+        "docs/contracts/mermaid.md",
         "tools/install_fonts.py",
+        "mermaid-source",
+        ".mmd",
         "pypdf",
         "windows",
         "liberation-sans",

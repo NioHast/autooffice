@@ -41,13 +41,15 @@ Tidak ada target `pdf` atau `all`.
 
 Build DOCX dan PPTX tidak memerlukan Office, COM, `pywin32`, atau font yang
 terpasang. PPTX memakai Arial tanpa embedding; layout diukur dengan Liberation
-Sans yang metrik-kompatibel Arial. PDF diekspor manual dari Word atau
-PowerPoint; lihat [Ekspor PDF Manual](../../user/pdf-export.md).
+Sans yang metrik-kompatibel Arial. Diagram memerlukan PlantUML 1.2026.10 atau
+lebih baru dan Java 21; tidak ada Node.js, Chromium, atau Graphviz. PDF diekspor
+manual dari Word atau PowerPoint; lihat
+[Ekspor PDF Manual](../../user/pdf-export.md).
 
 ## Referensi resmi
 
-Label registry yang dipakai halaman ini: `Pandoc manual` dan `Mermaid CLI`.
-URL resminya ada di [registry referensi](../references.md).
+Label registry yang dipakai halaman ini: `Pandoc manual` dan `PlantUML command
+line`. URL resminya ada di [registry referensi](../references.md).
 
 ## Halaman terkait
 

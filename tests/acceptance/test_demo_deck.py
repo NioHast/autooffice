@@ -11,6 +11,8 @@ from zipfile import ZipFile
 import pytest
 from pptx import Presentation
 
+from autooffice.deck.media.plantuml import PlantUmlError, find_plantuml, plantuml_version
+
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -25,8 +27,13 @@ _ALLOWED_TYPEFACES = frozenset({"Arial", "Cascadia Mono"})
 
 def _skip_reason() -> str | None:
     """Alasan skip bila prasyarat eksternal build demo deck tidak tersedia."""
-    if shutil.which("mmdc") is None:
-        return "demo deck acceptance membutuhkan mmdc untuk blok diagram Mermaid"
+    executable = find_plantuml()
+    if executable is None:
+        return "demo deck acceptance membutuhkan PlantUML untuk merender blok diagram"
+    try:
+        plantuml_version(executable)
+    except PlantUmlError:
+        return "demo deck acceptance tidak dapat membaca versi PlantUML"
     return None
 
 

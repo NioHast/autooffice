@@ -1,0 +1,13 @@
+@startuml
+title Alur Pengajuan Cuti
+
+start
+:Mulai pengajuan;
+repeat
+  :Isi formulir cuti;
+repeat while (Data belum lengkap?) is (ya) not (tidak)
+:Verifikasi atasan;
+:Setujui atau tolak;
+:Selesai proses;
+stop
+@enduml

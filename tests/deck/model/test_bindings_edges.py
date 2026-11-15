@@ -87,7 +87,7 @@ def test_blocks_without_optional_fields_emit_only_required_bindings() -> None:
         ),
         (_block("code", block_id="code1", code="print(1)"), ("s01.code1.code",)),
         (_block("quote", block_id="quote1", text="Kutipan"), ("s01.quote1.text",)),
-        (_block("diagram", block_id="diagram1", source="a.mmd", alt="Alt"), ()),
+        (_block("diagram", block_id="diagram1", source="a.puml", alt="Alt"), ()),
         (
             _block("metric", block_id="metric1", label="Label", value="1"),
             ("s01.metric1.label", "s01.metric1.value"),

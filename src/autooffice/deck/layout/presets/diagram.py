@@ -1,4 +1,4 @@
-"""Preset layout ``diagram``: judul, subtitle, dan gambar Mermaid.
+"""Preset layout ``diagram``: judul, subtitle, dan gambar PlantUML.
 
 Caption diagram adalah field block ``diagram``, bukan slot terpisah.
 """

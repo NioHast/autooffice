@@ -129,7 +129,7 @@ def test_compile_omits_optional_fields_when_absent() -> None:
         ),
         _block("quote", {"text": "Kutipan"}, block_id="quote1"),
         _block("image", {"path": "a.png", "alt": "Alt", "fit": "contain"}, block_id="image1"),
-        _block("diagram", {"source": "a.mmd", "alt": "Alt"}, block_id="diagram1"),
+        _block("diagram", {"source": "a.puml", "alt": "Alt"}, block_id="diagram1"),
         _block(
             "metric",
             {"label": "Label", "value": "1", "status": "neutral"},

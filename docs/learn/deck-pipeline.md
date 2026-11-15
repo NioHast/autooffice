@@ -12,6 +12,14 @@ ada di
 
 ## Diagram
 
+Block `diagram` menunjuk satu berkas `.puml` relatif terhadap root deck.
+Renderer memakai PlantUML 1.2026.10 atau lebih baru (Java 21) melalui
+`AUTOOFFICE_PLANTUML` dan opsional `AUTOOFFICE_JAVA`, membaca sumber dari stdin
+dan menulis PNG ke stdout dengan `-pipe` serta cache
+`.autooffice/cache/plantuml/`. Tidak ada Node.js, Chromium, atau Graphviz.
+Panduan penulisan ada di [Panduan PlantUML](../user/plantuml.md); rincian
+renderer ada di [kontrak PlantUML](../contracts/plantuml.md).
+
 ```text
 deck.yaml   transcripts.md   copy.yaml   assets/   diagrams/
     |             |              |          |          |
@@ -57,7 +65,7 @@ deck.yaml   transcripts.md   copy.yaml   assets/   diagrams/
 | Coverage | `DeckIR` | coverage plan | Ada objek tampil tanpa key, alt hilang, atau key duplikat. |
 | Copy | `DeckIR`, `TranscriptIR`, `copy.yaml` | diagnostic | Ada diagnostic berperingkat error. |
 | Layout | `DeckIR`, theme | `LayoutPlan` | Slot wajib kosong, role tidak cocok, atau overflow. |
-| Render | `DeckIR`, `LayoutPlan`, theme | PPTX | `mmdc` atau target render gagal. |
+| Render | `DeckIR`, `LayoutPlan`, theme | PPTX | PlantUML atau target render gagal. |
 | Sync | staging PPTX, state | presentasi Slides | Kredensial, preflight chart, atau state tidak valid. |
 
 Urutan ini penting: seluruh validasi naskah, coverage, dan copy selesai sebelum
@@ -120,6 +128,7 @@ key dan 3 chart untuk 24 slide.
 | Copy checker | `autooffice.deck.copy.checker`, `autooffice.deck.copy.config` |
 | Transcript | `autooffice.deck.transcript.parser` |
 | Layout dan overflow | `autooffice.deck.layout` |
+| Render diagram PlantUML | `autooffice.deck.media.plantuml` |
 | Render PPTX | `autooffice.deck.render.pptx` |
 | Sinkronisasi Slides | `autooffice.google.slides` |
 

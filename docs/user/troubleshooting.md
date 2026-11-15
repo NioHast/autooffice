@@ -7,7 +7,7 @@ masalah naskah:
 uv run --project <repo> autooffice doctor
 ```
 
-Perintah itu memeriksa Python, Pandoc, `mmdc`, integritas aset font pengukuran
+Perintah itu memeriksa Python, Pandoc, PlantUML, integritas aset font pengukuran
 Liberation Sans, extra Google, kredensial OAuth, dan izin tulis workspace.
 Exit code 1 berarti dependensi wajib belum lengkap. AutoOffice tidak memeriksa
 Word, PowerPoint, COM, atau `pywin32`.
@@ -15,7 +15,7 @@ Word, PowerPoint, COM, atau `pywin32`.
 ## Daftar isi
 
 - [Caption tabel atau gambar](#caption-tabel-atau-gambar)
-- [`mmdc` tidak ditemukan atau gagal render](#mmdc-tidak-ditemukan-atau-gagal-render)
+- [PlantUML tidak ditemukan atau gagal render](#plantuml-tidak-ditemukan-atau-gagal-render)
 - [Pandoc tidak ditemukan](#pandoc-tidak-ditemukan)
 - [Python terlalu lama](#python-terlalu-lama)
 - [`ruamel.yaml` atau YAML tidak valid](#ruamelyaml-atau-yaml-tidak-valid)
@@ -46,26 +46,31 @@ Tindakan:
 Jangan menambahkan caption kosong atau nomor manual. Nomor caption dibuat dari
 Heading 1 dan urutan tabel/gambar.
 
-## `mmdc` tidak ditemukan atau gagal render
+## PlantUML tidak ditemukan atau gagal render
 
 Gejala:
 
 ```text
-mmdc tidak ditemukan di PATH.
+PlantUML tidak ditemukan di PATH. (PLANTUML-TOOL)
+Java tidak ditemukan untuk menjalankan PlantUML plantuml.jar. (PLANTUML-JAVA)
+PlantUML 1.2025.9 terlalu lama; butuh PlantUML 1.2026.10 atau lebih baru. (PLANTUML-VERSION)
 ```
 
 Tindakan:
 
-```bash
-node --version
-npm install -g @mermaid-js/mermaid-cli
-mmdc --version
-```
+1. Pasang Java 21 dan pastikan `java -version` berhasil dari shell yang sama.
+2. Unduh `plantuml-1.2026.10.jar`, atau pasang executable `plantuml`.
+3. Set `AUTOOFFICE_PLANTUML` ke path jar atau executable. Bila memakai jar dan
+   `java` tidak ada di `PATH`, set `AUTOOFFICE_JAVA`.
+4. Jalankan `uv run autooffice doctor` dan periksa baris `plantuml`.
+5. Build ulang.
 
-Pastikan folder executable `mmdc` ada di `PATH`. Di Windows, folder global npm
-biasanya `%APPDATA%\npm`. Bila `mmdc` ada tetapi render gagal, periksa pesan
-`mmdc` pada error. Berkas PNG parsial dibersihkan dan build berhenti tanpa
-output setengah jadi.
+AutoOffice tidak membutuhkan Node.js, `npm`, Chromium, atau Graphviz. Jangan
+memasang salah satu dari itu untuk memperbaiki render. Bila error
+berkode `PLANTUML-SYNTAX`, perbaiki sintaks `.puml`; PlantUML tidak menulis
+gambar error. Bila error berkode `PLANTUML-INPUT`, periksa `caption` dan fence
+DOCX. Bila error menyebut `!include`, salin isi yang dibutuhkan ke dalam
+diagram karena `-secure` menolak akses berkas.
 
 ## Pandoc tidak ditemukan
 
@@ -162,6 +167,8 @@ Build tidak membutuhkan Office desktop dan tidak memiliki jalur PDF tersembunyi.
 - Gunakan pemisah `/`, termasuk di Windows.
 - Path absolut, `..`, backslash, URL, dan data URI ditolak.
 - Gambar harus berada di dalam direktori dokumen, biasanya `gambar/`.
+- Sumber diagram deck harus berupa `.puml` dan berada di dalam direktori
+  `deck.yaml`.
 - Bibliografi harus berekstensi `.bib` dan berada di direktori dokumen atau
   subdirektori.
 - Bungkus path berspasi dengan tanda kutip di shell.

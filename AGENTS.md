@@ -9,6 +9,8 @@ Aturan berikut mengikat semua perubahan. Checklist rinci ada di
 
 - Produk hanya DOCX dan PPTX/Slides. Tidak ada target `pdf` atau `all`; PDF
   diekspor manual dari Word atau PowerPoint.
+- Diagram memakai PlantUML 1.2026.10 dengan Java 21, bukan Mermaid. Sumber deck
+  `.puml`, fence DOCX `{.plantuml ...}`, dan output PNG.
 - Tidak ada COM, `pywin32`, `pypdf`, PowerShell, atau dependensi Windows-only.
 - Theme PPTX memakai `Arial` tanpa embedding. Pengukuran layout memakai
   `Liberation Sans` bundled di
@@ -105,6 +107,14 @@ kredensial OAuth. Tambahkan `--terms` untuk gate glosarium DOCX, `--dry-run`
 untuk validasi tanpa output, dan `--keep-intermediate` untuk menyimpan
 intermediate.
 
+## Prasyarat diagram
+
+- Java 21 dan PlantUML 1.2026.10, berupa `plantuml.jar` atau executable
+  `plantuml`.
+- `AUTOOFFICE_PLANTUML` menunjuk path jar atau executable. Bila memakai jar dan
+  `java` tidak ada di `PATH`, set `AUTOOFFICE_JAVA`.
+- Tidak ada Node.js, Chromium, browser headless, atau Graphviz.
+
 DOCX memakai field native yang tidak diisi otomatis. Sebelum review atau
 ekspor PDF, buka DOCX di Word, tekan Ctrl+A lalu F9. Ekspor PDF dilakukan
 manual dari Word atau PowerPoint; lihat
@@ -186,6 +196,7 @@ log AutoOffice di bawah tetap berlaku.
   [docs/user/document-format.md](docs/user/document-format.md)
 - [docs/user/deck-authoring.md](docs/user/deck-authoring.md),
   [docs/user/cli.md](docs/user/cli.md)
+- [docs/user/plantuml.md](docs/user/plantuml.md)
 - [docs/user/pdf-export.md](docs/user/pdf-export.md),
   [docs/user/google-oauth.md](docs/user/google-oauth.md)
 - [docs/dev/README.md](docs/dev/README.md),

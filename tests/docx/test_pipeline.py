@@ -27,7 +27,7 @@ def test_stage_name_contains_all_canonical_stages() -> None:
     assert StageName.FRONT_MATTER in CANONICAL_ORDER
     assert CANONICAL_ORDER[:5] == (
         StageName.VALIDATE,
-        StageName.MERMAID,
+        StageName.PLANTUML,
         StageName.STYLE_REFERENCE,
         StageName.FRONT_MATTER,
         StageName.PANDOC,
@@ -60,6 +60,7 @@ def test_canonical_orders_unique_and_increasing() -> None:
     assert orders == sorted(orders)
     assert len(orders) == len(set(orders))
     by_name = {spec.name: spec.order for spec in CANONICAL_STAGES}
+    assert by_name[StageName.PLANTUML] == 20
     assert by_name[StageName.FRONT_MATTER] == 35
     assert by_name[StageName.PANDOC] == 40
     assert by_name[CANONICAL_ORDER[-1]] == CANONICAL_STAGES[-1].order
@@ -164,8 +165,8 @@ def test_workspace_cleanup_and_keep(tmp_path: Path) -> None:
 
 def test_artifact_store_rejects_key_without_stage_prefix() -> None:
     artifacts = ArtifactStore()
-    artifacts.put("mermaid.markdown", Path("mermaid.md"))
-    assert artifacts.require("mermaid.markdown") == Path("mermaid.md")
+    artifacts.put("plantuml.markdown", Path("plantuml.md"))
+    assert artifacts.require("plantuml.markdown") == Path("plantuml.md")
     with pytest.raises(OutputError):
         artifacts.put("sembarang", Path("x"))
 

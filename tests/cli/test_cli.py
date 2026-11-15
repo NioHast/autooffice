@@ -55,7 +55,7 @@ def test_version_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as error:
         main(["--version"])
     assert error.value.code == 0
-    assert "autooffice 1.0.0" in capsys.readouterr().out
+    assert "autooffice 2.0.0" in capsys.readouterr().out
 
 
 def test_no_command_prints_help_and_returns_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -304,7 +304,7 @@ def test_doctor_json(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = main(["doctor", "--json"])
     data = json.loads(capsys.readouterr().out)
     names = {check["name"] for check in data["checks"]}
-    assert {"python", "pandoc", "mmdc", "font-assets"} <= names
+    assert {"python", "pandoc", "plantuml", "font-assets"} <= names
     assert "fonts" not in names
     assert {"word", "powerpoint", "pywin32"} & names == set()
     assert data["ok"] is (exit_code == 0)

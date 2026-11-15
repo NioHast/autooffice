@@ -19,7 +19,7 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 13.2 (F0-CONTRACTS) dan 3.2 sampai 3.5.
 | [block-spec.md](block-spec.md) | 11 block type, field wajib, table dan chart native. | 4.7, 4.8, 4.14 |
 | [pptx-renderer.md](pptx-renderer.md) | Renderer python-pptx, font, alt, key, larangan. | 8.1, 8.3 |
 | [chart-contract.md](chart-contract.md) | Chart native, linked Sheets, placeholder, preflight. | 8.3, 8.4, 9.1 sampai 9.5 |
-| [mermaid.md](mermaid.md) | Render `mmdc` ke PNG, cache, path, dan integrasi PPTX. | 4.8, 8.6, 18.7 |
+| [plantuml.md](plantuml.md) | Render PlantUML ke PNG, Smetana, cache, path, dan integrasi DOCX/PPTX. | 4.8, 8.6, 18.7 |
 | [copy.md](copy.md) | Copy checker, rule, severity, allowlist. | 4.16, 8.7, 12.13 |
 | [transcript.md](transcript.md) | Transcript parser, output, dan validasi. | 4.15, 8.7, 12.13 |
 | [google-state.md](google-state.md) | State Google, ownership, dan kegagalan. | 9 |
@@ -52,7 +52,7 @@ layout-spec.md
 block-spec.md
 pptx-renderer.md
 chart-contract.md
-mermaid.md
+plantuml.md
 copy.md
 transcript.md
 google-state.md

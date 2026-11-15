@@ -1,0 +1,21 @@
+@startuml
+title Sequence Login Pengguna
+
+actor "User" as U
+participant "UI" as UI
+participant "Auth Service" as A
+participant "Database" as DB
+
+U -> UI : Isi email dan kata sandi
+UI -> A : Kirim kredensial
+A -> DB : Cari pengguna
+DB --> A : Data pengguna
+
+alt Kredensial tidak valid
+  A --> UI : Pesan gagal
+  UI --> U : Tampilkan kesalahan
+else Kredensial valid
+  A --> UI : Token akses
+  UI --> U : Buka beranda
+end
+@enduml

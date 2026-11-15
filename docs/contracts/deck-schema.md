@@ -48,7 +48,7 @@ ID Google, atau state build.
 
 - Path relatif terhadap direktori YAML, memakai `/`, tanpa absolut, UNC,
   drive letter, `..`, atau URL remote.
-- Gambar hanya `.png`, `.jpg`, `.jpeg`, `.webp`; diagram hanya `.mmd`.
+- Gambar hanya `.png`, `.jpg`, `.jpeg`, `.webp`; diagram hanya `.puml`.
 - Inline Markdown hanya `**bold**`, `` `inline code` ``, link `https`, `http`,
   atau `mailto`, dan escape `\*`, `\_`, `` \` ``, `\[`, `\]`.
 - Italic, heading Markdown, list Markdown, gambar Markdown, table Markdown,

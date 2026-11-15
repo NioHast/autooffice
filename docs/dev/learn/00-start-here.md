@@ -44,7 +44,7 @@ Setelah halaman ini, pembaca bisa:
 AutoOffice adalah pipeline dokumen dan deck. Halaman belajar ini fokus pada
 pipeline DOCX: sumber kebenaran adalah satu berkas `document.md` berisi front
 matter YAML dan body Markdown. Pipeline memvalidasi
-front matter, merender blok Mermaid bila ada, memanggil Pandoc, lalu merapikan
+front matter, merender blok PlantUML bila ada, memanggil Pandoc, lalu merapikan
 DOCX dengan stage Python.
 
 Alur besarnya:
@@ -58,7 +58,7 @@ document.md + references.bib + gambar/
         |
         |  autooffice build
         v
-   Mermaid -> front matter Markdown -> Pandoc -> package DOCX
+   PlantUML -> front matter Markdown -> Pandoc -> package DOCX
         |
         |  stage Python: sections, captions, fields, TOC, nomor halaman
         v
@@ -138,12 +138,13 @@ dependensi pengembangan seperti pytest. Setelah itu, periksa perkakas:
 uv run autooffice doctor
 ```
 
-`doctor` memeriksa Python, Pandoc, `mmdc`, integritas aset font pengukuran
-Liberation Sans, extra Google, kredensial OAuth, dan izin tulis workspace.
-Tidak ada pemeriksaan Word, PowerPoint, COM, atau `pywin32`. Exit code 1
-berarti dependensi wajib untuk DOCX belum lengkap, misalnya Python di bawah
-3.15 atau Pandoc tidak ditemukan. `mmdc` hanya wajib bila dokumen memakai blok
-Mermaid.
+`doctor` memeriksa Python, Pandoc, `plantuml` (versi engine dan Java 21 yang
+dipakai), integritas aset font pengukuran Liberation Sans, extra Google,
+kredensial OAuth, dan izin tulis workspace. Tidak ada pemeriksaan Word,
+PowerPoint, COM, atau `pywin32`. Exit code 1 berarti dependensi wajib untuk
+DOCX belum lengkap, misalnya Python di bawah 3.15 atau Pandoc tidak ditemukan.
+`plantuml` dan Java 21 hanya wajib bila dokumen memakai blok PlantUML. Tidak
+ada kebutuhan Node.js, Chromium, atau Graphviz.
 
 ## Perintah aman pertama
 
@@ -237,10 +238,10 @@ uv run autooffice --version
 uv run autooffice doctor
 ```
 
-Cara memeriksa: `--version` harus mencetak `autooffice 1.0.0` atau versi paket
+Cara memeriksa: `--version` harus mencetak `autooffice 2.0.0` atau versi paket
 yang lebih baru. Pada `doctor`, baris Python harus menunjukkan versi 3.15 atau
-lebih baru dan baris Pandoc harus menemukan executable. Tidak ada baris Word
-atau COM.
+lebih baru, baris Pandoc harus menemukan executable, dan baris `plantuml`
+menunjukkan engine PlantUML yang ditemukan. Tidak ada baris Word atau COM.
 
 ### 2. Verifikasi perintah yang tersedia
 
@@ -290,5 +291,5 @@ alur data sebelum menjalankan build.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Python 3.15 language reference`,
-`uv documentation`, dan `Pandoc installation`. URL resminya ada di
-[registry referensi](../references.md).
+`uv documentation`, `Pandoc installation`, dan `PlantUML documentation`. URL
+resminya ada di [registry referensi](../references.md).

@@ -804,3 +804,10 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
 - Resolusi: bagian Prasyarat dipecah menjadi Runtime dan Development, hanya memuat kebutuhan langsung, plus daftar paket yang tidak perlu dipasang manual.
 - Catatan/verifikasi: `check_docs` 0 broken; `doctor` memeriksa Pandoc dan aset font.
 - File yang berubah: `README.md`, `AUTO_OFFICE_EXECUTION_LOG.md`.
+
+## 2026-11-15 - Ganti Mermaid dengan PlantUML
+
+- Masalah: Mermaid/mmdc membutuhkan Node.js + Chromium (~725 MB), cakupan UML terbatas, dan menambah permukaan dependensi yang tidak sejalan dengan build offline.
+- Resolusi: engine diagram diganti PlantUML 1.2026.10 + Java 21; renderer `deck/media/plantuml.py` dan stage DOCX `stages/plantuml.py`; StageName `PLANTUML`; sumber `.puml`; fence `{.plantuml}`; cache `cache/plantuml`; `-secure`, Smetana, dpi 192, stdin/stdout `-pipe`; doctor check `plantuml`; guard `removed-features` menolak path Mermaid dan `.mmd`; dokumen/ADR 0014 diperbarui; Mermaid dihapus.
+- Catatan/verifikasi: gate 14 langkah PASS; `3445 passed, 9 deselected`; coverage 90,95%; acceptance demo deck `1 passed` dengan PlantUML nyata; build PPTX 24 slide 0 temuan; DOCX dengan diagram PNG tertanam; dua render identik (deterministik); `removed-features`/no-legacy 0.
+- File yang berubah: `src/**`, `tests/**`, `tools/**`, `docs/**`, `examples/**`, `README.md`, `AGENTS.md`, `pyproject.toml`, `uv.lock`, `pytest.ini`, `AUTO_OFFICE_EXECUTION_LOG.md`.

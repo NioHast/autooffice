@@ -20,9 +20,9 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 | [user/pdf-export.md](user/pdf-export.md) | Ekspor PDF manual dari Word atau PowerPoint, field DOCX, dan catatan font. |
 | [user/google-oauth.md](user/google-oauth.md) | Tutorial OAuth Google untuk target Slides. |
 | [user/single-file.md](user/single-file.md) | Alur satu berkas `document.md` dan asetnya. |
-| [user/mermaid.md](user/mermaid.md) | Diagram Mermaid, caption wajib, dan `mmdc`. |
+| [user/plantuml.md](user/plantuml.md) | Diagram PlantUML, caption wajib, Java 21, dan engine lokal. |
 | [user/writing-rules.md](user/writing-rules.md) | Aturan prosa, istilah, sitasi, dan perintah pemeriksa. |
-| [user/troubleshooting.md](user/troubleshooting.md) | Masalah umum caption, Mermaid, Pandoc, Word, dan path. |
+| [user/troubleshooting.md](user/troubleshooting.md) | Masalah umum caption, PlantUML, Pandoc, Word, dan path. |
 
 ## Untuk developer
 
@@ -65,6 +65,8 @@ keputusan ada di [decisions/README.md](decisions/README.md). Materi konsep
 bertahap ada di [learn/README.md](learn/README.md). Keputusan menghapus PDF
 dan COM ada di
 [decisions/0013-remove-pdf-arial.md](decisions/0013-remove-pdf-arial.md).
+Keputusan PlantUML sebagai mesin diagram ada di
+[decisions/0014-plantuml.md](decisions/0014-plantuml.md).
 Riwayat pembersihan legacy ada di [dev/f3-cleanup.md](dev/f3-cleanup.md) dan
 [decisions/0011-f3-cleanup.md](decisions/0011-f3-cleanup.md). Dokumen
 [AUTO_OFFICE_PLAN.md](../AUTO_OFFICE_PLAN.md) adalah rencana migrasi dan
@@ -77,6 +79,7 @@ bukan dokumentasi pengguna.
 | [dev/glossary.md](dev/glossary.md) | Istilah codebase: artefak, package, part, manifest, dan sejenisnya. |
 | [dev/references.md](dev/references.md) | Registry resmi label dan URL dokumentasi eksternal. |
 | [contracts/docx.md](contracts/docx.md) | Kontrak DOCX: API `build_docx`, stage, invariant, dan output. |
+| [contracts/plantuml.md](contracts/plantuml.md) | Kontrak render PlantUML: `.puml`, PNG, cache, `-secure`, dan error `PLANTUML-*`. |
 | [contracts/cli.md](contracts/cli.md) | Permukaan CLI, target, output, flag, dan exit code. |
 | [user/pdf-export.md](user/pdf-export.md) | Alur ekspor PDF manual dari Word atau PowerPoint. |
 | [dev/archive/refactor-plan.md](dev/archive/refactor-plan.md) | Rencana refactor (arsip) dan keputusan kerja. |

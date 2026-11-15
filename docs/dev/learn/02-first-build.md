@@ -22,9 +22,13 @@ Setelah halaman ini, pembaca bisa:
   [01 - Model Mental](01-mental-model.md).
 - `uv` sudah terpasang.
 - Pandoc tersedia untuk build DOCX.
+- Java 21 dan PlantUML 1.2026.10 atau lebih baru tersedia bila dokumen memuat
+  diagram.
 - Microsoft Word tidak diperlukan untuk build. Word hanya diperlukan bila
   pengguna ingin memperbarui field DOCX atau mengekspor PDF manual.
-- `mmdc` hanya diperlukan bila dokumen memakai blok Mermaid.
+- Blok PlantUML hanya memerlukan engine PlantUML; tidak ada Node.js,
+  Chromium, atau Graphviz. Panduan instalasi dan variabel lingkungan ada di
+  [Panduan PlantUML](../../user/plantuml.md).
 
 ## Daftar isi
 
@@ -50,13 +54,14 @@ uv run autooffice --version
 uv run autooffice doctor
 ```
 
-`doctor` mencetak status Python, Pandoc, `mmdc`, Google, dan workspace. Exit
-code 1 berarti dependensi wajib untuk DOCX belum lengkap. Perhatikan bahwa:
+`doctor` mencetak status Python, Pandoc, `plantuml` (termasuk versi dan Java
+yang dipakai), Google, dan workspace. Exit code 1 berarti dependensi wajib
+untuk DOCX belum lengkap. Perhatikan bahwa:
 
 - Python harus 3.15 atau lebih baru;
 - Pandoc wajib untuk DOCX;
 - Word tidak diperiksa karena bukan dependensi build;
-- `mmdc` hanya wajib jika ada blok Mermaid.
+- `plantuml` beserta Java 21 hanya wajib jika ada blok PlantUML.
 
 Setelah `doctor` siap untuk DOCX, lanjut ke contoh.
 
@@ -154,7 +159,7 @@ baru diisi saat pengguna membuka DOCX di Word dan menekan Ctrl+A lalu F9.
 Secara ringkas:
 
 1. front matter, format, struktur, aset, dan caption divalidasi;
-2. Mermaid dirender bila ada;
+2. PlantUML dirender bila ada;
 3. `reference.docx` turunan dibuat dari `format.yaml`;
 4. front matter Markdown dimaterialisasi: sampul, template legal, abstrak,
    dan penomoran heading;
@@ -221,6 +226,7 @@ Alur lengkap ada di [Ekspor PDF Manual](../../user/pdf-export.md).
 | Heading 1 tidak cocok | `CFG-BODY-ORDER` | Samakan judul dan urutan dengan `structure.body`. |
 | Bibliografi atau gambar tidak ditemukan | `CFG-ASSET-MISSING` | Perbaiki path relatif dan sediakan berkas. |
 | Pandoc tidak menemukan input | `PANDOC-INPUT` | Jalankan pipeline normal; jangan mengandalkan berkas cadangan. |
+| PlantUML tidak ditemukan atau render gagal | `PLANTUML-*` | Pasang PlantUML 1.2026.10 atau lebih baru dan Java 21; set `AUTOOFFICE_PLANTUML` ke jar atau executable bila tidak ada di `PATH`. |
 | TOC kosong | Field belum diperbarui | Buka DOCX di Word, tekan Ctrl+A lalu F9. |
 
 Saat error muncul, salin baris `[ERROR]` lengkap. Baris itu memuat path, key,
@@ -292,5 +298,5 @@ dan cara membaca kegagalannya.
 ### Referensi resmi
 
 Label registry yang dipakai halaman ini: `Pandoc installation`, `Pandoc
-manual`, `uv documentation`, dan `pytest documentation`. URL resminya ada di
-[registry referensi](../references.md).
+manual`, `uv documentation`, `pytest documentation`, dan `PlantUML
+documentation`. URL resminya ada di [registry referensi](../references.md).

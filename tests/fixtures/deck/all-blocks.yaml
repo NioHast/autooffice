@@ -88,7 +88,7 @@ slides:
       - blocks:
           - id: process
             type: diagram
-            source: "diagrams/process.mmd"
+            source: "diagrams/process.puml"
             alt: "Diagram alur build dari YAML sampai PPTX"
             caption: "Alur build"
             span: 12

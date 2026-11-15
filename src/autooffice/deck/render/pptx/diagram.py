@@ -1,4 +1,4 @@
-"""Render block diagram Mermaid sebagai picture native di slide PPTX."""
+"""Render block diagram PlantUML sebagai picture native di slide PPTX."""
 
 from pathlib import Path
 
@@ -7,10 +7,10 @@ from pptx.slide import Slide
 from pptx.util import Emu
 
 from autooffice.deck.layout.measure import measure_text
-from autooffice.deck.media.mermaid import (
-    MermaidError,
-    render_mermaid,
-    resolve_mermaid_source,
+from autooffice.deck.media.plantuml import (
+    PlantUmlError,
+    render_plantuml,
+    resolve_plantuml_source,
 )
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.design.theme import Theme
@@ -26,7 +26,7 @@ from .shapes import (
 )
 from .textbox import add_caption
 
-CACHE_DIR = Path("cache") / "mermaid"
+CACHE_DIR = Path("cache") / "plantuml"
 
 
 def render_diagram_block(
@@ -40,7 +40,7 @@ def render_diagram_block(
 ) -> tuple[BaseShape, ...]:
     """Render satu block diagram dan kembalikan picture serta caption-nya.
 
-    Diagram selalu menjadi gambar PNG hasil ``mmdc``; tidak ada fallback teks
+    Diagram selalu menjadi gambar PNG hasil ``plantuml``; tidak ada fallback teks
     atau shape. Bila render gagal, error dari modul media diteruskan sebagai
     ``PptxRenderError`` dengan konteks slide dan block.
     """
@@ -51,11 +51,11 @@ def render_diagram_block(
     cache_dir = workspace / CACHE_DIR
     output = cache_dir / f"{slide_id}.{block.block_id}.png"
     try:
-        source = resolve_mermaid_source(workspace, relative_source)
-        png = render_mermaid(source, output, theme=theme, cache_dir=cache_dir)
-    except MermaidError as error:
+        source = resolve_plantuml_source(workspace, relative_source)
+        png = render_plantuml(source, output, theme=theme, cache_dir=cache_dir)
+    except PlantUmlError as error:
         raise PptxRenderError(
-            f"Slide '{slide_id}', block '{block.block_id}' gagal merender diagram: {error}"
+            f"Slide '{slide_id}', block '{block.block_id}' gagal merender diagram PlantUML: {error}"
         ) from error
 
     image_width, image_height = image_size(png)

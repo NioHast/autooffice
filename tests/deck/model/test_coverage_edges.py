@@ -76,7 +76,7 @@ def test_coverage_plan_flags_visible_blocks_without_manifest_bindings() -> None:
         _block("code1", "code", {"code": "print(1)", "language": "python", "line_numbers": True}),
         _block("quote1", "quote", {"text": "Kutipan"}),
         _block("image1", "image", {"path": "assets/a.png", "alt": "Alt gambar", "fit": "contain"}),
-        _block("diagram1", "diagram", {"source": "diagrams/a.mmd", "alt": "Alt diagram"}),
+        _block("diagram1", "diagram", {"source": "diagrams/a.puml", "alt": "Alt diagram"}),
         _block("metric1", "metric", {"label": "Label", "value": "1", "status": "neutral"}),
         _block("line1", "divider", {}),
         _block("gap1", "spacer", {"size": "md"}),

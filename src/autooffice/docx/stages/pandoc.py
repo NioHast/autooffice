@@ -7,7 +7,7 @@ meminta Pandoc menulis TOC. Field TOC native ditulis ``stages/toc.py``;
 daftar gambar/tabel ditulis ``stages/lists.py``.
 
 Input Markdown diambil dari artifact ``markdown`` milik stage ``front_matter``
-(yang sudah memuat hasil render Mermaid). ``reference.docx`` wajib berasal dari
+(yang sudah memuat hasil render PlantUML). ``reference.docx`` wajib berasal dari
 artifact derived ``style_reference``, bukan langsung dari aset format. Hasil
 Pandoc ditulis ke workspace agar pipeline dapat memuatnya sebagai satu
 ``DocumentPackage`` tanpa intermediate DOCX di direktori output.
@@ -239,7 +239,7 @@ def _artifact_path(ctx: object, key: str) -> Path | None:
 
 
 def _markdown_path(ctx: object) -> Path:
-    """Markdown hasil ``front_matter`` + ``mermaid`` dari satu sumber.
+    """Markdown hasil ``front_matter`` + ``plantuml`` dari satu sumber.
 
     Satu-satunya input adalah artifact ``markdown`` yang dideklarasikan stage
     ``front_matter``. Tidak ada fallback ke file workspace: artifact yang
@@ -251,7 +251,7 @@ def _markdown_path(ctx: object) -> Path:
     if artifact is None or not artifact.is_file():
         raise PandocError(
             "Markdown materialized untuk Pandoc tidak tersedia sebagai file "
-            "artifact 'markdown'; jalankan stage front_matter/mermaid lebih dulu.",
+            "artifact 'markdown'; jalankan stage front_matter/plantuml lebih dulu.",
             code="PANDOC-INPUT",
             path=artifact,
             key="markdown",
@@ -358,7 +358,7 @@ def _resolve_csl(format_spec: object) -> Path:
 def _resource_paths(ctx: object, markdown: Path) -> tuple[Path, ...]:
     """Direktori pencarian gambar untuk Pandoc.
 
-    Gambar Markdown relatif terhadap ``document.md``; Mermaid dapat menulis ke
+    Gambar Markdown relatif terhadap ``document.md``; PlantUML dapat menulis ke
     ``gambar/`` di direktori dokumen atau workspace. Logo front matter memakai
     path absolut sehingga tidak butuh entri tambahan.
     """

@@ -495,7 +495,7 @@ Contoh pengecualian inline yang dipakai saat ini:
 
 - `BLE001` di `src/autooffice/docx/pipeline.py` untuk pengaman siklus impor.
 - `BLE001` di `src/autooffice/docx/terms/model.py` untuk package tanpa rels.
-- `SIM118` di `src/autooffice/docx/stages/mermaid.py` karena `Artifacts` bukan
+- `SIM118` di `src/autooffice/docx/stages/plantuml.py` karena `Artifacts` bukan
   `Mapping`.
 - `SIM118` di `tests/docx/test_pandoc_stage.py` karena fake artifacts bukan
   `Mapping`.

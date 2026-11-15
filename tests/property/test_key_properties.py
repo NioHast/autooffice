@@ -49,8 +49,8 @@ def _dump(data: Mapping[str, object]) -> str:
 
 
 @st.composite
-def _block(draw, block_id: str) -> dict[str, object]:
-    block_type = draw(
+def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, object]:
+    block_type = forced_type or draw(
         st.sampled_from(
             (
                 "text",
@@ -154,7 +154,7 @@ def _block(draw, block_id: str) -> dict[str, object]:
     block = {
         "id": block_id,
         "type": "diagram",
-        "source": "assets/diagram.mmd",
+        "source": "assets/diagram.puml",
         "alt": draw(_TEXT),
     }
     if draw(st.booleans()):
@@ -166,12 +166,16 @@ def _block(draw, block_id: str) -> dict[str, object]:
 def _deck_dict(draw) -> dict[str, object]:
     numbers = draw(st.lists(st.integers(0, 999), min_size=1, max_size=3, unique=True))
     slides: list[dict[str, object]] = []
-    for number in numbers:
+    for index, number in enumerate(numbers):
         block_ids = draw(st.lists(_BLOCK_ID, min_size=1, max_size=3, unique=True))
+        blocks = [
+            draw(_block(block_id, forced_type="text" if index == 0 and position == 0 else None))
+            for position, block_id in enumerate(block_ids)
+        ]
         slide: dict[str, object] = {
             "id": f"s{number:02d}",
             "layout": "content",
-            "blocks": [draw(_block(block_id)) for block_id in block_ids],
+            "blocks": blocks,
         }
         if draw(st.booleans()):
             slide["notes"] = draw(_NOTES)

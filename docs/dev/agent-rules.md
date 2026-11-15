@@ -97,11 +97,11 @@ Aturan ini bukan pengganti gate. Sebelum commit, jalankan
 - **Aturan:** Setiap aset font wajib punya hash SHA-256 yang dicatat dan diuji.
   Validasi isi file, bukan hanya header atau signature pendek.
 - **Alasan:** Validasi aset font pernah hanya membaca 4 byte header; cache
-  Mermaid pernah hanya memvalidasi 8 byte signature lalu menyajikan PNG korup.
+  diagram pernah hanya memvalidasi 8 byte signature lalu menyajikan PNG korup.
 - **Ditegakkan oleh:**
   `tests/design/test_design_fonts.py::test_font_hash_matches_manifest`,
   `tests/design/test_design_fonts.py::test_sha256_detects_tampered_font_bytes`,
-  `tests/deck/media/test_mermaid_security.py`, dan allowlist font di
+  `tests/deck/media/test_plantuml_security.py`, dan allowlist font di
   `tools/quality/check_removed_features.py`.
 
 ## 7. Gate harus mendeteksi reintroduksi fitur yang dihapus

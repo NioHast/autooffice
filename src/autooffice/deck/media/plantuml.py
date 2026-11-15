@@ -1,11 +1,12 @@
-"""Render diagram Mermaid menjadi PNG melalui executable ``mmdc`` eksternal.
+"""Render diagram PlantUML menjadi PNG melalui executable eksternal.
 
-Modul ini tidak mengimplementasikan Mermaid di Python. Satu berkas ``.mmd``
-dirender oleh Mermaid CLI menjadi PNG resolusi tinggi, lalu disimpan di cache
-berbasis SHA-256. Cache key memuat isi sumber, token theme yang disuntikkan,
-versi ``mmdc``, dan opsi render.
+Modul ini tidak mengimplementasikan PlantUML di Python. Satu berkas ``.puml``
+dikirim ke PlantUML melalui stdin, dirender menjadi PNG resolusi tinggi, lalu
+disimpan di cache berbasis SHA-256. Cache key memuat isi sumber, token theme,
+versi PlantUML, dan opsi render.
 
-Referensi: https://github.com/mermaid-js/mermaid-cli
+PlantUML dapat berupa executable native atau berkas ``.jar`` yang dijalankan
+dengan Java. Referensi: https://plantuml.com/command-line
 """
 
 import ctypes
@@ -30,25 +31,28 @@ from urllib.parse import urlsplit
 from autooffice.design.theme import Theme
 from autooffice.errors import AutoOfficeError
 
-MMDC_ENV_VAR = "AUTOOFFICE_MMDC"
-MMDC_INSTALL_HINT = (
-    "Pasang Mermaid CLI dengan `npm install -g @mermaid-js/mermaid-cli` "
-    "(butuh Node.js), lalu pastikan `mmdc` ada di PATH atau set "
-    f"{MMDC_ENV_VAR} ke path executable mmdc."
+PLANTUML_ENV_VAR = "AUTOOFFICE_PLANTUML"
+JAVA_ENV_VAR = "AUTOOFFICE_JAVA"
+PLANTUML_INSTALL_HINT = (
+    "Pasang PlantUML 1.2026.10 atau lebih baru bersama Java 21, lalu set "
+    f"{PLANTUML_ENV_VAR} ke path plantuml.jar atau executable plantuml. "
+    f"Bila Java tidak ada di PATH, set {JAVA_ENV_VAR} ke path executable java."
 )
+MIN_PLANTUML_VERSION = (1, 2026, 10)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 CACHE_FORMAT = 1
 CACHE_METADATA_SUFFIX = ".json"
 DEFAULT_TIMEOUT = 180
 VERSION_TIMEOUT = 30
-RENDER_SIZE = 2400
-RENDER_SCALE = 2.0
 MAX_SOURCE_BYTES = 1_000_000
 MAX_OUTPUT_BYTES = 64 * 1024
+MAX_RENDER_BYTES = 64 * 1024 * 1024
 MAX_CACHE_METADATA_BYTES = 1_000_000
 CAPTURE_JOIN_TIMEOUT = 5.0
 TERMINATE_WAIT_TIMEOUT = 5.0
+RENDER_DPI = 192
+RENDER_LAYOUT = "smetana"
 
 _PNG_CRC_SIZE = 4
 _PNG_IHDR_SIZE = 13
@@ -65,34 +69,40 @@ _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 _PROCESS_SET_QUOTA = 0x0100
 _PROCESS_TERMINATE = 0x0001
-_WAIT_TIMEOUT = 0x00000102
 
-_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
+_PLANTUML_VERSION_RE = re.compile(
+    r"PlantUML\s+version\s+(\d+\.\d+\.\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+_BARE_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:\.\d+)*")
 _VERSION_CACHE: dict[tuple[str, int, int], str] = {}
 
-_MMDC_THEME = "base"
+
+class PlantUmlError(AutoOfficeError, ValueError):
+    """Sumber, tool, atau output PlantUML tidak dapat dirender."""
+
+    def __init__(self, message: str, *, code: str = "PLANTUML") -> None:
+        self.message = message
+        self.code = code
+        super().__init__(f"{message} ({code})")
 
 
-class MermaidError(AutoOfficeError, ValueError):
-    """Sumber, tool, atau output Mermaid tidak dapat dirender."""
-
-
-def render_mermaid(
+def render_plantuml(
     source: Path,
     out: Path,
     *,
     theme: Theme,
     cache_dir: Path,
 ) -> Path:
-    """Render satu file ``.mmd`` ke PNG dan kembalikan path output.
+    """Render satu file ``.puml`` ke PNG dan kembalikan path output.
 
     ``source`` boleh berupa path relatif atau absolut. Validasi mencegah path
     remote, segmen ``..``, dan output selain PNG. Cache disimpan di
     ``cache_dir`` dengan nama berbasis SHA-256 dari isi sumber, token theme,
-    versi ``mmdc``, dan opsi render.
+    versi PlantUML, dan opsi render.
 
-    Cache diperiksa sebelum ``mmdc`` diwajibkan. Bila ``mmdc`` tersedia, cache
-    dicari dengan cache key yang memuat versinya; bila ``mmdc`` tidak tersedia,
+    Cache diperiksa sebelum PlantUML diwajibkan. Bila PlantUML tersedia, cache
+    dicari dengan cache key yang memuat versinya; bila PlantUML tidak tersedia,
     metadata cache dipakai untuk menemukan render valid dari versi sebelumnya.
     """
     source_path = _validated_source(source)
@@ -100,21 +110,23 @@ def render_mermaid(
     _validate_cache_dir(cache_dir)
     theme_fingerprint = _theme_fingerprint(theme)
     source_hash = _source_sha256(source_path)
+    background = theme.colors.background
 
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
     except OSError as error:
-        raise MermaidError(
-            f"Gagal menyiapkan folder output Mermaid {out.parent}: {error}"
+        raise PlantUmlError(
+            f"Gagal menyiapkan folder output PlantUML {out.parent}: {error}",
+            code="PLANTUML-OUTPUT",
         ) from error
 
-    executable = find_mmdc()
+    executable = find_plantuml()
     version: str | None = None
-    version_error: MermaidError | None = None
+    version_error: PlantUmlError | None = None
     if executable is not None:
         try:
-            version = _mmdc_version(executable)
-        except MermaidError as error:
+            version = plantuml_version(executable)
+        except PlantUmlError as error:
             version_error = error
 
     if executable is None or version is None:
@@ -122,155 +134,263 @@ def render_mermaid(
             cache_dir,
             source_hash=source_hash,
             theme_fingerprint=theme_fingerprint,
-            background=theme.colors.background,
+            background=background,
         )
         if cached_path is not None:
             _copy_png(cached_path, out)
             return out
         if version_error is not None:
             raise version_error
-        raise _missing_mmdc_error()
+        raise _missing_plantuml_error()
 
-    arguments, options = _output_arguments(version, theme.colors.background)
-    digest = _digest_from_hash(
-        source_hash,
-        theme_fingerprint,
-        version,
-        options,
-    )
-    cache_path = cache_dir / f"mermaid-{digest}.png"
+    options = _render_options(background)
+    digest = _digest_from_hash(source_hash, theme_fingerprint, version, options)
+    cache_path = cache_dir / f"plantuml-{digest}.png"
     metadata: dict[str, object] = {
         "format": CACHE_FORMAT,
         "digest": digest,
         "source_sha256": source_hash,
         "theme": theme_fingerprint,
-        "mmdc_version": version,
+        "plantuml_version": version,
         "options": options,
     }
     if _cache_png_is_valid(cache_path):
         _copy_png(cache_path, out)
         return out
 
-    config = {"theme": _MMDC_THEME, "themeVariables": _theme_variables(theme)}
     try:
-        with tempfile.TemporaryDirectory(prefix=".mermaid-", dir=cache_dir) as temporary:
-            config_path = Path(temporary) / "config.json"
-            config_path.write_text(
-                json.dumps(config, sort_keys=True, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-                newline="\n",
+        command = _plantuml_command(executable, background)
+        with tempfile.TemporaryDirectory(prefix=".plantuml-", dir=cache_dir) as temporary:
+            rendered = Path(temporary) / "render.png"
+            _run_plantuml(
+                command,
+                source=source_path,
+                target=rendered,
+                timeout=DEFAULT_TIMEOUT,
+                uses_java=executable.suffix.lower() == ".jar",
             )
-            command = [
-                *_mmdc_command(executable),
-                "-i",
-                str(source_path),
-                "-o",
-                str(out),
-                "--theme",
-                _MMDC_THEME,
-                "--configFile",
-                str(config_path),
-                *arguments,
-            ]
-            _run_mmdc(command, target=out, timeout=DEFAULT_TIMEOUT)
+            _validate_png(rendered)
+            _copy_png(rendered, cache_path, code="PLANTUML-CACHE")
+            _write_cache_metadata(cache_path, metadata)
+            _copy_png(rendered, out)
     except OSError as error:
         out.unlink(missing_ok=True)
-        raise MermaidError(f"Gagal menyiapkan render Mermaid: {error}") from error
-
-    try:
-        _validate_png(out)
-    except MermaidError:
+        raise PlantUmlError(
+            f"Gagal menyiapkan render PlantUML: {error}",
+            code="PLANTUML-RENDER",
+        ) from error
+    except PlantUmlError:
         out.unlink(missing_ok=True)
         raise
-    _copy_png(out, cache_path)
-    _write_cache_metadata(cache_path, metadata)
     return out
 
 
-def cache_digest(source: Path, *, theme: Theme, mmdc_version: str) -> str:
+def cache_digest(source: Path, *, theme: Theme, plantuml_version: str) -> str:
     """Hitung cache key SHA-256 untuk satu sumber dan theme."""
     source_path = _validated_source(source)
-    _arguments, options = _output_arguments(mmdc_version, theme.colors.background)
-    return _digest_for(source_path, _theme_fingerprint(theme), mmdc_version, options)
+    options = _render_options(theme.colors.background)
+    return _digest_for(source_path, _theme_fingerprint(theme), plantuml_version, options)
 
 
-def find_mmdc() -> Path | None:
-    """Cari ``mmdc`` dari environment override atau ``PATH``."""
-    override = os.environ.get(MMDC_ENV_VAR)
+def find_plantuml() -> Path | None:
+    """Cari PlantUML dari environment override atau ``PATH``.
+
+    Override ``AUTOOFFICE_PLANTUML`` boleh menunjuk executable plantuml atau
+    berkas ``.jar``.
+    """
+    override = os.environ.get(PLANTUML_ENV_VAR)
     if override:
         candidate = Path(override).expanduser()
         return candidate.resolve() if candidate.is_file() else None
-    found = shutil.which("mmdc")
+    found = shutil.which("plantuml")
     return Path(found).resolve() if found else None
 
 
-def resolve_mermaid_source(deck_root: Path, relative_path: str) -> Path:
+def find_java() -> Path | None:
+    """Cari executable Java dari environment, ``JAVA_HOME``, lalu ``PATH``."""
+    override = os.environ.get(JAVA_ENV_VAR)
+    if override:
+        candidate = Path(override).expanduser()
+        if candidate.is_file():
+            return candidate.resolve()
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        binary_dir = Path(java_home).expanduser() / "bin"
+        names = ("java.exe", "java") if os.name == "nt" else ("java", "java.exe")
+        for name in names:
+            candidate = binary_dir / name
+            if candidate.is_file():
+                return candidate.resolve()
+    found = shutil.which("java")
+    return Path(found).resolve() if found else None
+
+
+def plantuml_version(executable: Path) -> str:
+    """Baca versi PlantUML dan tolak versi di bawah minimum.
+
+    Perintah dijalankan sebagai ``[<base command>, "--version"]``. Output wajib
+    memuat ``PlantUML version X.Y.Z`` dan versi yang lebih lama dari
+    ``MIN_PLANTUML_VERSION`` ditolak.
+    """
+    fingerprint = _executable_fingerprint(executable)
+    cached = _VERSION_CACHE.get(fingerprint)
+    if cached is not None:
+        return cached
+    command = [*_base_command(executable), "--version"]
+    try:
+        result = _run_captured(command, timeout=VERSION_TIMEOUT)
+    except subprocess.TimeoutExpired as error:
+        raise PlantUmlError(
+            f"PlantUML --version melebihi batas waktu {VERSION_TIMEOUT} detik.",
+            code="PLANTUML-TIMEOUT",
+        ) from error
+    except OSError as error:
+        raise _version_launch_error(executable, error) from error
+    if result.truncated:
+        raise PlantUmlError(
+            f"Output PlantUML --version melebihi batas output {MAX_OUTPUT_BYTES} byte.",
+            code="PLANTUML-VERSION",
+        )
+    output = (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0 or not output:
+        raise PlantUmlError(
+            f"PlantUML gagal melaporkan versi (kode {result.returncode}): "
+            f"{output[-2000:] or 'tanpa output'}.",
+            code="PLANTUML-VERSION",
+        )
+    version = _parse_plantuml_version(output)
+    if version is None:
+        raise PlantUmlError(
+            f"PlantUML tidak melaporkan versi yang dikenali: {output[-2000:]}.",
+            code="PLANTUML-VERSION",
+        )
+    _require_minimum_version(version)
+    _VERSION_CACHE[fingerprint] = version
+    return version
+
+
+def resolve_plantuml_source(deck_root: Path, relative_path: str) -> Path:
     """Resolve field ``source`` diagram relatif terhadap root deck.
 
     Menolak URL remote, path absolut, backslash, segmen kosong/``.``/``..``,
-    ekstensi selain ``.mmd``, dan path yang keluar dari root deck.
+    ekstensi selain ``.puml``, dan path yang keluar dari root deck.
     """
     if not relative_path:
-        raise MermaidError("Path diagram tidak boleh kosong.")
-    if any(ord(character) < 32 for character in relative_path):
-        raise MermaidError("Path diagram tidak boleh memuat karakter kontrol.")
+        raise PlantUmlError("Path diagram tidak boleh kosong.", code="PLANTUML-SOURCE")
+    if any(ord(character) < 32 or ord(character) == 127 for character in relative_path):
+        raise PlantUmlError(
+            "Path diagram tidak boleh memuat karakter kontrol.",
+            code="PLANTUML-SOURCE",
+        )
     parsed = urlsplit(relative_path)
     if (parsed.scheme and len(parsed.scheme) > 1) or relative_path.startswith(("//", "\\\\")):
-        raise MermaidError(f"Path diagram tidak boleh memakai URL remote: {relative_path!r}.")
+        raise PlantUmlError(
+            f"Path diagram tidak boleh memakai URL remote: {relative_path!r}.",
+            code="PLANTUML-SOURCE",
+        )
     if "\\" in relative_path:
-        raise MermaidError(f"Path diagram harus memakai '/': {relative_path!r}.")
+        raise PlantUmlError(
+            f"Path diagram harus memakai '/': {relative_path!r}.",
+            code="PLANTUML-SOURCE",
+        )
     if relative_path.startswith("/") or ":" in relative_path:
-        raise MermaidError(
-            f"Path diagram harus relatif terhadap direktori deck: {relative_path!r}."
+        raise PlantUmlError(
+            f"Path diagram harus relatif terhadap direktori deck: {relative_path!r}.",
+            code="PLANTUML-SOURCE",
         )
     segments = relative_path.split("/")
     if any(segment in {"", ".", ".."} for segment in segments):
-        raise MermaidError(
-            f"Path diagram tidak boleh memuat segmen kosong, '.', atau '..': {relative_path!r}."
+        raise PlantUmlError(
+            f"Path diagram tidak boleh memuat segmen kosong, '.', atau '..': {relative_path!r}.",
+            code="PLANTUML-SOURCE",
         )
     pure = PurePosixPath(relative_path)
-    if pure.suffix.lower() != ".mmd":
-        raise MermaidError(
-            f"Diagram '{relative_path}' harus berekstensi .mmd, bukan "
-            f"'{pure.suffix or 'tanpa ekstensi'}'."
+    if pure.suffix.lower() != ".puml":
+        raise PlantUmlError(
+            f"Diagram '{relative_path}' harus berekstensi .puml, bukan "
+            f"'{pure.suffix or 'tanpa ekstensi'}'.",
+            code="PLANTUML-SOURCE",
         )
     root = deck_root.resolve()
     resolved = (root / relative_path).resolve()
     if not resolved.is_relative_to(root):
-        raise MermaidError(f"Path diagram keluar dari direktori deck: {relative_path!r}.")
+        raise PlantUmlError(
+            f"Path diagram keluar dari direktori deck: {relative_path!r}.",
+            code="PLANTUML-SOURCE",
+        )
     if not resolved.is_file():
-        raise MermaidError(f"Diagram tidak ditemukan: {relative_path!r}.")
+        raise PlantUmlError(
+            f"Diagram PlantUML tidak ditemukan: {relative_path!r}.",
+            code="PLANTUML-SOURCE",
+        )
+    try:
+        size = resolved.stat().st_size
+    except OSError as error:
+        raise PlantUmlError(
+            f"Diagram tidak dapat dibaca: {resolved}: {error}",
+            code="PLANTUML-SOURCE",
+        ) from error
+    if size > MAX_SOURCE_BYTES:
+        raise PlantUmlError(
+            f"Diagram PlantUML terlalu besar: {size} byte, "
+            f"maksimum {MAX_SOURCE_BYTES} byte untuk {resolved.name}.",
+            code="PLANTUML-SOURCE",
+        )
     return resolved
 
 
 def _validated_source(source: Path) -> Path:
-    if not str(source):
-        raise MermaidError("Path diagram tidak boleh kosong.")
+    raw = str(source)
+    if not raw:
+        raise PlantUmlError("Path diagram tidak boleh kosong.", code="PLANTUML-SOURCE")
+    if any(ord(character) < 32 or ord(character) == 127 for character in raw):
+        raise PlantUmlError(
+            "Path diagram tidak boleh memuat karakter kontrol.",
+            code="PLANTUML-SOURCE",
+        )
     if _is_remote_path(source):
-        raise MermaidError(f"Path diagram tidak boleh memakai URL remote: {str(source)!r}.")
-    if ":" in str(source) and not (source.drive and source.is_absolute()):
-        raise MermaidError(
-            f"Path diagram harus relatif terhadap deck atau absolut dengan drive: {str(source)!r}."
+        raise PlantUmlError(
+            f"Path diagram tidak boleh memakai URL remote: {raw!r}.",
+            code="PLANTUML-SOURCE",
+        )
+    if ":" in raw and not (source.drive and source.is_absolute()):
+        raise PlantUmlError(
+            f"Path diagram harus relatif terhadap deck atau absolut dengan drive: {raw!r}.",
+            code="PLANTUML-SOURCE",
         )
     if ".." in source.parts:
-        raise MermaidError(f"Path diagram tidak boleh memuat '..': {str(source)!r}.")
-    if source.suffix.lower() != ".mmd":
-        raise MermaidError(
-            f"Diagram '{source}' harus berekstensi .mmd, bukan "
-            f"'{source.suffix or 'tanpa ekstensi'}'."
+        raise PlantUmlError(
+            f"Path diagram tidak boleh memuat '..': {raw!r}.",
+            code="PLANTUML-SOURCE",
+        )
+    if source.suffix.lower() != ".puml":
+        raise PlantUmlError(
+            f"Diagram '{source}' harus berekstensi .puml, bukan "
+            f"'{source.suffix or 'tanpa ekstensi'}'.",
+            code="PLANTUML-SOURCE",
         )
     if source.is_dir():
-        raise MermaidError(f"Diagram harus berupa file, bukan direktori: {str(source)!r}.")
+        raise PlantUmlError(
+            f"Diagram harus berupa file, bukan direktori: {str(source)!r}.",
+            code="PLANTUML-SOURCE",
+        )
     if not source.is_file():
-        raise MermaidError(f"Diagram tidak ditemukan: {str(source)!r}.")
+        raise PlantUmlError(
+            f"Diagram PlantUML tidak ditemukan: {str(source)!r}.",
+            code="PLANTUML-SOURCE",
+        )
     try:
         size = source.stat().st_size
     except OSError as error:
-        raise MermaidError(f"Diagram tidak dapat dibaca: {source}: {error}") from error
+        raise PlantUmlError(
+            f"Diagram tidak dapat dibaca: {source}: {error}",
+            code="PLANTUML-SOURCE",
+        ) from error
     if size > MAX_SOURCE_BYTES:
-        raise MermaidError(
-            f"Diagram Mermaid terlalu besar: {size} byte, "
-            f"maksimum {MAX_SOURCE_BYTES} byte untuk {source.name}."
+        raise PlantUmlError(
+            f"Diagram PlantUML terlalu besar: {size} byte, "
+            f"maksimum {MAX_SOURCE_BYTES} byte untuk {source.name}.",
+            code="PLANTUML-SOURCE",
         )
     return source.resolve()
 
@@ -289,59 +409,141 @@ def _is_remote_path(source: Path) -> bool:
 
 def _validate_out(out: Path) -> None:
     if out.suffix.lower() != ".png":
-        raise MermaidError(f"Output diagram harus PNG, bukan '{out.suffix or 'tanpa ekstensi'}'.")
+        raise PlantUmlError(
+            f"Output diagram harus PNG, bukan '{out.suffix or 'tanpa ekstensi'}'.",
+            code="PLANTUML-OUTPUT",
+        )
     if out.exists() and out.is_dir():
-        raise MermaidError(f"Output diagram harus berupa file, bukan direktori: {str(out)!r}.")
+        raise PlantUmlError(
+            f"Output diagram harus berupa file, bukan direktori: {str(out)!r}.",
+            code="PLANTUML-OUTPUT",
+        )
 
 
 def _validate_cache_dir(cache_dir: Path) -> None:
     if cache_dir.exists() and not cache_dir.is_dir():
-        raise MermaidError(f"Cache Mermaid bukan direktori: {str(cache_dir)!r}.")
+        raise PlantUmlError(
+            f"Cache PlantUML bukan direktori: {str(cache_dir)!r}.",
+            code="PLANTUML-CACHE",
+        )
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
     except OSError as error:
-        raise MermaidError(f"Gagal menyiapkan cache Mermaid {cache_dir}: {error}") from error
+        raise PlantUmlError(
+            f"Gagal menyiapkan cache PlantUML {cache_dir}: {error}",
+            code="PLANTUML-CACHE",
+        ) from error
 
 
-def _missing_mmdc_error() -> MermaidError:
-    override = os.environ.get(MMDC_ENV_VAR)
+def _missing_plantuml_error() -> PlantUmlError:
+    override = os.environ.get(PLANTUML_ENV_VAR)
     if override:
-        return MermaidError(f"mmdc tidak ditemukan: {override}. {MMDC_INSTALL_HINT}")
-    return MermaidError(f"mmdc tidak ditemukan di PATH. {MMDC_INSTALL_HINT}")
+        return PlantUmlError(
+            f"PlantUML tidak ditemukan: {override}. {PLANTUML_INSTALL_HINT}",
+            code="PLANTUML-TOOL",
+        )
+    return PlantUmlError(
+        f"PlantUML tidak ditemukan di PATH. {PLANTUML_INSTALL_HINT}",
+        code="PLANTUML-TOOL",
+    )
 
 
-def _mmdc_command(executable: Path) -> list[str]:
-    if executable.suffix.lower() in {".py", ".pyw"}:
+def _missing_java_error(executable: Path) -> PlantUmlError:
+    return PlantUmlError(
+        f"Java tidak ditemukan untuk menjalankan PlantUML {executable.name}. "
+        f"{PLANTUML_INSTALL_HINT}",
+        code="PLANTUML-JAVA",
+    )
+
+
+def _base_command(executable: Path) -> list[str]:
+    """Bangun perintah dasar PlantUML, termasuk Java untuk berkas ``.jar``.
+
+    Skrip ``.py`` dijalankan dengan interpreter Python agar executable pembungkus
+    dapat dipakai lintas platform.
+    """
+    suffix = executable.suffix.lower()
+    if suffix == ".jar":
+        java = find_java()
+        if java is None:
+            raise _missing_java_error(executable)
+        java_command = (
+            [sys.executable, str(java)] if java.suffix.lower() in {".py", ".pyw"} else [str(java)]
+        )
+        return [*java_command, "-Djava.awt.headless=true", "-jar", str(executable)]
+    if suffix in {".py", ".pyw"}:
         return [sys.executable, str(executable)]
     return [str(executable)]
 
 
-def _mmdc_version(executable: Path) -> str:
-    fingerprint = _executable_fingerprint(executable)
-    cached = _VERSION_CACHE.get(fingerprint)
-    if cached is not None:
-        return cached
-    command = [*_mmdc_command(executable), "--version"]
-    try:
-        result = _run_captured(command, timeout=VERSION_TIMEOUT)
-    except subprocess.TimeoutExpired as error:
-        raise MermaidError(
-            f"mmdc --version melebihi batas waktu {VERSION_TIMEOUT} detik."
-        ) from error
-    except (OSError, subprocess.SubprocessError) as error:
-        raise MermaidError(f"Gagal membaca versi mmdc: {error}") from error
-    if result.truncated:
-        raise MermaidError(f"Output mmdc --version melebihi batas output {MAX_OUTPUT_BYTES} byte.")
-    output = (result.stdout or result.stderr or "").strip()
-    if result.returncode != 0 or not output:
-        raise MermaidError(
-            f"mmdc gagal melaporkan versi (kode {result.returncode}): "
-            f"{output[-2000:] or 'tanpa output'}."
+def _plantuml_command(executable: Path, background: str) -> list[str]:
+    """Bangun perintah render yang membaca stdin dan menulis PNG ke stdout."""
+    return [
+        *_base_command(executable),
+        "--png",
+        "--charset",
+        "UTF-8",
+        "--disable-metadata",
+        "--threads",
+        "1",
+        "--stop-on-error",
+        "--no-error-image",
+        "--pragma",
+        f"layout={RENDER_LAYOUT}",
+        "--skinparam",
+        f"dpi={RENDER_DPI}",
+        "--skinparam",
+        f"backgroundColor={background}",
+        "-secure",
+        "-pipe",
+    ]
+
+
+def _render_options(background: str) -> dict[str, object]:
+    """Opsi render yang masuk ke cache key dan metadata cache."""
+    return {
+        "format": "png",
+        "dpi": RENDER_DPI,
+        "layout": RENDER_LAYOUT,
+        "background": background,
+        "secure": True,
+    }
+
+
+def _version_launch_error(executable: Path, error: OSError) -> PlantUmlError:
+    if executable.suffix.lower() == ".jar":
+        return PlantUmlError(
+            f"Gagal menjalankan Java untuk PlantUML {executable.name}: {error}. "
+            f"{PLANTUML_INSTALL_HINT}",
+            code="PLANTUML-JAVA",
         )
-    match = _VERSION_RE.search(output)
-    version = match.group(0) if match is not None else output.splitlines()[0].strip()
-    _VERSION_CACHE[fingerprint] = version
-    return version
+    return PlantUmlError(
+        f"Gagal membaca versi PlantUML: {error}",
+        code="PLANTUML-VERSION",
+    )
+
+
+def _parse_plantuml_version(output: str) -> str | None:
+    """Ambil versi dari format resmi PlantUML atau baris versi polos."""
+    match = _PLANTUML_VERSION_RE.search(output)
+    if match is not None:
+        return match.group(1)
+    for line in output.splitlines():
+        stripped = line.strip()
+        if _BARE_VERSION_RE.fullmatch(stripped):
+            return stripped
+    return None
+
+
+def _require_minimum_version(version: str) -> None:
+    parts = tuple(int(part) for part in version.split("."))
+    if parts < MIN_PLANTUML_VERSION:
+        minimum = ".".join(str(part) for part in MIN_PLANTUML_VERSION)
+        raise PlantUmlError(
+            f"PlantUML {version} terlalu lama; butuh PlantUML {minimum} atau lebih baru. "
+            f"{PLANTUML_INSTALL_HINT}",
+            code="PLANTUML-VERSION",
+        )
 
 
 def _executable_fingerprint(executable: Path) -> tuple[str, int, int]:
@@ -350,41 +552,6 @@ def _executable_fingerprint(executable: Path) -> tuple[str, int, int]:
     except OSError:
         return (str(executable), 0, 0)
     return (str(executable), stat.st_mtime_ns, stat.st_size)
-
-
-def _major_version(version: str) -> int | None:
-    match = re.match(r"(\d+)\.", version)
-    return int(match.group(1)) if match is not None else None
-
-
-def _output_arguments(version: str, background: str) -> tuple[list[str], dict[str, object]]:
-    """Pilih flag ukuran yang didukung versi mmdc dan kembalikan cache options."""
-    arguments = [
-        "--backgroundColor",
-        background,
-        "--scale",
-        _format_number(RENDER_SCALE),
-    ]
-    options: dict[str, object] = {
-        "format": "png",
-        "theme": _MMDC_THEME,
-        "backgroundColor": background,
-        "scale": RENDER_SCALE,
-    }
-    major = _major_version(version)
-    if major is not None and major >= 12:
-        arguments.extend(["--size", str(RENDER_SIZE)])
-        options["size"] = RENDER_SIZE
-        options["size_flag"] = "--size"
-    elif major is not None:
-        arguments.extend(["--width", str(RENDER_SIZE)])
-        options["size"] = RENDER_SIZE
-        options["size_flag"] = "--width"
-    return arguments, options
-
-
-def _format_number(value: float) -> str:
-    return str(int(value)) if value.is_integer() else str(value)
 
 
 def _theme_fingerprint(theme: Theme) -> dict[str, object]:
@@ -460,54 +627,38 @@ def _theme_fingerprint(theme: Theme) -> dict[str, object]:
     }
 
 
-def _theme_variables(theme: Theme) -> dict[str, object]:
-    """Terjemahkan token theme menjadi ``themeVariables`` Mermaid."""
-    return {
-        "darkMode": False,
-        "background": theme.colors.background,
-        "fontFamily": theme.typography.family,
-        "fontSize": f"{theme.typography.body_pt:g}px",
-        "primaryColor": theme.colors.accent_soft,
-        "primaryTextColor": theme.colors.ink,
-        "primaryBorderColor": theme.colors.accent,
-        "secondaryColor": theme.colors.surface_alt,
-        "secondaryTextColor": theme.colors.ink_secondary,
-        "secondaryBorderColor": theme.colors.border,
-        "tertiaryColor": theme.colors.surface,
-        "tertiaryTextColor": theme.colors.ink,
-        "tertiaryBorderColor": theme.colors.border,
-        "lineColor": theme.colors.accent_deep,
-        "textColor": theme.colors.ink,
-        "mainBkg": theme.colors.surface,
-        "nodeBorder": theme.colors.accent,
-        "clusterBkg": theme.colors.surface_alt,
-        "clusterBorder": theme.colors.border,
-        "defaultLinkColor": theme.colors.accent_deep,
-        "titleColor": theme.colors.ink,
-        "edgeLabelBackground": theme.colors.background,
-        "nodeTextColor": theme.colors.ink,
-    }
+def _read_source(source: Path) -> bytes:
+    try:
+        size = source.stat().st_size
+    except OSError as error:
+        raise PlantUmlError(
+            f"Diagram tidak dapat dibaca: {source}: {error}",
+            code="PLANTUML-SOURCE",
+        ) from error
+    if size > MAX_SOURCE_BYTES:
+        raise PlantUmlError(
+            f"Diagram PlantUML terlalu besar: {size} byte, "
+            f"maksimum {MAX_SOURCE_BYTES} byte untuk {source.name}.",
+            code="PLANTUML-SOURCE",
+        )
+    try:
+        data = source.read_bytes()
+    except OSError as error:
+        raise PlantUmlError(
+            f"Diagram tidak dapat dibaca: {source}: {error}",
+            code="PLANTUML-SOURCE",
+        ) from error
+    if len(data) > MAX_SOURCE_BYTES:
+        raise PlantUmlError(
+            f"Diagram PlantUML terlalu besar: lebih dari "
+            f"{MAX_SOURCE_BYTES} byte untuk {source.name}.",
+            code="PLANTUML-SOURCE",
+        )
+    return data
 
 
 def _source_sha256(source: Path) -> str:
-    digest = hashlib.sha256()
-    total = 0
-    try:
-        with source.open("rb") as handle:
-            while True:
-                chunk = handle.read(65536)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > MAX_SOURCE_BYTES:
-                    raise MermaidError(
-                        f"Diagram Mermaid terlalu besar: lebih dari "
-                        f"{MAX_SOURCE_BYTES} byte untuk {source.name}."
-                    )
-                digest.update(chunk)
-    except OSError as error:
-        raise MermaidError(f"Diagram tidak dapat dibaca: {source}: {error}") from error
-    return digest.hexdigest()
+    return hashlib.sha256(_read_source(source)).hexdigest()
 
 
 def _digest_for(
@@ -534,7 +685,7 @@ def _digest_from_hash(
         "format": CACHE_FORMAT,
         "source_sha256": source_hash,
         "theme": theme_fingerprint,
-        "mmdc_version": version,
+        "plantuml_version": version,
         "options": options,
     }
     canonical = json.dumps(
@@ -552,7 +703,7 @@ def _cache_png_is_valid(path: Path) -> bool:
         return False
     try:
         _validate_png(path)
-    except MermaidError:
+    except PlantUmlError:
         _discard_cache_entry(path)
         return False
     return True
@@ -577,13 +728,13 @@ def _find_cached_png(
     theme_fingerprint: Mapping[str, object],
     background: str,
 ) -> Path | None:
-    """Cari PNG cache yang cocok saat versi ``mmdc`` tidak dapat dibaca.
+    """Cari PNG cache yang cocok saat versi PlantUML tidak dapat dibaca.
 
     Pemindaian hanya memakai metadata yang ditulis oleh renderer ini; nama file
-    saja tidak cukup karena cache key memuat versi ``mmdc``.
+    saja tidak cukup karena cache key memuat versi PlantUML.
     """
     try:
-        candidates = list(cache_dir.glob(f"mermaid-*{CACHE_METADATA_SUFFIX}"))
+        candidates = list(cache_dir.glob(f"plantuml-*{CACHE_METADATA_SUFFIX}"))
     except OSError:
         return None
     candidates.sort(key=lambda path: (_cache_mtime(path), path.name), reverse=True)
@@ -644,9 +795,10 @@ def _cache_metadata_matches(
         return False
     return (
         options.get("format") == "png"
-        and options.get("theme") == _MMDC_THEME
-        and options.get("backgroundColor") == background
-        and options.get("scale") == RENDER_SCALE
+        and options.get("dpi") == RENDER_DPI
+        and options.get("layout") == RENDER_LAYOUT
+        and options.get("background") == background
+        and options.get("secure") is True
     )
 
 
@@ -666,6 +818,8 @@ class _ProcessOutput:
     stdout: str
     stderr: str
     truncated: bool
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
 
 
 class _OutputCapture:
@@ -693,32 +847,87 @@ class _OutputCapture:
             return
 
 
-def _run_captured(command: list[str], *, timeout: float) -> _ProcessOutput:
-    """Jalankan command dalam process group/job dan tangkap output terbatas."""
+class _FileCapture:
+    """Tulis stdout biner ke file sampai batas byte, lalu buang sisanya."""
+
+    def __init__(self, path: Path, limit: int) -> None:
+        self.limit = limit
+        self.written = 0
+        self.truncated = False
+        self._handle: Any = path.open("wb")
+
+    def drain(self, stream: Any) -> None:
+        if stream is None:
+            return
+        try:
+            while True:
+                chunk = stream.read(65536)
+                if not chunk:
+                    return
+                remaining = self.limit - self.written
+                if remaining > 0:
+                    portion = chunk[:remaining]
+                    self._handle.write(portion)
+                    self.written += len(portion)
+                if len(chunk) > max(remaining, 0):
+                    self.truncated = True
+        except OSError, ValueError:
+            return
+
+    def close(self) -> None:
+        with suppress(OSError, ValueError):
+            self._handle.close()
+
+
+def _run_captured(
+    command: list[str],
+    *,
+    timeout: float,
+    stdin_data: bytes | None = None,
+    stdout_path: Path | None = None,
+) -> _ProcessOutput:
+    """Jalankan command dalam process group/job dan tangkap output terbatas.
+
+    Bila ``stdout_path`` diberikan, stdout ditulis sebagai byte ke file itu dan
+    tidak pernah didekode sebagai teks.
+    """
     job = _create_windows_job()
+    stdout_file: _FileCapture | None = None
     try:
-        process = _spawn_captured(command)
-    except OSError:
-        _close_windows_job(job)
-        raise
-    if job is not None and not _assign_process_to_job(job, process.pid):
-        _close_windows_job(job)
-        job = None
-    stdout_capture = _OutputCapture(MAX_OUTPUT_BYTES)
-    stderr_capture = _OutputCapture(MAX_OUTPUT_BYTES)
-    threads = [
-        threading.Thread(
-            target=stdout_capture.drain,
-            args=(process.stdout,),
-            daemon=True,
-        ),
-        threading.Thread(
-            target=stderr_capture.drain,
-            args=(process.stderr,),
-            daemon=True,
-        ),
-    ]
-    try:
+        if stdout_path is not None:
+            stdout_file = _FileCapture(stdout_path, MAX_RENDER_BYTES)
+        process = (
+            _spawn_captured(command)
+            if stdin_data is None
+            else _spawn_captured(command, feed_stdin=True)
+        )
+        if job is not None and not _assign_process_to_job(job, process.pid):
+            _close_windows_job(job)
+            job = None
+        stderr_capture = _OutputCapture(MAX_OUTPUT_BYTES)
+        stdout_sink: _OutputCapture | _FileCapture = (
+            _OutputCapture(MAX_OUTPUT_BYTES) if stdout_file is None else stdout_file
+        )
+        threads = [
+            threading.Thread(
+                target=stdout_sink.drain,
+                args=(process.stdout,),
+                daemon=True,
+            ),
+            threading.Thread(
+                target=stderr_capture.drain,
+                args=(process.stderr,),
+                daemon=True,
+            ),
+        ]
+        if stdin_data is not None:
+            threads.append(
+                threading.Thread(
+                    target=_feed_stdin,
+                    args=(process.stdin, stdin_data),
+                    daemon=True,
+                )
+            )
         for thread in threads:
             thread.start()
         try:
@@ -729,28 +938,51 @@ def _run_captured(command: list[str], *, timeout: float) -> _ProcessOutput:
             _join_capture_threads(threads, process)
             raise
         _join_capture_threads(threads, process)
+        if isinstance(stdout_sink, _OutputCapture):
+            stdout_text = stdout_sink.data.decode("utf-8", errors="replace")
+        else:
+            stdout_text = ""
         return _ProcessOutput(
             returncode=returncode,
-            stdout=stdout_capture.data.decode("utf-8", errors="replace"),
+            stdout=stdout_text,
             stderr=stderr_capture.data.decode("utf-8", errors="replace"),
-            truncated=stdout_capture.truncated or stderr_capture.truncated,
+            truncated=stdout_sink.truncated or stderr_capture.truncated,
+            stdout_truncated=stdout_sink.truncated,
+            stderr_truncated=stderr_capture.truncated,
         )
     finally:
+        if stdout_file is not None:
+            stdout_file.close()
         _close_windows_job(job)
 
 
-def _spawn_captured(command: list[str]) -> subprocess.Popen[bytes]:
+def _feed_stdin(stream: Any, data: bytes) -> None:
+    """Kirim data ke stdin proses, lalu tutup pipe tanpa melempar error."""
+    if stream is None:
+        return
+    try:
+        stream.write(data)
+        stream.flush()
+    except OSError, ValueError:
+        return
+    finally:
+        with suppress(OSError, ValueError):
+            stream.close()
+
+
+def _spawn_captured(command: list[str], *, feed_stdin: bool = False) -> subprocess.Popen[bytes]:
+    stdin = subprocess.PIPE if feed_stdin else subprocess.DEVNULL
     if os.name == "nt":
         return subprocess.Popen(
             command,
-            stdin=subprocess.DEVNULL,
+            stdin=stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
         )
     return subprocess.Popen(
         command,
-        stdin=subprocess.DEVNULL,
+        stdin=stdin,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
@@ -765,7 +997,7 @@ def _join_capture_threads(
         thread.join(timeout=CAPTURE_JOIN_TIMEOUT)
     if not any(thread.is_alive() for thread in threads):
         return
-    for stream in (process.stdout, process.stderr):
+    for stream in (process.stdout, process.stderr, getattr(process, "stdin", None)):
         if stream is not None:
             with suppress(OSError, ValueError):
                 stream.close()
@@ -814,28 +1046,54 @@ def _terminate_process_tree(
         return
 
 
-def _run_mmdc(command: list[str], *, target: Path, timeout: float) -> None:
+def _run_plantuml(
+    command: list[str],
+    *,
+    source: Path,
+    target: Path,
+    timeout: float,
+    uses_java: bool,
+) -> None:
+    """Jalankan PlantUML dengan sumber dari stdin dan PNG ke file target."""
     target.unlink(missing_ok=True)
+    source_data = _read_source(source)
     try:
-        result = _run_captured(command, timeout=timeout)
+        result = _run_captured(
+            command,
+            timeout=timeout,
+            stdin_data=source_data,
+            stdout_path=target,
+        )
     except subprocess.TimeoutExpired as error:
         target.unlink(missing_ok=True)
-        raise MermaidError(
-            f"mmdc melebihi batas waktu {timeout:g} detik untuk {target.name}."
+        raise PlantUmlError(
+            f"PlantUML melebihi batas waktu {timeout:g} detik untuk {target.name}.",
+            code="PLANTUML-TIMEOUT",
         ) from error
     except OSError as error:
         target.unlink(missing_ok=True)
-        raise MermaidError(f"Gagal menjalankan mmdc: {error}") from error
+        label = (
+            "Gagal menjalankan Java untuk PlantUML" if uses_java else "Gagal menjalankan PlantUML"
+        )
+        code = "PLANTUML-JAVA" if uses_java else "PLANTUML-RENDER"
+        raise PlantUmlError(f"{label}: {error}", code=code) from error
     if result.truncated:
         target.unlink(missing_ok=True)
-        raise MermaidError(
-            f"Output mmdc melebihi batas output {MAX_OUTPUT_BYTES} byte untuk {target.name}."
+        stdout_truncated = getattr(result, "stdout_truncated", False)
+        stderr_truncated = getattr(result, "stderr_truncated", False)
+        limit = MAX_OUTPUT_BYTES if stderr_truncated and not stdout_truncated else MAX_RENDER_BYTES
+        raise PlantUmlError(
+            f"Output PlantUML melebihi batas output {limit} byte untuk {target.name}.",
+            code="PLANTUML-RENDER",
         )
     if result.returncode != 0:
         target.unlink(missing_ok=True)
         detail = (result.stderr or result.stdout or "").strip()
         suffix = f": {detail[-2000:]}" if detail else ""
-        raise MermaidError(f"mmdc gagal (kode {result.returncode}) untuk {target.name}{suffix}")
+        raise PlantUmlError(
+            f"PlantUML gagal (kode {result.returncode}) untuk {target.name}{suffix}",
+            code="PLANTUML-RENDER",
+        )
 
 
 def _is_png(path: Path) -> bool:
@@ -845,19 +1103,34 @@ def _is_png(path: Path) -> bool:
 
 def _validate_png(path: Path) -> None:
     if not path.is_file():
-        raise MermaidError(f"mmdc tidak menghasilkan PNG untuk {path.name}.")
+        raise PlantUmlError(
+            f"PlantUML tidak menghasilkan PNG untuk {path.name}.",
+            code="PLANTUML-OUTPUT",
+        )
     try:
         size = path.stat().st_size
     except OSError as error:
-        raise MermaidError(f"PNG Mermaid tidak dapat dibaca: {path}: {error}") from error
+        raise PlantUmlError(
+            f"PNG PlantUML tidak dapat dibaca: {path}: {error}",
+            code="PLANTUML-OUTPUT",
+        ) from error
     if size == 0:
-        raise MermaidError(f"mmdc tidak menghasilkan PNG untuk {path.name}.")
+        raise PlantUmlError(
+            f"PlantUML tidak menghasilkan PNG untuk {path.name}.",
+            code="PLANTUML-OUTPUT",
+        )
     problem = _png_problem(path)
     if problem is None:
         return
     if problem.startswith("tidak dapat dibaca"):
-        raise MermaidError(f"PNG Mermaid tidak dapat dibaca: {path}: {problem}")
-    raise MermaidError(f"Output mmdc bukan PNG valid untuk {path.name}: {problem}.")
+        raise PlantUmlError(
+            f"PNG PlantUML tidak dapat dibaca: {path}: {problem}",
+            code="PLANTUML-OUTPUT",
+        )
+    raise PlantUmlError(
+        f"Output PlantUML bukan PNG valid untuk {path.name}: {problem}.",
+        code="PLANTUML-OUTPUT",
+    )
 
 
 def _png_problem(path: Path) -> str | None:
@@ -949,7 +1222,7 @@ def _ihdr_problem(payload: bytes) -> str | None:
     return None
 
 
-def _copy_png(source: Path, target: Path) -> None:
+def _copy_png(source: Path, target: Path, *, code: str = "PLANTUML-OUTPUT") -> None:
     if source.resolve() == target.resolve():
         return
     temporary: Path | None = None
@@ -971,7 +1244,7 @@ def _copy_png(source: Path, target: Path) -> None:
         os.replace(temporary, target)
         temporary = None
     except OSError as error:
-        raise MermaidError(f"Gagal menulis PNG Mermaid {target}: {error}") from error
+        raise PlantUmlError(f"Gagal menulis PNG PlantUML {target}: {error}", code=code) from error
     finally:
         if descriptor >= 0:
             with suppress(OSError):
@@ -1000,7 +1273,10 @@ def _write_atomic_bytes(target: Path, data: bytes) -> None:
         os.replace(temporary, target)
         temporary = None
     except OSError as error:
-        raise MermaidError(f"Gagal menulis metadata cache Mermaid {target}: {error}") from error
+        raise PlantUmlError(
+            f"Gagal menulis metadata cache PlantUML {target}: {error}",
+            code="PLANTUML-CACHE",
+        ) from error
     finally:
         if descriptor >= 0:
             with suppress(OSError):
@@ -1139,11 +1415,16 @@ def _taskkill_tree(pid: int) -> None:
 
 
 __all__ = [
-    "MMDC_ENV_VAR",
-    "MMDC_INSTALL_HINT",
-    "MermaidError",
+    "JAVA_ENV_VAR",
+    "MIN_PLANTUML_VERSION",
+    "PLANTUML_ENV_VAR",
+    "PLANTUML_INSTALL_HINT",
+    "PNG_SIGNATURE",
+    "PlantUmlError",
     "cache_digest",
-    "find_mmdc",
-    "render_mermaid",
-    "resolve_mermaid_source",
+    "find_java",
+    "find_plantuml",
+    "plantuml_version",
+    "render_plantuml",
+    "resolve_plantuml_source",
 ]

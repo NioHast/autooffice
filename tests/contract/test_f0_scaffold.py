@@ -53,7 +53,7 @@ EXPECTED_BLOCKS: tuple[str, ...] = (
 
 
 def test_package_version() -> None:
-    assert autooffice.__version__ == "1.0.0"
+    assert autooffice.__version__ == "2.0.0"
 
 
 def test_help_prints_commands_and_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:

@@ -17,6 +17,10 @@ offline-nya. Wrapper lama `scripts/check.ps1` sudah dihapus;
 - Coverage dihitung untuk `src/autooffice` dengan kebijakan berbasis risiko:
   global line+branch minimal 90%, modul kritis 100%, adapter minimal 85%,
   sesuai [kontrak coverage](../contracts/coverage.md).
+- Gate lokal tidak menjalankan render PlantUML nyata; test renderer memakai
+  fake. Gate final yang membangun contoh berdiagram memerlukan PlantUML
+  1.2026.10 atau lebih baru dan Java 21, tanpa Node.js, Chromium, atau
+  Graphviz.
 
 ## Perintah
 
@@ -46,7 +50,7 @@ tanpa menjalankannya. Nama langkah yang tidak dikenal ditolak dengan exit 2.
 | `docs` | `uv run python tools/quality/check_docs.py` | Tautan, TOC, judul, fence, indeks, registry. |
 | `test-quality` | `uv run python tools/quality/check_tests.py` | Assertion, sleep, network, dan penulisan path. |
 | `no-legacy` | `uv run python tools/quality/check_no_legacy.py` | Pemeriksa path, package, entry point, dan teknologi legacy; blocking. |
-| `removed-features` | `uv run python tools/quality/check_removed_features.py` | Import, path, dependency, dan konfigurasi fitur PDF/COM yang dihapus; blocking. |
+| `removed-features` | `uv run python tools/quality/check_removed_features.py` | Import, path, dependency, extra, `.mmd`, aset font PJS, dan konfigurasi fitur PDF/COM/Mermaid yang dihapus; blocking. |
 | `python-style` | `uv run python tools/quality/check_python.py` | Future import, alias typing warisan, dan API stdlib deprecated. |
 | `identifiers` | `uv run python tools/quality/check_identifiers.py` | Identifier definisi dan referensi wajib bahasa Inggris. |
 | `source-style` | `uv run python tools/quality/check_source_style.py` | Komentar dan docstring bebas bahasa rencana atau riwayat. |
@@ -60,10 +64,11 @@ memindai path, import, entry point, dan nama teknologi legacy; allowlist
 eksplisit mencakup arsip, ADR, fixture golden, plan, execution log, dan guard
 negatif. Temuan aktif menghentikan gate.
 
-Langkah `removed-features` memeriksa import nyata di `src`, `tests`, dan
-`tools`, path terlarang, dependency/extra, serta kontrak import-linter untuk
-fitur PDF/COM yang sudah dihapus. Literal string, assertion negatif, dan
-dokumentasi historis tidak dipindai.
+Langkah `removed-features` memeriksa import nyata PDF/COM di `src`, `tests`,
+dan `tools`; path terlarang PDF/COM serta modul, test, dan dokumen Mermaid;
+berkas sumber Mermaid `.mmd`; isi direktori aset font terhadap allowlist Plus
+Jakarta Sans (PJS); dan dependency, extra, serta kontrak import-linter PDF/COM.
+Literal string, assertion negatif, dan dokumentasi historis tidak dipindai.
 
 Langkah `python-style` bersifat blocking. Seluruh future import sudah
 dibersihkan, sehingga setiap temuan checker harus diperbaiki dan tidak lagi

@@ -60,8 +60,9 @@ bila merujuk dokumentasi eksternal. Label harus unik; URL harus memakai skema
 | mutmut | https://github.com/boxed/mutmut | Mutation testing opsional untuk modul kritis; dicoba tetapi belum kompatibel dengan Python 3.15 Windows; `docs/dev/mutation-testing.md`. |
 | cosmic-ray | https://github.com/sixty-north/cosmic-ray | Mutation testing manual modul kritis; `docs/dev/mutation-testing.md`. |
 | uv documentation | https://docs.astral.sh/uv/ | Environment, `uv run`, dan `uv sync`; `README.md`, `docs/dev/contributing.md`. |
-| Mermaid CLI | https://github.com/mermaid-js/mermaid-cli | Perintah `mmdc` dan opsi render; `src/autooffice/docx/stages/mermaid.py`, `README.md`, `docs/user/mermaid.md`. |
-| Mermaid documentation | https://mermaid.js.org/ | Sintaks diagram Mermaid; `docs/user/mermaid.md`. |
+| PlantUML command line | https://plantuml.com/command-line | Opsi render `-pipe`, `-secure`, `--disable-metadata`, `--threads`, `--stop-on-error`, dan `--no-error-image`; `src/autooffice/docx/stages/plantuml.py`, `src/autooffice/deck/media/plantuml.py`, `docs/user/plantuml.md`. |
+| PlantUML documentation | https://plantuml.com/ | Sintaks diagram PlantUML dan Smetana; `docs/user/plantuml.md`, `docs/contracts/plantuml.md`. |
+| PlantUML security | https://plantuml.com/security | Mode `-secure` dan pembatasan fitur berisiko; `docs/dev/security.md`. |
 | lxml documentation | https://lxml.de/ | API `lxml.etree`; `src/autooffice/docx/package/`, `docs/contracts/docx.md`. |
 | python-docx documentation | https://python-docx.readthedocs.io/ | Referensi pembanding untuk API DOCX; `docs/contracts/docx.md`. |
 | ruamel.yaml documentation | https://yaml.dev/doc/ruamel.yaml/ | Parser YAML dan penanganan duplicate key; `src/autooffice/docx/config/common.py`. |

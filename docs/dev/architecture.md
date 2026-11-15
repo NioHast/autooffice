@@ -14,7 +14,7 @@ layout, dan theme adalah data paket yang dibaca saat runtime.
 | Format DOCX | `src/autooffice/docx/data/formats/<id>/format.yaml` | Halaman, font, heading, caption, kode, sitasi, aset visual | Teks naskah, urutan bab |
 | Pipeline DOCX | `src/autooffice/docx/` | Validasi, orkestrasi stage, mutasi DOCX, output, manifest | Teks naskah, salinan aturan format |
 | Konten deck | `deck.yaml`, `transcripts.md`, `assets/`, `diagrams/` | Meta, slide, block, aset, transkrip | Token warna, layout preset, kode renderer |
-| Pipeline deck | `src/autooffice/deck/`, `src/autooffice/design/` | Compiler DeckIR, layout, copy checker, renderer, chart, transkrip | Teks naskah DOCX, aturan format Word |
+| Pipeline deck | `src/autooffice/deck/`, `src/autooffice/design/` | Compiler DeckIR, layout, copy checker, renderer, chart, media PlantUML, transkrip | Teks naskah DOCX, aturan format Word |
 | Permukaan CLI | `src/autooffice/cli/` | Target, output, check, doctor, orkestrasi domain | Logika XML atau renderer |
 
 ID format dan struktur adalah nama direktori. Skema keduanya tertutup: kunci
@@ -26,7 +26,7 @@ yang tidak dikenal ditolak dengan pesan error.
 document.md
   |
   +-- validate             front matter, aset, caption Markdown
-  +-- mermaid              blok Mermaid menjadi PNG di workspace
+  +-- plantuml             blok PlantUML menjadi PNG di workspace
   +-- style_reference      reference.docx turunan dari format.yaml
   +-- front_matter         sampul, template, abstrak, nomor heading
   +-- pandoc               Markdown menjadi DOCX
@@ -59,6 +59,7 @@ deck.yaml + transcripts.md
   +-- design               theme, token Arial, kontras
   +-- layout               preset atau custom rows, overflow, grid 12 kolom
   +-- copy checker         aturan prosa dan diagnosis
+  +-- media                berkas .puml menjadi PNG PlantUML
   +-- render PPTX          native shape, table, chart, image, notes
   +-- slides               sinkronisasi Google Slides
 ```
@@ -128,7 +129,10 @@ pada permukaan AutoOffice v1. Kontrak CLI ada di
 | Android atau viewer tanpa Arial | ya | ya, dengan substitusi font | ya dengan Google OAuth |
 
 Tidak ada dependensi Office, COM, `pywin32`, atau Windows-only. DOCX dan PPTX
-dibangun murni dengan Python. Arial umumnya tersedia di Windows dan macOS;
+dibangun murni dengan Python. Render diagram memakai PlantUML 1.2026.10 atau
+lebih baru dari `AUTOOFFICE_PLANTUML` (jar atau executable) dengan Java 21;
+`AUTOOFFICE_JAVA` opsional untuk menunjuk executable Java. Tidak ada kebutuhan
+Node.js, Chromium, atau Graphviz. Arial umumnya tersedia di Windows dan macOS;
 lingkungan tanpa Arial dapat menggantinya dengan Liberation Sans atau font
 substitusi lain. Tata letak tetap dihitung dengan metrik Liberation Sans yang
 kompatibel Arial. Alur ekspor PDF manual ada di

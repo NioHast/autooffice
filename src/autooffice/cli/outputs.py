@@ -741,7 +741,7 @@ def _safe_state_root(document_dir: Path, source: Path) -> Path:
         code="CLI-STATE-PATH",
         source=source,
     )
-    for parts in (("state",), ("cache",), ("review",), ("cache", "mermaid")):
+    for parts in (("state",), ("cache",), ("review",), ("cache", "plantuml")):
         expected = resolved_state.joinpath(*parts)
         _require_exact_internal_path(
             expected,

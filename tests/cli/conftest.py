@@ -180,7 +180,7 @@ def _write_deck(
     root: Path,
     *,
     image_path: str = "assets/hero.png",
-    diagram_path: str = "diagrams/flow.mmd",
+    diagram_path: str = "diagrams/flow.puml",
     include_diagram: bool = False,
     include_custom: bool = False,
     transcript: str = BASE_TRANSCRIPT,
@@ -190,7 +190,10 @@ def _write_deck(
     assets.mkdir(parents=True, exist_ok=True)
     diagrams.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (320, 180), (30, 60, 90)).save(assets / "hero.png")
-    (diagrams / "flow.mmd").write_text("flowchart LR\n  A --> B\n", encoding="utf-8")
+    (diagrams / "flow.puml").write_text(
+        "@startuml\nstart\n:Mulai;\n:Selesai;\nstop\n@enduml\n",
+        encoding="utf-8",
+    )
     text = BASE_DECK.format(image_path=image_path)
     if include_diagram:
         text += DIAGRAM_SLIDE.format(diagram_path=diagram_path)
@@ -228,7 +231,7 @@ def missing_diagram_deck_path(tmp_path: Path) -> Path:
     return _write_deck(
         tmp_path / "missing-diagram",
         include_diagram=True,
-        diagram_path="diagrams/missing.mmd",
+        diagram_path="diagrams/missing.puml",
     )
 
 

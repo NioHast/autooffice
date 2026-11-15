@@ -65,8 +65,8 @@ def doctor_report(targets: tuple[str, ...] | None) -> DoctorReport:
     )
     pandoc = _find_tool("pandoc")
     pandoc_version = _tool_version(pandoc)
-    mmdc = _find_tool("mmdc")
-    mmdc_version = _tool_version(mmdc)
+    plantuml = _find_plantuml()
+    plantuml_release = _plantuml_release(plantuml)
     font_assets_ok, font_assets_detail = _font_assets_status()
     google_ok, google_detail = _google_status()
     workspace_ok = os.access(Path.cwd(), os.W_OK)
@@ -90,14 +90,10 @@ def doctor_report(targets: tuple[str, ...] | None) -> DoctorReport:
             ),
         ),
         DoctorCheck(
-            name="mmdc",
-            ok=bool(mmdc),
+            name="plantuml",
+            ok=plantuml is not None,
             required=False,
-            detail=(
-                f"{mmdc_version} - {mmdc}"
-                if mmdc and mmdc_version
-                else (mmdc or "tidak ditemukan; diperlukan hanya untuk blok Mermaid")
-            ),
+            detail=_plantuml_detail(plantuml, plantuml_release),
         ),
         DoctorCheck(
             name="font-assets",
@@ -156,6 +152,36 @@ def _required_names(targets: tuple[str, ...] | None) -> set[str]:
     if "slides" in target_set:
         required.add("google")
     return required
+
+
+def _find_plantuml() -> Path | None:
+    """Cari executable PlantUML tanpa memuat domain deck saat modul diimpor."""
+
+    from autooffice.deck.media import plantuml
+
+    return plantuml.find_plantuml()
+
+
+def _plantuml_release(executable: Path | None) -> str | None:
+    """Baca versi PlantUML tanpa menggagalkan seluruh pemeriksaan doctor."""
+
+    if executable is None:
+        return None
+    from autooffice.deck.media.plantuml import PlantUmlError, plantuml_version
+
+    try:
+        return plantuml_version(executable)
+    except PlantUmlError:
+        return None
+
+
+def _plantuml_detail(executable: Path | None, release: str | None) -> str:
+    """Susun detail status PlantUML untuk laporan doctor."""
+    if executable is None:
+        return "tidak ditemukan; diperlukan hanya untuk diagram PlantUML"
+    if release:
+        return f"{release} - {executable}"
+    return str(executable)
 
 
 def _find_tool(name: str) -> str | None:

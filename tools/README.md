@@ -28,7 +28,7 @@ untuk gate dan checker.
 | `quality/check_coverage.py` | Membaca `.coverage` hasil `pytest-cov` dan menerapkan kebijakan coverage berbasis risiko. |
 | `quality/check_python.py` | Memeriksa future import, alias typing warisan, dan API stdlib deprecated. |
 | `quality/check_no_legacy.py` | Memeriksa path, package, import, entry point, dan teknologi legacy; exit 1 bila ada pelanggaran aktif. |
-| `quality/check_removed_features.py` | Memeriksa import, path, dependency, dan konfigurasi fitur PDF/COM yang dihapus. |
+| `quality/check_removed_features.py` | Memeriksa import, path, dependency, `.mmd`, aset font PJS, dan konfigurasi fitur PDF/COM/Mermaid yang dihapus. |
 | `quality/check_identifiers.py` | Memeriksa identifier definisi dan referensi wajib bahasa Inggris. |
 | `quality/check_source_style.py` | Memeriksa komentar dan docstring bebas bahasa rencana atau riwayat. |
 | `mutation/cosmic-ray.toml` | Konfigurasi mutation testing manual untuk modul kritis. |

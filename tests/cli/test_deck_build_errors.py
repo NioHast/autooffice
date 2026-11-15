@@ -952,20 +952,20 @@ def test_dry_run_sync_requires_sync_deck_operation(
     assert not out.exists()
 
 
-def test_build_persists_mermaid_cache_across_cleanup(
+def test_build_persists_plantuml_cache_across_cleanup(
     deck_path: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     out = tmp_path / "out"
-    cache = deck_path.parent / ".autooffice" / "cache" / "mermaid"
+    cache = deck_path.parent / ".autooffice" / "cache" / "plantuml"
     cache.mkdir(parents=True)
     seeded = cache / "seeded.png"
     seeded.write_bytes(b"seed")
 
     class _CacheRenderer(_FakeRenderer):
         def render(self, request: object) -> object:
-            cache_dir = request.workspace / "cache" / "mermaid"  # type: ignore[attr-defined]
+            cache_dir = request.workspace / "cache" / "plantuml"  # type: ignore[attr-defined]
             assert (cache_dir / "seeded.png").read_bytes() == b"seed"
             cache_dir.mkdir(parents=True, exist_ok=True)
             (cache_dir / "diagram.png").write_bytes(b"diagram")

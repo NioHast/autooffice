@@ -437,7 +437,7 @@ def test_image_extension_must_be_supported() -> None:
         validate_deck(_image_path_deck("assets/hero.svg"))
 
 
-def test_diagram_extension_must_be_mmd() -> None:
+def test_diagram_extension_must_be_puml() -> None:
     slide = _slide(
         blocks=[_block("diagram", "diagram1", source="diagrams/process.png", alt="Alt diagram")]
     )
@@ -636,7 +636,7 @@ def test_diagram_without_caption_is_valid() -> None:
             _block(
                 "diagram",
                 "diagram1",
-                source="diagrams/flow.mmd",
+                source="diagrams/flow.puml",
                 alt="Alt diagram",
             )
         ]
@@ -645,7 +645,7 @@ def test_diagram_without_caption_is_valid() -> None:
     definition = validate_deck(_deck(slide))
 
     fields = definition.slides[0].blocks[0].fields
-    assert fields == {"source": "diagrams/flow.mmd", "alt": "Alt diagram"}
+    assert fields == {"source": "diagrams/flow.puml", "alt": "Alt diagram"}
 
 
 def test_spacer_defaults_to_medium_size() -> None:

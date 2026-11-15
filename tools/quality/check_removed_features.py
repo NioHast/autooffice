@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Pemeriksa fitur PDF, COM, dan aset font yang tidak boleh kembali ke AutoOffice.
+"""Pemeriksa fitur PDF, COM, Mermaid, dan aset font yang tidak boleh kembali ke AutoOffice.
 
 Checker memakai AST untuk mendeteksi import nyata pada ``src/``, ``tests/``, dan
-``tools/``, memeriksa keberadaan path terlarang, memeriksa isi direktori aset
-font terhadap allowlist, lalu membaca ``pyproject.toml`` untuk dependency, extra,
-dan kontrak import-linter. Literal string, assertion negatif, dan dokumentasi
-historis tidak dipindai sehingga arsip keputusan tetap sah. Pemeriksaan bersifat
+``tools/``, memeriksa keberadaan path terlarang, menelusuri worktree untuk berkas
+sumber Mermaid (``.mmd``), memeriksa isi direktori aset font terhadap allowlist,
+lalu membaca ``pyproject.toml`` untuk dependency, extra, dan kontrak
+import-linter. Literal string, assertion negatif, dan dokumentasi historis tidak
+dipindai sehingga arsip keputusan tetap sah; penyebutan ``.mmd`` sebagai teks di
+dokumen bukan berkas sehingga tidak pernah dilaporkan. Pemeriksaan bersifat
 read-only, deterministik, dan tanpa jaringan.
 
 Pemakaian:
@@ -33,14 +35,22 @@ SCAN_DIRECTORIES: tuple[str, ...] = ("src", "tests", "tools")
 FORBIDDEN_IMPORT_ROOTS: tuple[str, ...] = ("autooffice.pdf", "win32com", "pythoncom", "pywin32")
 FORBIDDEN_PATHS: tuple[str, ...] = (
     "src/autooffice/pdf",
+    "src/autooffice/deck/media/mermaid.py",
     "src/autooffice/docx/stages/office.py",
     "src/autooffice/docx/stages/pdf.py",
+    "src/autooffice/docx/stages/mermaid.py",
     "src/autooffice/assets/fonts/plus-jakarta-sans",
     "tests/pdf",
     "tests/visual",
+    "tests/deck/media/test_mermaid.py",
+    "tests/deck/media/test_mermaid_security.py",
+    "tests/docx/test_mermaid_docx.py",
+    "docs/user/mermaid.md",
+    "docs/contracts/mermaid.md",
     "tools/visual",
     "tools/install_fonts.py",
 )
+MERMAID_SOURCE_SUFFIX = ".mmd"
 FONT_ASSETS_DIRECTORY = "src/autooffice/assets/fonts"
 ALLOWED_FONT_DIRECTORIES: frozenset[str] = frozenset({"liberation-sans"})
 FORBIDDEN_DEPENDENCIES: tuple[str, ...] = ("pywin32", "pypdf")
@@ -223,7 +233,34 @@ def _path_violations(root: Path) -> list[Violation]:
                     relative,
                     0,
                     "forbidden-path",
-                    f"path {relative} dilarang; fitur PDF/COM sudah dihapus",
+                    f"path {relative} dilarang; fitur PDF/COM/Mermaid sudah dihapus",
+                )
+            )
+    return findings
+
+
+def _mermaid_source_violations(root: Path) -> list[Violation]:
+    """Laporkan setiap berkas sumber Mermaid (``.mmd``) di worktree.
+
+    Penelusuran hanya memakai nama berkas, sehingga penyebutan ``.mmd`` di dalam
+    dokumen historis tidak pernah dianggap temuan. Direktori cache, artefak
+    build, ``.git``, ``.venv``, dan ``dist`` dilewati.
+    """
+    suffix = MERMAID_SOURCE_SUFFIX.casefold()
+    findings: list[Violation] = []
+    for current, directories, names in os.walk(root):
+        directories[:] = sorted(name for name in directories if not _is_skipped_directory(name))
+        base = Path(current)
+        for name in sorted(names):
+            if not name.casefold().endswith(suffix):
+                continue
+            relative = (base / name).relative_to(root).as_posix()
+            findings.append(
+                Violation(
+                    relative,
+                    0,
+                    "mermaid-source",
+                    f"berkas sumber Mermaid {relative} dilarang; dukungan mmdc sudah dihapus",
                 )
             )
     return findings
@@ -354,10 +391,11 @@ def _read_pyproject(root: Path) -> dict[object, object]:
 
 
 def check(root: Path = REPO_ROOT) -> Result:
-    """Pindai kode, test, tools, aset font, dan konfigurasi secara deterministik."""
+    """Pindai kode, test, tools, berkas ``.mmd``, aset font, dan konfigurasi."""
     root = root.resolve()
     files = _python_files(root)
     violations = _path_violations(root)
+    violations.extend(_mermaid_source_violations(root))
     violations.extend(_font_directory_violations(root))
     for path in files:
         display = path.relative_to(root).as_posix()
@@ -376,6 +414,7 @@ def format_targets() -> str:
     """Render daftar target terlarang untuk ``--list``."""
     lines = [f"{'import':10} {module}" for module in FORBIDDEN_IMPORT_ROOTS]
     lines.extend(f"{'path':10} {path}" for path in FORBIDDEN_PATHS)
+    lines.append(f"{'mermaid-source':10} berkas berakhiran {MERMAID_SOURCE_SUFFIX}")
     allowed_fonts = ", ".join(sorted(ALLOWED_FONT_DIRECTORIES))
     lines.append(f"{'font-dir':10} {FONT_ASSETS_DIRECTORY}: hanya {allowed_fonts}")
     lines.extend(f"{'dependency':10} {name}" for name in FORBIDDEN_DEPENDENCIES)
@@ -407,7 +446,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="check_removed_features.py",
         description=(
-            "Periksa import, path, aset font, dan konfigurasi fitur PDF/COM yang dihapus."
+            "Periksa import, path, berkas .mmd, aset font, dan konfigurasi fitur PDF/COM/Mermaid "
+            "yang dihapus."
         ),
     )
     parser.add_argument("root", nargs="?", type=Path, default=REPO_ROOT, help="akar repo")

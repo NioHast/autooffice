@@ -16,9 +16,9 @@ Dokumentasi ini ditujukan untuk manusia.
 | [pdf-export.md](pdf-export.md) | Ekspor PDF manual dari Word/PowerPoint, field DOCX, dan catatan font. |
 | [google-oauth.md](google-oauth.md) | Tutorial OAuth Google untuk target Slides. |
 | [single-file.md](single-file.md) | Alur satu berkas `document.md` dan asetnya. |
-| [mermaid.md](mermaid.md) | Diagram Mermaid, caption wajib, dan `mmdc`. |
+| [plantuml.md](plantuml.md) | Diagram PlantUML, caption wajib, Java 21, dan engine lokal. |
 | [writing-rules.md](writing-rules.md) | Aturan prosa, istilah, sitasi, dan perintah pemeriksa. |
-| [troubleshooting.md](troubleshooting.md) | Masalah umum caption, Mermaid, Pandoc, Word, dan path. |
+| [troubleshooting.md](troubleshooting.md) | Masalah umum caption, PlantUML, Pandoc, Word, dan path. |
 
 Instruksi untuk AI agent ada di [AGENTS.md](../../AGENTS.md) di akar repo.
 Dokumentasi teknis yang mencakup arsitektur, kontrak, pipeline, dan detail

@@ -218,7 +218,7 @@ def _media_block(block_type: str, caption: str | None) -> BlockIR:
     if block_type == "image":
         fields = {"path": "assets/gambar.png", "alt": "Ilustrasi"}
     elif block_type == "diagram":
-        fields = {"source": "assets/diagram.mmd", "alt": "Diagram"}
+        fields = {"source": "assets/diagram.puml", "alt": "Diagram"}
     else:
         fields = {
             "kind": "bar",

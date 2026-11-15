@@ -272,7 +272,7 @@ def _attach_sources(manifest: Manifest, source_dir: Path) -> Manifest:
         except ValueError:
             relative_path = block.path
         if any(_is_generated_source_dir(part) for part in relative_path.parts[:-1]):
-            # Artefak workspace (front_matter.md/mermaid.md), output, dan
+            # Artefak workspace (front_matter.md/plantuml.md), output, dan
             # laporan review bukan sumber konten dan tidak boleh membuat
             # kandidat duplikat.
             continue

@@ -1,11 +1,13 @@
-"""Tes branch keamanan renderer Mermaid: PNG, cache, proses, dan batas output."""
+"""Tes branch keamanan renderer PlantUML: PNG, cache, proses, dan batas output."""
 
+import base64
 import io
 import json
 import os
 import struct
 import subprocess
 import sys
+import time
 import zlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,25 +15,30 @@ from typing import Any
 
 import pytest
 
-import autooffice.deck.media.mermaid as mermaid_module
-from autooffice.deck.media.mermaid import (
+import autooffice.deck.media.plantuml as plantuml_module
+from autooffice.deck.media.plantuml import (
     CACHE_FORMAT,
+    PLANTUML_ENV_VAR,
     PNG_SIGNATURE,
-    MermaidError,
+    PlantUmlError,
+    _base_command,
     _cache_metadata_matches,
     _cache_mtime,
     _close_windows_job,
     _copy_png,
     _create_windows_job,
     _discard_cache_entry,
+    _executable_fingerprint,
+    _feed_stdin,
+    _FileCapture,
     _find_cached_png,
     _join_capture_threads,
-    _mmdc_command,
-    _mmdc_version,
-    _output_arguments,
     _OutputCapture,
+    _plantuml_command,
     _png_problem,
     _read_cache_metadata,
+    _read_source,
+    _render_options,
     _run_captured,
     _source_sha256,
     _spawn_captured,
@@ -43,15 +50,27 @@ from autooffice.deck.media.mermaid import (
     _wait_for_exit,
     _write_atomic_bytes,
     _write_cache_metadata,
-    render_mermaid,
+    plantuml_version,
+    render_plantuml,
 )
 from autooffice.design.theme import resolve_theme
+
+PNG_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+SOURCE_TEXT = "@startuml\nAlice -> Bob: halo\n@enduml\n"
 
 
 @pytest.fixture(scope="module")
 def theme():
     """Theme indigo untuk fingerprint cache."""
     return resolve_theme("indigo")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_version_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolasi cache versi global antar test."""
+    monkeypatch.setattr(plantuml_module, "_VERSION_CACHE", {})
 
 
 def _chunk(kind: bytes, payload: bytes = b"") -> bytes:
@@ -103,12 +122,52 @@ def _completed(
         stdout=stdout,
         stderr=stderr,
         truncated=truncated,
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
+
+
+FAKE_PLANTUML = """\
+import base64
+import sys
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+    "+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+arguments = sys.argv[1:]
+if arguments == ["--version"]:
+    print("PlantUML version 1.2026.10 (test)")
+    raise SystemExit(0)
+
+source = sys.stdin.buffer.read()
+if b"!include" in source and "-secure" in arguments:
+    print("SecurityException: !include tidak diizinkan", file=sys.stderr)
+    raise SystemExit(200)
+sys.stdout.buffer.write(PNG)
+sys.stdout.buffer.flush()
+"""
+
+
+def install_fake_plantuml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Pasang executable PlantUML palsu minimal yang menghormati ``-secure``."""
+    script = tmp_path / "fake_plantuml_security.py"
+    script.write_text(FAKE_PLANTUML, encoding="utf-8", newline="\n")
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(script))
+    return script
+
+
+def write_source(tmp_path: Path, name: str = "flow.puml", text: str = SOURCE_TEXT) -> Path:
+    source = tmp_path / name
+    source.write_text(text, encoding="utf-8")
+    return source
 
 
 @pytest.mark.parametrize(
     ("payload", "reason"),
     [
+        pytest.param(b"", "terlalu pendek", id="empty"),
         pytest.param(b"\x89PNG", "terlalu pendek", id="too-short"),
         pytest.param(
             b"\x00" * 8 + MINIMAL_PNG[8:],
@@ -129,6 +188,11 @@ def _completed(
             _png(_chunk(b"IHDR", _ihdr(width=0)), VALID_IDAT, VALID_IEND),
             "dimensi nol",
             id="zero-dimension",
+        ),
+        pytest.param(
+            _png(_chunk(b"IHDR", _ihdr(height=0)), VALID_IDAT, VALID_IEND),
+            "dimensi nol",
+            id="zero-height",
         ),
         pytest.param(
             _png(VALID_IHDR, VALID_IHDR, VALID_IDAT, VALID_IEND),
@@ -197,6 +261,11 @@ def _completed(
             "parameter IHDR tidak valid",
             id="bad-ihdr-parameter",
         ),
+        pytest.param(
+            _png(_chunk(b"IHDR", _ihdr(interlace=2)), VALID_IDAT, VALID_IEND),
+            "parameter IHDR tidak valid",
+            id="bad-interlace",
+        ),
     ],
 )
 def test_png_problem_rejects_malformed_chunks(
@@ -208,6 +277,13 @@ def test_png_problem_rejects_malformed_chunks(
     path.write_bytes(payload)
 
     assert _png_problem(path) == reason
+
+
+def test_png_problem_accepts_multiple_idat_chunks(tmp_path: Path) -> None:
+    path = tmp_path / "flow.png"
+    path.write_bytes(_png(VALID_IHDR, VALID_IDAT, VALID_IDAT, VALID_IEND))
+
+    assert _png_problem(path) is None
 
 
 def test_png_problem_reports_stat_failure(
@@ -246,7 +322,7 @@ def test_validate_png_reports_read_failure(
 
     monkeypatch.setattr(Path, "open", fail_open)
 
-    with pytest.raises(MermaidError, match="tidak dapat dibaca") as error:
+    with pytest.raises(PlantUmlError, match="tidak dapat dibaca") as error:
         _validate_png(path)
 
     assert str(path) in str(error.value)
@@ -257,14 +333,14 @@ def test_valid_png_passes_validation(tmp_path: Path) -> None:
     path.write_bytes(MINIMAL_PNG)
 
     assert _png_problem(path) is None
+    _validate_png(path)
 
 
 def test_validated_source_reports_stat_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    path = tmp_path / "flow.mmd"
-    path.write_text("flowchart TD\n", encoding="utf-8")
+    path = write_source(tmp_path)
     real_stat = Path.stat
     real_is_file = Path.is_file
 
@@ -281,67 +357,217 @@ def test_validated_source_reports_stat_failure(
     monkeypatch.setattr(Path, "stat", fail_stat)
     monkeypatch.setattr(Path, "is_file", existing_is_file)
 
-    with pytest.raises(MermaidError, match="tidak dapat dibaca") as error:
+    with pytest.raises(PlantUmlError, match="tidak dapat dibaca") as error:
         _validated_source(path)
 
     assert str(path) in str(error.value)
 
 
-def test_source_sha256_streaming_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(mermaid_module, "MAX_SOURCE_BYTES", 8)
-    source = tmp_path / "flow.mmd"
-    source.write_bytes(b"a" * 9)
+def test_validated_source_rejects_control_characters(tmp_path: Path) -> None:
+    with pytest.raises(PlantUmlError, match="kontrol") as error:
+        _validated_source(tmp_path / "flow\x01.puml")
 
-    with pytest.raises(MermaidError, match="terlalu besar"):
+    assert error.value.code == "PLANTUML-SOURCE"
+
+
+def test_validated_source_rejects_empty_string_path() -> None:
+    class EmptyPath:
+        def __str__(self) -> str:
+            return ""
+
+    with pytest.raises(PlantUmlError, match="kosong"):
+        _validated_source(EmptyPath())
+
+
+def test_resolve_plantuml_source_reports_stat_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "flow.puml"
+    path.write_text(SOURCE_TEXT, encoding="utf-8")
+    resolved = path.resolve()
+    real_stat = Path.stat
+    real_is_file = Path.is_file
+
+    def fail_stat(self: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        if self == resolved:
+            raise OSError("stat gagal disengaja")
+        return real_stat(self, follow_symlinks=follow_symlinks)
+
+    def existing_is_file(self: Path) -> bool:
+        if self == resolved:
+            return True
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "stat", fail_stat)
+    monkeypatch.setattr(Path, "is_file", existing_is_file)
+
+    with pytest.raises(PlantUmlError, match="tidak dapat dibaca"):
+        plantuml_module.resolve_plantuml_source(tmp_path, "flow.puml")
+
+
+def test_executable_fingerprint_returns_zero_when_stat_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "hilang.py"
+    monkeypatch.setattr(Path, "stat", lambda *_args, **_kwargs: _raise_stat_error())
+
+    assert _executable_fingerprint(path) == (str(path), 0, 0)
+
+
+def _raise_stat_error() -> os.stat_result:
+    raise OSError("stat gagal disengaja")
+
+
+def test_read_source_reports_stat_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = write_source(tmp_path)
+    monkeypatch.setattr(Path, "stat", lambda *_args, **_kwargs: _raise_stat_error())
+
+    with pytest.raises(PlantUmlError, match="tidak dapat dibaca"):
+        _read_source(path)
+
+
+def test_read_source_reports_read_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = write_source(tmp_path)
+
+    def fail_read_bytes(self: Path) -> bytes:
+        raise OSError("baca gagal disengaja")
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+
+    with pytest.raises(PlantUmlError, match="tidak dapat dibaca"):
+        _read_source(path)
+
+
+def test_read_source_rejects_file_grown_after_stat(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(plantuml_module, "MAX_SOURCE_BYTES", 8)
+    path = write_source(tmp_path)
+    monkeypatch.setattr(Path, "stat", lambda *_args, **_kwargs: SimpleNamespace(st_size=1))
+    monkeypatch.setattr(Path, "read_bytes", lambda _self: b"a" * 9)
+
+    with pytest.raises(PlantUmlError, match="lebih dari"):
+        _read_source(path)
+
+
+def test_feed_stdin_handles_none_and_broken_streams() -> None:
+    _feed_stdin(None, b"data")
+
+    class BrokenStream:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _data: bytes) -> None:
+            raise OSError("tulis gagal")
+
+        def flush(self) -> None:
+            raise AssertionError("flush tidak boleh dipanggil")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = BrokenStream()
+    _feed_stdin(stream, b"data")
+
+    assert stream.closed is True
+
+
+def test_source_sha256_streaming_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(plantuml_module, "MAX_SOURCE_BYTES", 8)
+    source = write_source(tmp_path, text="a" * 9)
+
+    with pytest.raises(PlantUmlError, match="terlalu besar"):
         _source_sha256(source)
 
 
-def test_mmdc_command_handles_python_and_binary_executables() -> None:
-    assert _mmdc_command(Path("tool.py")) == [sys.executable, "tool.py"]
-    assert _mmdc_command(Path("tool.pyw")) == [sys.executable, "tool.pyw"]
-    assert _mmdc_command(Path("mmdc.exe")) == ["mmdc.exe"]
+def test_base_command_handles_python_and_binary_executables() -> None:
+    assert _base_command(Path("tool.py")) == [sys.executable, "tool.py"]
+    assert _base_command(Path("tool.pyw")) == [sys.executable, "tool.pyw"]
+    assert _base_command(Path("plantuml.exe")) == ["plantuml.exe"]
 
 
-def test_mmdc_version_timeout_is_reported(
+def test_jar_command_includes_headless_java(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    script = tmp_path / "mmdc_timeout.py"
+    java = tmp_path / "java"
+    monkeypatch.setattr(plantuml_module, "find_java", lambda: java)
+
+    jar = tmp_path / "plantuml.jar"
+    command = _plantuml_command(jar, "#FFFFFF")
+
+    assert command[0:4] == [str(java), "-Djava.awt.headless=true", "-jar", str(jar)]
+    assert "-secure" in command
+    assert "-pipe" in command
+
+
+def test_render_options_capture_security_relevant_values(theme) -> None:
+    options = _render_options(theme.colors.background)
+
+    assert options == {
+        "format": "png",
+        "dpi": 192,
+        "layout": "smetana",
+        "background": theme.colors.background,
+        "secure": True,
+    }
+
+
+def test_plantuml_version_timeout_is_reported(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = tmp_path / "plantuml_timeout.py"
     script.write_text("# fake\n", encoding="utf-8")
 
     def run(*_args: object, **_kwargs: object) -> None:
-        raise subprocess.TimeoutExpired("mmdc", 30)
+        raise subprocess.TimeoutExpired("plantuml", 30)
 
-    monkeypatch.setattr(mermaid_module, "_run_captured", run)
+    monkeypatch.setattr(plantuml_module, "_run_captured", run)
 
-    with pytest.raises(MermaidError, match="melebihi batas waktu"):
-        _mmdc_version(script)
+    with pytest.raises(PlantUmlError, match="melebihi batas waktu"):
+        plantuml_version(script)
 
 
-def test_mmdc_version_truncated_output_is_rejected(
+def test_plantuml_version_truncated_output_is_rejected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    script = tmp_path / "mmdc_truncated.py"
+    script = tmp_path / "plantuml_truncated.py"
     script.write_text("# fake\n", encoding="utf-8")
     monkeypatch.setattr(
-        mermaid_module,
+        plantuml_module,
         "_run_captured",
-        lambda *_args, **_kwargs: _completed(stdout="12.2.0", truncated=True),
+        lambda *_args, **_kwargs: _completed(
+            stdout="PlantUML version 1.2026.10 (test)",
+            truncated=True,
+        ),
     )
 
-    with pytest.raises(MermaidError, match="batas output"):
-        _mmdc_version(script)
+    with pytest.raises(PlantUmlError, match="batas output"):
+        plantuml_version(script)
 
 
 def test_cache_metadata_roundtrip(tmp_path: Path) -> None:
-    cache_path = tmp_path / "mermaid-abc.png"
+    cache_path = tmp_path / "plantuml-abc.png"
     payload = {
         "format": CACHE_FORMAT,
         "digest": "abc",
         "source_sha256": "a" * 64,
         "theme": {"name": "indigo"},
-        "mmdc_version": "12.2.0",
+        "plantuml_version": "1.2026.10",
         "options": {"format": "png"},
     }
 
@@ -356,22 +582,22 @@ def test_read_cache_metadata_rejects_oversized_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module, "MAX_CACHE_METADATA_BYTES", 3)
-    path = tmp_path / "mermaid-abc.json"
+    monkeypatch.setattr(plantuml_module, "MAX_CACHE_METADATA_BYTES", 3)
+    path = tmp_path / "plantuml-abc.json"
     path.write_text("1234", encoding="utf-8")
 
     assert _read_cache_metadata(path) is None
 
 
 def test_read_cache_metadata_rejects_invalid_json(tmp_path: Path) -> None:
-    path = tmp_path / "mermaid-abc.json"
+    path = tmp_path / "plantuml-abc.json"
     path.write_text("{", encoding="utf-8")
 
     assert _read_cache_metadata(path) is None
 
 
 def test_read_cache_metadata_rejects_non_mapping(tmp_path: Path) -> None:
-    path = tmp_path / "mermaid-abc.json"
+    path = tmp_path / "plantuml-abc.json"
     path.write_text("[]", encoding="utf-8")
 
     assert _read_cache_metadata(path) is None
@@ -380,7 +606,7 @@ def test_read_cache_metadata_rejects_non_mapping(tmp_path: Path) -> None:
 def test_cache_metadata_matches_rejects_mismatches(theme) -> None:
     fingerprint = _theme_fingerprint(theme)
     background = theme.colors.background
-    _arguments, options = _output_arguments("12.2.0", background)
+    options = _render_options(background)
     payload: dict[str, object] = {
         "format": CACHE_FORMAT,
         "source_sha256": "a" * 64,
@@ -402,6 +628,10 @@ def test_cache_metadata_matches_rejects_mismatches(theme) -> None:
         {**payload, "theme": {"name": "lain"}},
         {**payload, "options": None},
         {**payload, "options": {**options, "format": "svg"}},
+        {**payload, "options": {**options, "dpi": 96}},
+        {**payload, "options": {**options, "layout": "graphviz"}},
+        {**payload, "options": {**options, "background": "#000000"}},
+        {**payload, "options": {**options, "secure": False}},
     ]
     for mismatch in mismatches:
         assert _cache_metadata_matches(mismatch, **expected) is False
@@ -432,7 +662,7 @@ def test_find_cached_png_removes_unreadable_metadata(
     tmp_path: Path,
     theme,
 ) -> None:
-    metadata = tmp_path / "mermaid-rusak.json"
+    metadata = tmp_path / "plantuml-rusak.json"
     metadata.write_text("{", encoding="utf-8")
 
     result = _find_cached_png(
@@ -452,9 +682,8 @@ def test_find_cached_png_skips_matching_metadata_with_invalid_png(
 ) -> None:
     fingerprint = _theme_fingerprint(theme)
     background = theme.colors.background
-    _arguments, options = _output_arguments("12.2.0", background)
     source_hash = "a" * 64
-    cache_path = tmp_path / "mermaid-abc.png"
+    cache_path = tmp_path / "plantuml-abc.png"
     cache_path.write_bytes(b"bukan png")
     _write_cache_metadata(
         cache_path,
@@ -463,8 +692,8 @@ def test_find_cached_png_skips_matching_metadata_with_invalid_png(
             "digest": "abc",
             "source_sha256": source_hash,
             "theme": fingerprint,
-            "mmdc_version": "12.2.0",
-            "options": options,
+            "plantuml_version": "1.2026.10",
+            "options": _render_options(background),
         },
     )
 
@@ -483,9 +712,8 @@ def test_find_cached_png_skips_matching_metadata_with_invalid_png(
 def test_find_cached_png_returns_valid_match(tmp_path: Path, theme) -> None:
     fingerprint = _theme_fingerprint(theme)
     background = theme.colors.background
-    _arguments, options = _output_arguments("12.2.0", background)
     source_hash = "a" * 64
-    cache_path = tmp_path / "mermaid-abc.png"
+    cache_path = tmp_path / "plantuml-abc.png"
     cache_path.write_bytes(MINIMAL_PNG)
     _write_cache_metadata(
         cache_path,
@@ -494,8 +722,8 @@ def test_find_cached_png_returns_valid_match(tmp_path: Path, theme) -> None:
             "digest": "abc",
             "source_sha256": source_hash,
             "theme": fingerprint,
-            "mmdc_version": "12.2.0",
-            "options": options,
+            "plantuml_version": "1.2026.10",
+            "options": _render_options(background),
         },
     )
 
@@ -535,7 +763,7 @@ def test_discard_cache_entry_ignores_unlink_errors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cache_path = tmp_path / "mermaid-abc.png"
+    cache_path = tmp_path / "plantuml-abc.png"
     cache_path.write_bytes(MINIMAL_PNG)
     metadata_path = cache_path.with_suffix(".json")
     metadata_path.write_text("{}", encoding="utf-8")
@@ -583,6 +811,41 @@ def test_output_capture_truncates_at_limit() -> None:
     assert capture.truncated is True
 
 
+def test_file_capture_writes_binary_and_truncates_at_limit(tmp_path: Path) -> None:
+    path = tmp_path / "render.bin"
+    capture = _FileCapture(path, 4)
+
+    class ChunkedStream:
+        def __init__(self) -> None:
+            self.chunks = [b"abcd", b"efgh"]
+
+        def read(self, _size: int) -> bytes:
+            return self.chunks.pop(0) if self.chunks else b""
+
+    capture.drain(ChunkedStream())
+    capture.close()
+
+    assert path.read_bytes() == b"abcd"
+    assert capture.written == 4
+    assert capture.truncated is True
+
+
+def test_file_capture_handles_missing_and_broken_streams(tmp_path: Path) -> None:
+    path = tmp_path / "render.bin"
+    capture = _FileCapture(path, 4)
+    capture.drain(None)
+
+    class BrokenStream:
+        def read(self, _size: int) -> bytes:
+            raise OSError("baca gagal")
+
+    capture.drain(BrokenStream())
+    capture.close()
+
+    assert path.read_bytes() == b""
+    assert capture.truncated is False
+
+
 class _FakeThread:
     def __init__(self) -> None:
         self.joins = 0
@@ -617,7 +880,12 @@ def test_join_capture_threads_closes_streams_on_stuck_threads() -> None:
 
 
 class _WaitProcess:
-    def __init__(self, outcomes: list[Exception | int], *, kill_error: Exception | None = None):
+    def __init__(
+        self,
+        outcomes: list[Exception | int],
+        *,
+        kill_error: Exception | None = None,
+    ) -> None:
         self.outcomes = list(outcomes)
         self.kill_error = kill_error
         self.killed = False
@@ -635,7 +903,7 @@ class _WaitProcess:
 
 
 def test_wait_for_exit_kills_after_timeout() -> None:
-    process = _WaitProcess([subprocess.TimeoutExpired("mmdc", 5), 0])
+    process = _WaitProcess([subprocess.TimeoutExpired("plantuml", 5), 0])
 
     _wait_for_exit(process)
 
@@ -645,8 +913,8 @@ def test_wait_for_exit_kills_after_timeout() -> None:
 def test_wait_for_exit_gives_up_after_second_timeout() -> None:
     process = _WaitProcess(
         [
-            subprocess.TimeoutExpired("mmdc", 5),
-            subprocess.TimeoutExpired("mmdc", 5),
+            subprocess.TimeoutExpired("plantuml", 5),
+            subprocess.TimeoutExpired("plantuml", 5),
         ]
     )
 
@@ -657,7 +925,7 @@ def test_wait_for_exit_gives_up_after_second_timeout() -> None:
 
 def test_wait_for_exit_returns_when_kill_fails() -> None:
     process = _WaitProcess(
-        [subprocess.TimeoutExpired("mmdc", 5)],
+        [subprocess.TimeoutExpired("plantuml", 5)],
         kill_error=OSError("kill gagal"),
     )
 
@@ -679,10 +947,10 @@ class _KillableProcess:
 def test_terminate_process_tree_uses_windows_job(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "nt")
-    monkeypatch.setattr(mermaid_module, "_terminate_windows_job", lambda _job: True)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_terminate_windows_job", lambda _job: True)
     taskkills: list[int] = []
-    monkeypatch.setattr(mermaid_module, "_taskkill_tree", taskkills.append)
+    monkeypatch.setattr(plantuml_module, "_taskkill_tree", taskkills.append)
     process = _KillableProcess()
 
     _terminate_process_tree(process, 7)
@@ -696,10 +964,10 @@ def test_terminate_process_tree_falls_back_to_taskkill(
     monkeypatch: pytest.MonkeyPatch,
     job: int | None,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "nt")
-    monkeypatch.setattr(mermaid_module, "_terminate_windows_job", lambda _job: False)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_terminate_windows_job", lambda _job: False)
     taskkills: list[int] = []
-    monkeypatch.setattr(mermaid_module, "_taskkill_tree", taskkills.append)
+    monkeypatch.setattr(plantuml_module, "_taskkill_tree", taskkills.append)
     process = _KillableProcess()
 
     _terminate_process_tree(process, job)
@@ -711,10 +979,10 @@ def test_terminate_process_tree_falls_back_to_taskkill(
 def test_terminate_process_tree_posix_uses_killpg(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
     calls: list[tuple[int, int]] = []
     monkeypatch.setattr(
-        mermaid_module.os,
+        plantuml_module.os,
         "killpg",
         lambda pid, sig: calls.append((pid, sig)),
         raising=False,
@@ -723,7 +991,7 @@ def test_terminate_process_tree_posix_uses_killpg(
 
     _terminate_process_tree(process, None)
 
-    expected_signal = getattr(mermaid_module.signal, "SIGKILL", mermaid_module.signal.SIGTERM)
+    expected_signal = getattr(plantuml_module.signal, "SIGKILL", plantuml_module.signal.SIGTERM)
     assert calls == [(4321, expected_signal)]
     assert process.killed is False
 
@@ -731,8 +999,8 @@ def test_terminate_process_tree_posix_uses_killpg(
 def test_terminate_process_tree_posix_process_already_gone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
-    monkeypatch.delattr(mermaid_module.os, "killpg", raising=False)
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
+    monkeypatch.delattr(plantuml_module.os, "killpg", raising=False)
     process = _KillableProcess()
 
     _terminate_process_tree(process, None)
@@ -743,12 +1011,12 @@ def test_terminate_process_tree_posix_process_already_gone(
 def test_terminate_process_tree_posix_killpg_raises_process_lookup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
 
     def gone(_pid: int, _sig: int) -> None:
         raise ProcessLookupError
 
-    monkeypatch.setattr(mermaid_module.os, "killpg", gone, raising=False)
+    monkeypatch.setattr(plantuml_module.os, "killpg", gone, raising=False)
     process = _KillableProcess()
 
     _terminate_process_tree(process, None)
@@ -759,12 +1027,12 @@ def test_terminate_process_tree_posix_killpg_raises_process_lookup(
 def test_terminate_process_tree_posix_falls_back_to_process_kill(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
 
     def fail(_pid: int, _sig: int) -> None:
         raise OSError("killpg gagal")
 
-    monkeypatch.setattr(mermaid_module.os, "killpg", fail, raising=False)
+    monkeypatch.setattr(plantuml_module.os, "killpg", fail, raising=False)
     process = _KillableProcess()
 
     _terminate_process_tree(process, None)
@@ -775,8 +1043,8 @@ def test_terminate_process_tree_posix_falls_back_to_process_kill(
 def test_terminate_process_tree_ignores_process_kill_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
-    monkeypatch.delattr(mermaid_module.os, "killpg", raising=False)
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
+    monkeypatch.delattr(plantuml_module.os, "killpg", raising=False)
 
     class KillFailProcess:
         pid = 4321
@@ -799,16 +1067,16 @@ def test_run_captured_closes_job_when_spawn_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     closed: list[int | None] = []
-    monkeypatch.setattr(mermaid_module, "_create_windows_job", lambda: 7)
+    monkeypatch.setattr(plantuml_module, "_create_windows_job", lambda: 7)
 
     def fail_spawn(_command: list[str]) -> None:
         raise OSError("spawn gagal disengaja")
 
-    monkeypatch.setattr(mermaid_module, "_spawn_captured", fail_spawn)
-    monkeypatch.setattr(mermaid_module, "_close_windows_job", closed.append)
+    monkeypatch.setattr(plantuml_module, "_spawn_captured", fail_spawn)
+    monkeypatch.setattr(plantuml_module, "_close_windows_job", closed.append)
 
     with pytest.raises(OSError, match="spawn gagal"):
-        _run_captured(["mmdc"], timeout=1)
+        _run_captured(["plantuml"], timeout=1)
 
     assert closed == [7]
 
@@ -831,12 +1099,12 @@ def test_run_captured_closes_job_when_assignment_fails(
 ) -> None:
     closed: list[int | None] = []
     process = _FakeProcess()
-    monkeypatch.setattr(mermaid_module, "_create_windows_job", lambda: 11)
-    monkeypatch.setattr(mermaid_module, "_spawn_captured", lambda _command: process)
-    monkeypatch.setattr(mermaid_module, "_assign_process_to_job", lambda _job, _pid: False)
-    monkeypatch.setattr(mermaid_module, "_close_windows_job", closed.append)
+    monkeypatch.setattr(plantuml_module, "_create_windows_job", lambda: 11)
+    monkeypatch.setattr(plantuml_module, "_spawn_captured", lambda _command: process)
+    monkeypatch.setattr(plantuml_module, "_assign_process_to_job", lambda _job, _pid: False)
+    monkeypatch.setattr(plantuml_module, "_close_windows_job", closed.append)
 
-    result = _run_captured(["mmdc"], timeout=1)
+    result = _run_captured(["plantuml"], timeout=1)
 
     assert result.returncode == 0
     assert closed == [11, None]
@@ -852,13 +1120,13 @@ def test_spawn_captured_uses_posix_session(
             recorded["command"] = command
             recorded["kwargs"] = kwargs
 
-    monkeypatch.setattr(mermaid_module.subprocess, "Popen", FakePopen)
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
+    monkeypatch.setattr(plantuml_module.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
 
-    process = _spawn_captured(["mmdc"])
+    process = _spawn_captured(["plantuml"])
 
     assert isinstance(process, FakePopen)
-    assert recorded["command"] == ["mmdc"]
+    assert recorded["command"] == ["plantuml"]
     assert recorded["kwargs"]["start_new_session"] is True
     assert "creationflags" not in recorded["kwargs"]
 
@@ -889,7 +1157,7 @@ def _fake_kernel(**results: int) -> SimpleNamespace:
 def test_create_windows_job_returns_none_off_windows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mermaid_module.os, "name", "posix")
+    monkeypatch.setattr(plantuml_module.os, "name", "posix")
 
     assert _create_windows_job() is None
 
@@ -898,8 +1166,8 @@ def test_create_windows_job_returns_none_when_creation_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(create=0)
-    monkeypatch.setattr(mermaid_module.os, "name", "nt")
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
     assert _create_windows_job() is None
     assert kernel.CloseHandle.calls == []
@@ -909,8 +1177,8 @@ def test_create_windows_job_closes_handle_when_configuration_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(configure=0)
-    monkeypatch.setattr(mermaid_module.os, "name", "nt")
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
     assert _create_windows_job() is None
     assert kernel.CloseHandle.calls == [((1,), {})]
@@ -920,8 +1188,8 @@ def test_create_windows_job_returns_handle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(configure=1)
-    monkeypatch.setattr(mermaid_module.os, "name", "nt")
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module.os, "name", "nt")
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
     assert _create_windows_job() == 1
 
@@ -930,7 +1198,7 @@ def test_close_windows_job_ignores_none_and_closes_handle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel()
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
     _close_windows_job(None)
     assert kernel.CloseHandle.calls == []
@@ -943,18 +1211,18 @@ def test_assign_process_to_job_reports_missing_process(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(open=0)
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
-    assert mermaid_module._assign_process_to_job(1, 2) is False
+    assert plantuml_module._assign_process_to_job(1, 2) is False
 
 
 def test_assign_process_to_job_closes_handle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(open=2, assign=1)
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
 
-    assert mermaid_module._assign_process_to_job(1, 2) is True
+    assert plantuml_module._assign_process_to_job(1, 2) is True
     assert kernel.CloseHandle.calls == [((2,), {})]
 
 
@@ -962,18 +1230,18 @@ def test_terminate_windows_job_returns_success_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     kernel = _fake_kernel(terminate=1)
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
-    assert mermaid_module._terminate_windows_job(1) is True
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
+    assert plantuml_module._terminate_windows_job(1) is True
 
     kernel = _fake_kernel(terminate=0)
-    monkeypatch.setattr(mermaid_module, "_kernel32", lambda: kernel)
-    assert mermaid_module._terminate_windows_job(1) is False
+    monkeypatch.setattr(plantuml_module, "_kernel32", lambda: kernel)
+    assert plantuml_module._terminate_windows_job(1) is False
 
 
 def test_taskkill_tree_requires_systemroot(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[object] = []
     monkeypatch.delenv("SYSTEMROOT", raising=False)
-    monkeypatch.setattr(mermaid_module.subprocess, "run", calls.append)
+    monkeypatch.setattr(plantuml_module.subprocess, "run", calls.append)
 
     _taskkill_tree(1234)
 
@@ -986,7 +1254,7 @@ def test_taskkill_tree_ignores_missing_executable(
 ) -> None:
     calls: list[object] = []
     monkeypatch.setenv("SYSTEMROOT", str(tmp_path / "Windows"))
-    monkeypatch.setattr(mermaid_module.subprocess, "run", calls.append)
+    monkeypatch.setattr(plantuml_module.subprocess, "run", calls.append)
 
     _taskkill_tree(1234)
 
@@ -1008,7 +1276,7 @@ def test_taskkill_tree_uses_absolute_executable(
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setenv("SYSTEMROOT", str(system_root))
-    monkeypatch.setattr(mermaid_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(plantuml_module.subprocess, "run", fake_run)
 
     _taskkill_tree(4321)
 
@@ -1018,7 +1286,7 @@ def test_taskkill_tree_uses_absolute_executable(
             {
                 "stdin": subprocess.DEVNULL,
                 "capture_output": True,
-                "timeout": mermaid_module.TERMINATE_WAIT_TIMEOUT,
+                "timeout": plantuml_module.TERMINATE_WAIT_TIMEOUT,
                 "check": False,
             },
         )
@@ -1035,7 +1303,6 @@ def test_taskkill_tree_ignores_run_errors(
     executable = system_root / "System32" / "taskkill.exe"
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"")
-
     calls: list[tuple[list[str], dict[str, Any]]] = []
 
     def fail_run(command: list[str], **kwargs: Any) -> None:
@@ -1043,7 +1310,7 @@ def test_taskkill_tree_ignores_run_errors(
         raise error
 
     monkeypatch.setenv("SYSTEMROOT", str(system_root))
-    monkeypatch.setattr(mermaid_module.subprocess, "run", fail_run)
+    monkeypatch.setattr(plantuml_module.subprocess, "run", fail_run)
 
     _taskkill_tree(4321)
 
@@ -1053,7 +1320,7 @@ def test_taskkill_tree_ignores_run_errors(
             {
                 "stdin": subprocess.DEVNULL,
                 "capture_output": True,
-                "timeout": mermaid_module.TERMINATE_WAIT_TIMEOUT,
+                "timeout": plantuml_module.TERMINATE_WAIT_TIMEOUT,
                 "check": False,
             },
         )
@@ -1071,9 +1338,9 @@ def test_copy_png_fsync_failure_cleans_temporary_file(
     def fail_fsync(_descriptor: int) -> None:
         raise OSError("fsync gagal")
 
-    monkeypatch.setattr(mermaid_module.os, "fsync", fail_fsync)
+    monkeypatch.setattr(plantuml_module.os, "fsync", fail_fsync)
 
-    with pytest.raises(MermaidError, match="Gagal menulis PNG"):
+    with pytest.raises(PlantUmlError, match="Gagal menulis PNG"):
         _copy_png(source, target)
 
     assert not target.exists()
@@ -1091,9 +1358,9 @@ def test_copy_png_fdopen_failure_closes_descriptor(
     def fail_fdopen(*_args: object, **_kwargs: object) -> None:
         raise OSError("fdopen gagal")
 
-    monkeypatch.setattr(mermaid_module.os, "fdopen", fail_fdopen)
+    monkeypatch.setattr(plantuml_module.os, "fdopen", fail_fdopen)
 
-    with pytest.raises(MermaidError, match="Gagal menulis PNG"):
+    with pytest.raises(PlantUmlError, match="Gagal menulis PNG"):
         _copy_png(source, target)
 
     assert not target.exists()
@@ -1109,9 +1376,9 @@ def test_write_atomic_bytes_fsync_failure_cleans_temporary_file(
     def fail_fsync(_descriptor: int) -> None:
         raise OSError("fsync gagal")
 
-    monkeypatch.setattr(mermaid_module.os, "fsync", fail_fsync)
+    monkeypatch.setattr(plantuml_module.os, "fsync", fail_fsync)
 
-    with pytest.raises(MermaidError, match="metadata cache"):
+    with pytest.raises(PlantUmlError, match="metadata cache"):
         _write_atomic_bytes(target, b"{}")
 
     assert not target.exists()
@@ -1127,44 +1394,365 @@ def test_write_atomic_bytes_fdopen_failure_closes_descriptor(
     def fail_fdopen(*_args: object, **_kwargs: object) -> None:
         raise OSError("fdopen gagal")
 
-    monkeypatch.setattr(mermaid_module.os, "fdopen", fail_fdopen)
+    monkeypatch.setattr(plantuml_module.os, "fdopen", fail_fdopen)
 
-    with pytest.raises(MermaidError, match="metadata cache"):
+    with pytest.raises(PlantUmlError, match="metadata cache"):
         _write_atomic_bytes(target, b"{}")
 
     assert not target.exists()
     assert list(tmp_path.glob(".*.tmp")) == []
 
 
-def test_render_mermaid_writes_cache_sidecar(
+def test_render_plantuml_writes_cache_sidecar(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     theme,
 ) -> None:
-    script = tmp_path / "fake_mmdc.py"
-    script.write_text(
-        "import base64, pathlib, sys\n"
-        "arguments = sys.argv[1:]\n"
-        "if arguments == ['--version']:\n"
-        "    print('12.2.0')\n"
-        "    raise SystemExit(0)\n"
-        "target = pathlib.Path(arguments[arguments.index('-o') + 1])\n"
-        "target.write_bytes(base64.b64decode(\n"
-        "    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'\n"
-        "    '+A8AAQUBAScY42YAAAAASUVORK5CYII='\n"
-        "))\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    monkeypatch.setenv(mermaid_module.MMDC_ENV_VAR, str(script))
-    source = tmp_path / "flow.mmd"
-    source.write_text("flowchart TD\n", encoding="utf-8")
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
     cache = tmp_path / "cache"
 
-    render_mermaid(source, tmp_path / "flow.png", theme=theme, cache_dir=cache)
+    render_plantuml(source, tmp_path / "flow.png", theme=theme, cache_dir=cache)
 
-    sidecars = list(cache.glob("mermaid-*.json"))
+    sidecars = list(cache.glob("plantuml-*.json"))
     assert len(sidecars) == 1
     payload = _read_cache_metadata(sidecars[0])
     assert payload is not None
     assert payload["format"] == CACHE_FORMAT
+    assert payload["digest"] == sidecars[0].stem.removeprefix("plantuml-")
+    assert payload["plantuml_version"] == "1.2026.10"
+    assert payload["options"] == _render_options(theme.colors.background)
+
+
+def test_secure_flag_blocks_include_directive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(
+        tmp_path,
+        text="@startuml\n!include https://example.com/rahasia.puml\n@enduml\n",
+    )
+    out = tmp_path / "flow.png"
+    cache = tmp_path / "cache"
+
+    with pytest.raises(PlantUmlError, match="SecurityException") as error:
+        render_plantuml(source, out, theme=theme, cache_dir=cache)
+
+    assert error.value.code == "PLANTUML-RENDER"
+    assert not out.exists()
+    assert list(cache.glob("plantuml-*.png")) == []
+    assert list(cache.glob("plantuml-*.json")) == []
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("source_sha256", "b" * 64),
+        ("theme", {"name": "palsu"}),
+        ("options", None),
+        ("format", CACHE_FORMAT + 1),
+    ],
+)
+def test_tampered_cache_metadata_is_ignored_without_tool(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+    key: str,
+    value: object,
+) -> None:
+    script = install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    cache = tmp_path / "cache"
+    render_plantuml(source, tmp_path / "first.png", theme=theme, cache_dir=cache)
+    sidecar = next(cache.glob("plantuml-*.json"))
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    payload[key] = value
+    sidecar.write_text(json.dumps(payload), encoding="utf-8")
+    script.unlink()
+    monkeypatch.delenv(PLANTUML_ENV_VAR, raising=False)
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+    out = tmp_path / "second.png"
+
+    with pytest.raises(PlantUmlError, match="tidak ditemukan"):
+        render_plantuml(source, out, theme=theme, cache_dir=cache)
+
+    assert not out.exists()
+
+
+def test_cache_metadata_tampering_does_not_copy_other_png(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    script = install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    other = write_source(tmp_path, "other.puml", "@startuml\nA -> C\n@enduml\n")
+    cache = tmp_path / "cache"
+    render_plantuml(other, tmp_path / "other.png", theme=theme, cache_dir=cache)
+    render_plantuml(source, tmp_path / "first.png", theme=theme, cache_dir=cache)
+    digest = plantuml_module.cache_digest(
+        source,
+        theme=theme,
+        plantuml_version="1.2026.10",
+    )
+    source_sidecar = cache / f"plantuml-{digest}.json"
+    payload = json.loads(source_sidecar.read_text(encoding="utf-8"))
+    payload["source_sha256"] = "c" * 64
+    source_sidecar.write_text(json.dumps(payload), encoding="utf-8")
+    script.unlink()
+    monkeypatch.delenv(PLANTUML_ENV_VAR, raising=False)
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+
+    with pytest.raises(PlantUmlError, match="tidak ditemukan"):
+        render_plantuml(source, tmp_path / "second.png", theme=theme, cache_dir=cache)
+
+    assert not (tmp_path / "second.png").exists()
+
+
+def test_copy_png_ignores_predictable_stale_temp_symlink(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(PNG_1X1)
+    target = tmp_path / "out" / "target.png"
+    target.parent.mkdir()
+    sentinel = tmp_path / "sentinel.txt"
+    sentinel.write_text("jangan diubah", encoding="utf-8")
+    stale = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    try:
+        stale.symlink_to(sentinel)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    _copy_png(source, target)
+
+    assert sentinel.read_text(encoding="utf-8") == "jangan diubah"
+    assert target.read_bytes() == PNG_1X1
+    assert stale.is_symlink()
+
+
+def test_render_rejects_cache_symlink_to_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    target = tmp_path / "cache-target"
+    target.write_text("bukan folder", encoding="utf-8")
+    cache = tmp_path / "cache"
+    try:
+        cache.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    with pytest.raises(PlantUmlError, match="bukan direktori") as error:
+        render_plantuml(source, tmp_path / "flow.png", theme=theme, cache_dir=cache)
+
+    assert error.value.code == "PLANTUML-CACHE"
+
+
+def test_render_rejects_dangling_cache_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    cache = tmp_path / "cache"
+    try:
+        cache.symlink_to(tmp_path / "hilang", target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    with pytest.raises(PlantUmlError, match="Gagal menyiapkan cache") as error:
+        render_plantuml(source, tmp_path / "flow.png", theme=theme, cache_dir=cache)
+
+    assert error.value.code == "PLANTUML-CACHE"
+
+
+def test_render_rejects_output_symlink_to_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    directory = tmp_path / "outside-dir"
+    directory.mkdir()
+    out = tmp_path / "flow.png"
+    try:
+        out.symlink_to(directory, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    with pytest.raises(PlantUmlError, match="berupa file") as error:
+        render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+
+    assert error.value.code == "PLANTUML-OUTPUT"
+
+
+def test_render_does_not_follow_output_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    sentinel = tmp_path / "sentinel.png"
+    sentinel.write_bytes(b"jangan ditimpa")
+    out = tmp_path / "flow.png"
+    try:
+        out.symlink_to(sentinel)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+
+    assert sentinel.read_bytes() == b"jangan ditimpa"
+    assert not out.is_symlink()
+    assert out.read_bytes() == PNG_1X1
+
+
+def test_cache_entry_symlink_is_replaced_without_touching_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    install_fake_plantuml(tmp_path, monkeypatch)
+    source = write_source(tmp_path)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    sentinel = tmp_path / "sentinel.bin"
+    sentinel.write_bytes(b"bukan png")
+    digest = plantuml_module.cache_digest(
+        source,
+        theme=theme,
+        plantuml_version="1.2026.10",
+    )
+    cache_path = cache / f"plantuml-{digest}.png"
+    try:
+        cache_path.symlink_to(sentinel)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    out = tmp_path / "flow.png"
+    render_plantuml(source, out, theme=theme, cache_dir=cache)
+
+    assert sentinel.read_bytes() == b"bukan png"
+    assert not cache_path.is_symlink()
+    assert cache_path.read_bytes() == PNG_1X1
+    assert out.read_bytes() == PNG_1X1
+
+
+def test_cache_metadata_symlink_is_removed_without_touching_target(
+    tmp_path: Path,
+    theme,
+) -> None:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    sentinel = tmp_path / "sentinel.json"
+    sentinel.write_text("{", encoding="utf-8")
+    metadata = cache / "plantuml-abc.json"
+    try:
+        metadata.symlink_to(sentinel)
+    except OSError as error:
+        pytest.skip(f"symlink tidak didukung: {error}")
+
+    result = _find_cached_png(
+        cache,
+        source_hash="a" * 64,
+        theme_fingerprint=_theme_fingerprint(theme),
+        background=theme.colors.background,
+    )
+
+    assert result is None
+    assert not metadata.exists()
+    assert sentinel.read_text(encoding="utf-8") == "{"
+
+
+TREE_PLANTUML = """\
+import os
+import pathlib
+import subprocess
+import sys
+import time
+
+if "--version" in sys.argv:
+    print("PlantUML version 1.2026.10 (test)")
+    raise SystemExit(0)
+
+child_code = (
+    "import os, pathlib, time; "
+    "pathlib.Path(os.environ['FAKE_PLANTUML_CHILD_READY']).write_text('siap'); "
+    "time.sleep(60)"
+)
+child = subprocess.Popen([sys.executable, "-c", child_code])
+pathlib.Path(os.environ["FAKE_PLANTUML_CHILD_PID"]).write_text(
+    str(child.pid), encoding="utf-8"
+)
+time.sleep(60)
+"""
+
+
+def process_running(pid: int) -> bool:
+    """True bila proses masih hidup, tanpa mengirim sinyal mematikan."""
+    if os.name == "nt":
+        import ctypes
+
+        synchronize = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
+        if not handle:
+            return False
+        try:
+            return ctypes.windll.kernel32.WaitForSingleObject(handle, 0) == 0x00000102
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def wait_for_process_exit(pid: int, *, timeout: float = 10.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not process_running(pid):
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_timeout_terminates_child_process_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    theme,
+) -> None:
+    script = tmp_path / "tree_plantuml.py"
+    script.write_text(TREE_PLANTUML, encoding="utf-8", newline="\n")
+    pid_file = tmp_path / "child.pid"
+    ready_file = tmp_path / "child.ready"
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(script))
+    monkeypatch.setenv("FAKE_PLANTUML_CHILD_PID", str(pid_file))
+    monkeypatch.setenv("FAKE_PLANTUML_CHILD_READY", str(ready_file))
+    monkeypatch.setattr(plantuml_module, "DEFAULT_TIMEOUT", 2.0)
+    source = write_source(tmp_path)
+    out = tmp_path / "flow.png"
+
+    with pytest.raises(PlantUmlError, match="melebihi batas waktu"):
+        render_plantuml(source, out, theme=theme, cache_dir=tmp_path / "cache")
+
+    assert pid_file.exists()
+    assert ready_file.exists()
+    child_pid = int(pid_file.read_text(encoding="utf-8"))
+    assert wait_for_process_exit(child_pid), f"child process {child_pid} masih hidup"
+    assert not out.exists()

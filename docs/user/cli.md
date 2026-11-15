@@ -90,13 +90,17 @@ tidak tersedia menghasilkan kode keluar nonzero.
 - `.yaml`: schema, compiler, coverage plan, layout/overflow, copy checker, dan
   transcript validation bila modul dan berkasnya tersedia.
 
-`autooffice doctor` memeriksa Python, Pandoc, `mmdc`, integritas aset font
+`autooffice doctor` memeriksa Python, Pandoc, PlantUML, integritas aset font
 pengukuran Liberation Sans, extra Google, kredensial OAuth lokal, dan izin
 tulis workspace tanpa jaringan. Tambahkan `--json` untuk keluaran mesin yang
 deterministik. `doctor` tetap berjalan tanpa extra `google`; pemeriksaan
 Google dilaporkan belum terpasang dan pemeriksaan lain tetap dijalankan.
 Target `slides` mewajibkan token Google. Tidak ada pemeriksaan Word,
 PowerPoint, COM, atau `pywin32`.
+
+Pemeriksaan `plantuml` melaporkan path dan versi engine. Diagram memerlukan
+Java 21 dan PlantUML 1.2026.10 atau lebih baru; rinciannya ada di
+[plantuml.md](plantuml.md).
 
 ## Font PPTX
 

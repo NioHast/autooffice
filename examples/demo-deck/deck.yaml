@@ -489,7 +489,7 @@ slides:
         text: "Alur cuti dari formulir sampai keputusan atasan."
       - id: diagram1
         type: diagram
-        source: "diagrams/01-flowchart.mmd"
+        source: "diagrams/01-flowchart.puml"
         alt: "Diagram alur pengajuan cuti dari mulai sampai selesai"
         caption: "Gambar 1. Flowchart pengajuan cuti."
 
@@ -664,7 +664,7 @@ slides:
         text: "Percakapan antarkomponen saat pengguna masuk."
       - id: diagram1
         type: diagram
-        source: "diagrams/05-sequence.mmd"
+        source: "diagrams/05-sequence.puml"
         alt: "Diagram sequence login pengguna dengan cabang berhasil dan gagal"
         caption: "Gambar 2. Sequence login pengguna."
 

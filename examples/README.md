@@ -14,7 +14,7 @@ gambar, dan `references.bib` berada dalam satu direktori.
 | Front matter dari dokumen | - | kata pengantar, abstrak ID/EN | - |
 | Tabel | 1 | 2 | 1 |
 | Gambar biasa | - | 1 | - |
-| Diagram Mermaid | 1 | 1 | - |
+| Diagram PlantUML | 1 | 1 | - |
 | Persamaan display | - | 1 | - |
 | Blok kode | - | 1 | - |
 | Sitasi BibTeX | 2 kunci | 5 kunci | 5 kunci |
@@ -77,9 +77,9 @@ atau `review/`.
 ## Catatan
 
 - `assignment-single` adalah contoh ringkas tiga bab dengan satu tabel dan
-  satu diagram Mermaid.
+  satu diagram PlantUML.
 - `thesis-single` adalah contoh terlengkap: front matter tesis, lima bab, dua
-  tabel, gambar biasa, Mermaid, persamaan, blok kode, sitasi, dan lampiran.
+  tabel, gambar biasa, PlantUML, persamaan, blok kode, sitasi, dan lampiran.
 - `proposal-single` adalah contoh empat bab dengan daftar isi dan satu tabel.
 
 Rincian format ada di

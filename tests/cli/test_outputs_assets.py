@@ -361,7 +361,7 @@ def test_deck_outputs_rejects_cache_subdir_symlink_outside_deck(
     outside.mkdir()
     cache_root = deck_root / ".autooffice" / "cache"
     cache_root.mkdir(parents=True)
-    _symlink_dir_or_skip(cache_root / "mermaid", outside)
+    _symlink_dir_or_skip(cache_root / "plantuml", outside)
 
     source = deck_root / "deck.yaml"
     source.write_text("schema: autooffice.deck/v1\n", encoding="utf-8")

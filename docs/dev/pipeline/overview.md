@@ -55,8 +55,8 @@ dan stderr. Log tidak memuat seluruh isi dokumen atau data pribadi.
 
 ## Referensi resmi
 
-Label registry yang dipakai halaman ini: `Pandoc manual` dan `Mermaid CLI`.
-URL resminya ada di [registry referensi](../references.md).
+Label registry yang dipakai halaman ini: `Pandoc manual` dan `PlantUML command
+line`. URL resminya ada di [registry referensi](../references.md).
 
 ## Halaman terkait
 

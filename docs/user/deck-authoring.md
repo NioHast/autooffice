@@ -7,6 +7,7 @@ normatifnya ada di [skema deck](../contracts/deck-schema.md),
 [spesifikasi block](../contracts/block-spec.md),
 [spesifikasi layout](../contracts/layout-spec.md),
 [kontrak chart](../contracts/chart-contract.md),
+[kontrak PlantUML](../contracts/plantuml.md),
 [kontrak copy](../contracts/copy.md), dan
 [kontrak transcript](../contracts/transcript.md).
 
@@ -40,7 +41,7 @@ contoh-deck/
 |-- copy.yaml          # opsional
 |-- transcripts.md     # opsional
 |-- assets/            # gambar
-`-- diagrams/          # berkas .mmd
+`-- diagrams/          # berkas .puml
 ```
 
 Bentuk minimal:
@@ -143,7 +144,7 @@ di preset.
 | `background` | Konteks atau latar keputusan | `title`, `point1` sampai `point3` (`text`) | `kicker`, `lead` |
 | `flow` | Empat langkah proses | `title`, `step1` sampai `step4` (`text`; `heading` untuk nomor langkah) | `lead` |
 | `code` | Contoh kode dan catatan | `title`, `code1` (`code`) | `lead`, `note` |
-| `diagram` | Diagram Mermaid | `title`, `diagram1` (`diagram`) | `subtitle` |
+| `diagram` | Diagram PlantUML | `title`, `diagram1` (`diagram`) | `subtitle` |
 | `image-split` | Gambar di samping teks | `title`, `body` (`text`), `image1` (`image`) | `lead` |
 | `image-full` | Gambar besar dengan teks pendukung | `title`, `image1` (`image`) | `subtitle`, `credit` |
 | `image-grid` | Tiga gambar dalam grid | `title`, `image1` sampai `image3` (`image`) | `lead` |
@@ -287,16 +288,16 @@ besar dengan title serta credit dari slot, bukan koordinat author. Contoh demo:
 ```yaml
 - id: diagram1
   type: diagram
-  source: "diagrams/01-flowchart.mmd"
+  source: "diagrams/01-flowchart.puml"
   alt: "Diagram alur pengajuan cuti"
   caption: "Gambar 1. Flowchart pengajuan cuti."
 ```
 
-Satu block menunjuk tepat satu berkas `.mmd`. Diagram dirender oleh `mmdc`
+Satu block menunjuk tepat satu berkas `.puml`. Diagram dirender oleh PlantUML
 menjadi PNG; tidak ada node atau edge native di PPTX maupun Google Slides.
-`check` memvalidasi path dan alt tanpa menjalankan `mmdc`; `build` memerlukan
-`mmdc` di `PATH` atau `AUTOOFFICE_MMDC`. Lihat juga
-[Panduan Mermaid](mermaid.md). Contoh demo: `s15` dan `s21`.
+`check` memvalidasi path, ekstensi, dan alt tanpa menjalankan PlantUML; `build`
+memerlukan PlantUML 1.2026.10 dengan Java 21 dari `AUTOOFFICE_PLANTUML`. Lihat
+juga [Panduan PlantUML](plantuml.md). Contoh demo: `s15` dan `s21`.
 
 ## source dan notes
 
@@ -455,7 +456,7 @@ Rincian target, flag, dan kode keluar ada di [CLI AutoOffice](cli.md).
 | Baris tabel ditolak | Jumlah sel tidak sama dengan kolom | Samakan panjang setiap baris. |
 | Transkrip gagal | Slide hilang, duplikat, atau asing | Tulis tepat satu bagian per slide dengan ID yang cocok. |
 | Copy checker error | Rule error atau frasa terlarang | Perbaiki naskah atau tambahkan `allow` dengan alasan. |
-| `mmdc` gagal | Tool tidak ada atau render error | Jalankan `autooffice doctor` lalu pasang `mmdc`; lihat [troubleshooting](troubleshooting.md). |
+| PlantUML gagal | Engine tidak ada, versi lama, atau render error | Jalankan `autooffice doctor`, periksa `AUTOOFFICE_PLANTUML` dan Java 21; lihat [troubleshooting](troubleshooting.md). |
 
 Bila `check` dan `build` berbeda hasilnya, jalankan `--dry-run` untuk melihat
 tahap yang gagal. Jangan mengakali gate dengan menghapus `alt`, memakai gambar

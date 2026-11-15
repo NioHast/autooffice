@@ -19,6 +19,17 @@ stage, path, dan cause.
 Modul rekonsiliasi Adeu internal memakai kode tambahan 3 dan 4 bila dipanggil
 langsung, tetapi kode itu bukan bagian permukaan CLI AutoOffice v1.
 
+## Error PlantUML
+
+Kegagalan input, engine, atau render diagram memakai kode berprefix
+`PLANTUML-`. Build berhenti tanpa menulis PNG parsial; pesan menyebut path
+sumber dan tindakan yang diperlukan, misalnya memasang PlantUML 1.2026.10 atau
+lebih baru dan Java 21 atau mengatur `AUTOOFFICE_PLANTUML`. Kode yang umum
+muncul adalah `PLANTUML-INPUT`, `PLANTUML-SOURCE`, `PLANTUML-TOOL`,
+`PLANTUML-JAVA`, `PLANTUML-VERSION`, `PLANTUML-RENDER`, dan
+`PLANTUML-OUTPUT`. Daftar lengkap ada di
+[kontrak PlantUML](../../contracts/plantuml.md).
+
 ## Halaman terkait
 
 - [overview.md](overview.md) untuk alur eksekusi.
