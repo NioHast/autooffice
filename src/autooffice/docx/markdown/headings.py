@@ -1,47 +1,32 @@
-"""Penomoran heading Markdown sebelum Pandoc.
+"""Persiapan heading Markdown sebelum Pandoc dengan numbering native.
 
-Modul ini menghasilkan heading Markdown bernomor tanpa bergantung pada Pandoc.
-Semua fungsi bersifat murni: menerima teks Markdown dan mengembalikan teks
-Markdown, atau menerima level/judul dan mengembalikan nomor. Tidak ada akses
-ZIP, XML, atau package.
+Nomor heading tidak lagi ditulis ke Markdown. Nomor dihasilkan Word dari
+``w:numPr`` pada style ``Heading1``..``Heading3`` (lihat
+``package/native_numbering.py``). Modul ini hanya:
 
-Nomor yang ditulis ke Markdown memakai raw inline OpenXML untuk line break dan
-tab, sehingga Pandoc menghasilkan ``w:br``/``w:tab``:
+- meng-uppercase judul H1 yang bernomor (perilaku tampilan lama);
+- menyisipkan raw inline ``<w:br/>`` sebelum judul H1 ``BAB_ROMAN`` agar
+  label ``BAB N`` dan judul tetap dua baris seperti baseline;
+- membiarkan H2-H6 dan heading ``unnumbered`` apa adanya.
 
-- H1 ``BAB_ROMAN``: ``BAB I`` + line break + judul kapital.
-- H1 ``ARABIC_DOTTED``: ``1.`` + spasi + judul kapital.
-- H2: ``1.1.`` + tab + judul.
-- H3: ``1.1.1.`` + tab + judul.
-- H4-H6 dan heading berkelas ``unnumbered`` tidak dinomori dan tidak
-  mengubah counter.
+Tidak ada akses ZIP, XML, atau package. Semua fungsi murni menerima dan
+mengembalikan teks Markdown.
 """
 
 import math
 import re
 from dataclasses import dataclass
-from typing import Literal
-
-from ..errors import DocgenError
 
 __all__ = [
-    "Heading",
-    "HeadingNumberer",
     "MarkdownHeading",
-    "MarkdownHeadingError",
-    "NumberingSpec",
     "balance_title",
-    "format_chapter_number",
+    "finalize_markdown_headings",
     "heading_level",
     "is_unnumbered",
-    "number_markdown",
-    "number_markdown_headings",
     "parse_heading",
-    "render_heading",
-    "roman",
     "uppercase_markdown",
 ]
 
-NumberingBody = Literal["BAB_ROMAN", "ARABIC_DOTTED"]
 _SUPPORTED_BODY = frozenset({"BAB_ROMAN", "ARABIC_DOTTED"})
 
 _HEADING_RE = re.compile(r"^(?P<indent> {0,3})(?P<hashes>#{1,6})(?P<space>[ \t]+)(?P<body>.*)$")
@@ -52,62 +37,8 @@ _LINK_RE = re.compile(r"(?P<open>!?\[)(?P<label>[^\]]*)(?P<close>\]\([^)]*\))")
 _CODE_SPAN_RE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)")
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 
-# Raw inline OpenXML yang menjadi ``w:br``/``w:tab`` setelah Pandoc.
+# Raw inline OpenXML yang menjadi ``w:br`` setelah Pandoc.
 LINE_BREAK = "`<w:br/>`{=openxml}"
-TAB = "`<w:tab/>`{=openxml}"
-
-_ROMAN_MAP = (
-    (1000, "M"),
-    (900, "CM"),
-    (500, "D"),
-    (400, "CD"),
-    (100, "C"),
-    (90, "XC"),
-    (50, "L"),
-    (40, "XL"),
-    (10, "X"),
-    (9, "IX"),
-    (5, "V"),
-    (4, "IV"),
-    (1, "I"),
-)
-
-
-class MarkdownHeadingError(DocgenError):
-    """Level, atribut, atau format nomor heading Markdown tidak valid."""
-
-    default_code = "HEADING"
-
-
-@dataclass(frozen=True, slots=True)
-class NumberingSpec:
-    """Spesifikasi penomoran dari ``structure.numbering``."""
-
-    body: NumberingBody = "BAB_ROMAN"
-    sub_dot: bool = True
-    subsub_dot: bool = True
-
-    def __post_init__(self) -> None:
-        if self.body not in _SUPPORTED_BODY:
-            raise MarkdownHeadingError(
-                f"format penomoran body tidak dikenal: {self.body!r}",
-                code="HEADING-SPEC",
-                key="numbering.body",
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class Heading:
-    """Hasil penomoran satu heading."""
-
-    level: int
-    text: str
-    number: str | None
-    unnumbered: bool
-
-    @property
-    def numbered(self) -> bool:
-        return self.number is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,91 +51,6 @@ class MarkdownHeading:
     indent: str
     unnumbered: bool
     raw: str
-
-
-def roman(value: int) -> str:
-    """Ubah bilangan bulat positif menjadi angka Romawi kapital."""
-
-    if value <= 0:
-        return ""
-    remaining = value
-    out: list[str] = []
-    for number, symbol in _ROMAN_MAP:
-        while remaining >= number:
-            out.append(symbol)
-            remaining -= number
-    return "".join(out)
-
-
-def format_chapter_number(value: int, spec: NumberingSpec) -> str:
-    """Nomor H1 lengkap: ``BAB I`` atau ``1.``."""
-
-    if value <= 0:
-        raise MarkdownHeadingError(
-            f"nomor bab harus positif, bukan {value}",
-            code="HEADING-NUMBER",
-        )
-    if spec.body == "ARABIC_DOTTED":
-        return f"{value}."
-    return f"BAB {roman(value)}"
-
-
-class HeadingNumberer:
-    """State machine penomoran H1/H2/H3.
-
-    Heading H2 sebelum H1 memakai bab implisit 1 sehingga tidak pernah
-    menghasilkan ``0.1.``. Heading H1 unnumbered tidak mereset counter: H2
-    setelahnya melanjutkan nomor subbab bab terakhir.
-    """
-
-    def __init__(self, spec: NumberingSpec | None = None) -> None:
-        self.spec = spec or NumberingSpec()
-        self.chapter = 0
-        self.sub = 0
-        self.subsub = 0
-
-    def reset(self) -> None:
-        self.chapter = 0
-        self.sub = 0
-        self.subsub = 0
-
-    def number(
-        self,
-        level: int,
-        text: str,
-        *,
-        unnumbered: bool = False,
-    ) -> Heading:
-        """Kembalikan heading bernomor tanpa mengubah teks aslinya."""
-
-        if level not in {1, 2, 3}:
-            return Heading(level=level, text=text, number=None, unnumbered=unnumbered)
-        if unnumbered:
-            # Jangan reset counter: heading unnumbered bukan batas bab.
-            return Heading(level=level, text=text, number=None, unnumbered=True)
-
-        if level == 1:
-            self.chapter += 1
-            self.sub = 0
-            self.subsub = 0
-            number = format_chapter_number(self.chapter, self.spec)
-        elif level == 2:
-            chapter = self.chapter or 1
-            self.sub += 1
-            self.subsub = 0
-            suffix = "." if self.spec.sub_dot else ""
-            number = f"{chapter}.{self.sub}{suffix}"
-        else:
-            chapter = self.chapter or 1
-            if self.sub == 0:
-                # H3 sebelum H2: pakai subbab implisit 1, bukan 0.
-                self.sub = 1
-                self.subsub = 0
-            self.subsub += 1
-            suffix = "." if self.spec.subsub_dot else ""
-            number = f"{chapter}.{self.sub}.{self.subsub}{suffix}"
-
-        return Heading(level=level, text=text, number=number, unnumbered=False)
 
 
 def _protect_inline(text: str) -> tuple[str, list[str]]:
@@ -293,23 +139,6 @@ def is_unnumbered(line: str) -> bool:
     return bool(parsed is not None and parsed.unnumbered)
 
 
-def render_heading(heading: Heading, spec: NumberingSpec | None = None) -> str:
-    """Render isi heading (tanpa ``#`` dan atribut) dari hasil nomor."""
-
-    spec = spec or NumberingSpec()
-    if heading.number is None or not heading.text:
-        return heading.text
-    if heading.level == 1:
-        if spec.body == "BAB_ROMAN":
-            return f"{heading.number}{LINE_BREAK}{uppercase_markdown(heading.text)}"
-        return f"{heading.number} {uppercase_markdown(heading.text)}"
-    if heading.level == 2:
-        return f"{heading.number}{TAB}{heading.text}"
-    if heading.level == 3:
-        return f"{heading.number}{TAB}{heading.text}"
-    return heading.text
-
-
 def _strip_line_ending(line: str) -> tuple[str, str]:
     content = line.rstrip("\r\n")
     return content, line[len(content) :]
@@ -328,18 +157,24 @@ def _fence_closing(line: str, character: str, length: int) -> bool:
     return pattern.match(line) is not None
 
 
-def number_markdown_headings(
-    markdown: str,
-    spec: NumberingSpec | None = None,
-) -> str:
-    """Nomori seluruh heading ATX di ``markdown`` dan kembalikan teks baru.
+def _render_numbered_h1(text: str, body: str) -> str:
+    upper = uppercase_markdown(text)
+    if body == "BAB_ROMAN":
+        return f"{LINE_BREAK}{upper}"
+    return upper
 
-    Fenced code block dilewati agar contoh Markdown di dalam dokumen tidak
-    ikut berubah. Atribut heading (``{#id}``, ``{-}``) dipertahankan.
+
+def finalize_markdown_headings(markdown: str, *, body: str = "BAB_ROMAN") -> str:
+    """Siapkan heading Markdown untuk numbering native Word.
+
+    H1 bernomor di-uppercase; ``BAB_ROMAN`` juga mendapat raw inline
+    ``<w:br/>`` sebelum judul. H2-H6 dan heading ``unnumbered`` tidak diubah,
+    termasuk atributnya. Fenced code block dilewati.
     """
 
-    spec = spec or NumberingSpec()
-    numberer = HeadingNumberer(spec)
+    if body not in _SUPPORTED_BODY:
+        raise ValueError(f"format penomoran body tidak dikenal: {body!r}")
+
     output: list[str] = []
     fence_character: str | None = None
     fence_length = 0
@@ -361,27 +196,20 @@ def number_markdown_headings(
             continue
 
         parsed = parse_heading(content)
-        if parsed is None or not parsed.text:
+        if parsed is None or not parsed.text or parsed.level != 1 or parsed.unnumbered:
             output.append(line)
             continue
 
-        heading = numberer.number(
-            parsed.level,
-            parsed.text,
-            unnumbered=parsed.unnumbered,
-        )
-        rendered = render_heading(heading, spec)
-        if rendered == parsed.text:
-            output.append(line)
-            continue
+        rendered = _render_numbered_h1(parsed.text, body)
         attributes = f" {parsed.attributes}" if parsed.attributes else ""
-        output.append(f"{parsed.indent}{'#' * parsed.level} {rendered}{attributes}{ending}")
+        output.append(f"{parsed.indent}# {rendered}{attributes}{ending}")
 
     return "".join(output)
 
 
-# Alias yang lebih pendek untuk pemakaian stage.
-number_markdown = number_markdown_headings
+# ---------------------------------------------------------------------------
+# Pemecahan judul sampul (tidak terkait numbering)
+# ---------------------------------------------------------------------------
 
 
 def _count_words(text: str) -> int:

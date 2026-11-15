@@ -19,7 +19,7 @@ from autooffice.docx.package.layout import (
     iter_body_units,
     normalize_layout,
 )
-from autooffice.docx.package.numbering import chapter_number
+from autooffice.docx.package.numbering import to_roman
 from autooffice.docx.package.paragraphs import heading_level, paragraph_text
 from autooffice.docx.pipeline import BuildOptions, StageName
 from autooffice.docx.stages import blank_lines, equations, normalize, numbering
@@ -539,10 +539,7 @@ def test_helper_layout_field_bold_and_chapter() -> None:
     assert has_bold_field(paragraph._p)
     assert is_exempt(paragraph._p) is False
 
-    assert chapter_number("BAB IV TINJAUAN") == 4
-    assert chapter_number("BAB 2 Pendahuluan") == 2
-    assert chapter_number("BAB IX") == 9
-    assert chapter_number("DAFTAR PUSTAKA") is None
+    assert to_roman(4) == "IV"
     assert is_chapter_heading("ChapterTitle") is True
     assert is_chapter_heading("Heading1") is True
     assert is_chapter_heading("Heading2") is False

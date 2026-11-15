@@ -5,7 +5,7 @@ sebelum stage lain bekerja:
 
 - sampul berakhir pada section sendiri;
 - front matter dan body tidak berbagi section;
-- setiap Heading1 ``BAB ...`` dan back matter dimulai pada section baru;
+- setiap Heading1 bernomor dan back matter dimulai pada section baru;
 - seluruh section memakai ukuran halaman dan margin dari ``format.yaml``.
 
 TOC, nomor halaman, dan header/footer bukan tanggung jawab stage ini. Nomor
@@ -13,7 +13,6 @@ heading body diterapkan sebelum section break agar heading bernomor ikut
 terklasifikasi dengan benar.
 """
 
-import re
 import time
 
 from lxml import etree
@@ -23,6 +22,13 @@ from ..package.heading_numbering import (
     HeadingError,
     NumberingSpec,
     apply_heading_numbering,
+    classify_chapters,
+    iter_chapter_candidates,
+)
+from ..package.native_numbering import (
+    NUMBERING_PART,
+    NumberingError,
+    verify_heading_numbering,
 )
 from ..package.package import DOCUMENT_PART, DocumentPackage
 from ..package.page import page_size
@@ -31,7 +37,6 @@ from ..package.paragraphs import (
     document_body,
     heading_level,
     paragraph_style_id,
-    paragraph_text,
 )
 from ..package.sections import (
     SectionError,
@@ -43,15 +48,6 @@ from ..package.sections import (
 )
 from ..package.xml import tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
-
-_CHAPTER_RE = re.compile(
-    r"^(?:BAB\s+(?:[IVXLCDM]+|\d+)(?=\b|\s)|\d+\.(?=\s|$))",
-    re.IGNORECASE,
-)
-_BACK_MATTER_RE = re.compile(
-    r"^(?:DAFTAR\s+PUSTAKA|DAFTAR\s+RUJUKAN|LAMPIRAN|BIBLIOGRAFI)\b",
-    re.IGNORECASE,
-)
 
 
 class SectionsError(SectionError):
@@ -88,21 +84,28 @@ def _first_heading_after_cover(package: DocumentPackage) -> etree._Element | Non
     return None
 
 
-def _break_headings(package: DocumentPackage) -> list[etree._Element]:
-    """Heading1 yang wajib menjadi awal section baru."""
+def _break_headings(
+    package: DocumentPackage,
+    body_titles: tuple[str, ...],
+    has_back_matter: bool,
+) -> list[etree._Element]:
+    """Heading yang wajib menjadi awal section baru.
 
-    from ..package.names import W_P
+    Hanya chapter body (dari ``structure.body``) dan back matter yang membuka
+    section; front matter dan heading unnumbered di tengah body tidak. Deteksi
+    memakai :func:`classify_chapters`, bukan nama teks.
+    """
 
-    headings: list[etree._Element] = []
-    for paragraph in body_children(document_body(package)):
-        if paragraph.tag != W_P:
-            continue
-        if heading_level(paragraph) != 1:
-            continue
-        text = " ".join(paragraph_text(paragraph).split())
-        if _CHAPTER_RE.match(text) or _BACK_MATTER_RE.match(text):
-            headings.append(paragraph)
-    return headings
+    roles = classify_chapters(
+        package,
+        body_titles=body_titles,
+        has_back_matter=has_back_matter,
+    )
+    return [
+        heading.paragraph
+        for heading in iter_chapter_candidates(package)
+        if roles.get(heading.paragraph) in {"body", "back_matter"}
+    ]
 
 
 def _apply_page_format(package: DocumentPackage, page: object) -> int:
@@ -139,7 +142,11 @@ def _apply_page_format(package: DocumentPackage, page: object) -> int:
     return changed
 
 
-def _ensure_breaks(package: DocumentPackage) -> int:
+def _ensure_breaks(
+    package: DocumentPackage,
+    body_titles: tuple[str, ...],
+    has_back_matter: bool,
+) -> int:
     added = 0
     cover_heading = _first_heading_after_cover(package)
     if cover_heading is not None:
@@ -151,7 +158,7 @@ def _ensure_breaks(package: DocumentPackage) -> int:
             add_section_break(package, before=cover_heading, kind="nextPage")
             added += 1
 
-    for heading in _break_headings(package):
+    for heading in _break_headings(package, body_titles, has_back_matter):
         children = body_children(document_body(package))
         index = children.index(heading)
         sections = iter_sections(package)
@@ -207,18 +214,42 @@ class SectionsStage(BaseStage):
         before = _document_hash(package)
         try:
             sections_before = len(iter_sections(package))
-            numbering = getattr(getattr(ctx, "structure", None), "numbering", None)
+            structure = getattr(ctx, "structure", None)
+            body_titles = tuple(
+                str(chapter.title) for chapter in getattr(structure, "body", ()) or ()
+            )
+            has_back_matter = bool(getattr(structure, "back_matter", ()))
+            numbering = getattr(structure, "numbering", None)
             heading_report = None
+            numbering_spec = None
             if numbering is not None:
+                numbering_spec = NumberingSpec(
+                    body=str(numbering.body),
+                    sub_dot=bool(getattr(numbering, "sub_dot", True)),
+                    subsub_dot=bool(getattr(numbering, "subsub_dot", True)),
+                )
                 heading_report = apply_heading_numbering(
                     package,
-                    NumberingSpec(
-                        body=str(numbering.body),  # type: ignore[arg-type]
-                        sub_dot=bool(getattr(numbering, "sub_dot", True)),
-                        subsub_dot=bool(getattr(numbering, "subsub_dot", True)),
-                    ),
+                    numbering_spec,
+                    body_titles=body_titles,
+                    has_back_matter=has_back_matter,
                 )
-            added = _ensure_breaks(package)
+            if numbering_spec is not None and package.has_part(NUMBERING_PART):
+                toc_heading = getattr(getattr(ctx, "format", None), "toc_heading", None)
+                try:
+                    verify_heading_numbering(
+                        package,
+                        numbering_spec,
+                        toc_heading_style=str(getattr(toc_heading, "heading_style", "TOCHeading")),
+                    )
+                except NumberingError as exc:
+                    raise StageError(
+                        self.name.value,
+                        str(exc),
+                        cause=exc,
+                        code="STAGE-NUMBERING",
+                    ) from exc
+            added = _ensure_breaks(package, body_titles, has_back_matter)
             page = getattr(getattr(ctx, "format", None), "page", None)
             margin_sections = _apply_page_format(package, page)
             sections_after = len(iter_sections(package))

@@ -12,7 +12,7 @@ melewati helper di modul ini.
 `paragraphs.py` untuk mengenali heading batas section, tetapi tidak memiliki
 penomoran heading. `apply_heading_numbering` dan `is_unnumbered` ada di
 `heading_numbering.py`, yang tidak menyentuh section, header/footer, atau
-geometri halaman.
+geometri halaman. Nomor heading sendiri dihasilkan `native_numbering.py`.
 
 Section pada OOXML diakhiri `w:sectPr`; section terakhir memakai `w:sectPr` di
 akhir `w:body`, sedangkan section lain memakai `w:sectPr` di dalam `w:pPr`

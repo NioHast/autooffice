@@ -9,7 +9,6 @@ Referensi: https://ecma-international.org/publications-and-standards/standards/e
 import copy
 import posixpath
 import re
-import time
 import urllib.parse
 import zipfile
 from collections.abc import Sequence
@@ -59,6 +58,10 @@ REL_TYPE_HYPERLINK = "http://schemas.openxmlformats.org/officeDocument/2006/rela
 
 _DEFAULT_COMPRESSION = zipfile.ZIP_DEFLATED
 _DRIVE_RE = re.compile(r"^[A-Za-z]:")
+# Part baru harus deterministik: dua build dengan input sama menghasilkan ZIP
+# byte-identik. Timestamp lokal membuat header/footer yang dibuat stage
+# berbeda antar build. Nilai ini sama dengan SOURCE_DATE_EPOCH Pandoc.
+_NEW_PART_TIMESTAMP = (2020, 1, 1, 0, 0, 0)
 
 
 @dataclass(frozen=True)
@@ -186,7 +189,7 @@ class DocumentPackage:
         payload = bytes(data)
         existing = self._entries.get(name)
         if existing is None:
-            info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+            info = zipfile.ZipInfo(name, date_time=_NEW_PART_TIMESTAMP)
             info.compress_type = _DEFAULT_COMPRESSION
             info.external_attr = 0o644 << 16
             info.create_system = 3

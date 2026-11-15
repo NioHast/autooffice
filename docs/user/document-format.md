@@ -117,6 +117,10 @@ bukan oleh naskah.
 - Heading 1 harus sama dengan urutan `body` pada struktur, tanpa nomor.
 - Jangan menulis `# BAB I` atau `# 1. Pendahuluan`; pipeline menambahkan nomor.
 - Heading 2 dan Heading 3 tidak boleh melompati level.
+- Atribut `{.unnumbered}` atau `{-}` pada heading Markdown tidak didukung:
+  Pandoc membuang atribut itu sebelum DOCX, sehingga heading tetap mengikuti
+  numbering struktur. Heading tak bernomor hanya dikenali dari posisi
+  front/back matter dan `structure.body`.
 
 ```markdown
 # Pendahuluan

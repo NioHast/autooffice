@@ -207,12 +207,12 @@ def test_number_per_chapter_chapter_title_and_roman(equations_docx: Path, tmp_pa
     # Empat persamaan bernomor; satu persamaan ber-field dilewati tetapi
     # counter tetap maju. DAFTAR PUSTAKA tidak mereset bab.
     assert [(_direct_run_text(paragraph)) for paragraph in paragraphs] == [
-        "(2.1)",
+        "(1.1)",
         "1",
-        "(2.3)",
-        "(2.4)",
-        "(4.1)",
-        "(9.1)",
+        "(1.3)",
+        "(1.4)",
+        "(2.1)",
+        "(3.1)",
     ]
     assert report.equation_paragraphs == 6
     assert report.numbered == 5
@@ -220,8 +220,8 @@ def test_number_per_chapter_chapter_title_and_roman(equations_docx: Path, tmp_pa
     assert report.chapter_headings == 3
 
 
-def test_heading_arabic_dotted_recognized_as_chapter(tmp_path: Path) -> None:
-    source = tmp_path / "arabic.docx"
+def test_heading_counted_in_document_order_not_text(tmp_path: Path) -> None:
+    source = tmp_path / "ordinal.docx"
     document = Document()
     _configure_a4(document)
     heading = document.add_paragraph("4. Metode")
@@ -236,7 +236,7 @@ def test_heading_arabic_dotted_recognized_as_chapter(tmp_path: Path) -> None:
 
     assert report.chapter_headings == 1
     assert report.numbered == 1
-    assert [_direct_run_text(paragraph) for paragraph in _equation_paragraphs(result)] == ["(4.1)"]
+    assert [_direct_run_text(paragraph) for paragraph in _equation_paragraphs(result)] == ["(1.1)"]
 
 
 def test_number_in_run_outside_omml(equations_docx: Path, tmp_path: Path) -> None:
@@ -397,7 +397,7 @@ def test_direct_omath_with_old_number_still_formatted(
     equations.format_equations(package)
     result = DocumentPackage.load(_save(package, tmp_path / "out.docx"))
     candidate = _equation_paragraphs(result)[0]
-    assert _direct_run_text(candidate) == "(2.1)"
+    assert _direct_run_text(candidate) == "(1.1)"
     assert candidate.find(f"{W_PPR}/{W_IND}").get(W_LEFT) == "1440"
 
 

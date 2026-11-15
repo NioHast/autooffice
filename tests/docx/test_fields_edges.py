@@ -546,3 +546,42 @@ def test_ensure_no_blank_page_after_toc_skips_sdt_without_toc_gallery(
     package = DocumentPackage.load(path)
 
     assert ensure_no_blank_page_after_toc(package) == 0
+
+
+# ---------------------------------------------------------------------------
+# Atribut w:dirty pada field kompleks
+# ---------------------------------------------------------------------------
+
+
+def test_insert_field_default_does_not_write_dirty() -> None:
+    paragraph = _paragraph("")
+
+    field = insert_field(["PAGE"], FieldPosition(paragraph=paragraph), "1")
+
+    for run in (field.begin, field.separate, field.end):
+        marker = run.find(qn("w:fldChar"))  # type: ignore[union-attr]
+        assert marker is not None
+        assert marker.get(qn("w:dirty")) is None
+
+
+def test_insert_field_dirty_marks_only_begin_marker() -> None:
+    paragraph = _paragraph("")
+
+    field = insert_field(
+        ["STYLEREF", '"heading 1"'],
+        FieldPosition(paragraph=paragraph),
+        dirty=True,
+    )
+
+    begin = field.begin.find(qn("w:fldChar"))
+    assert begin is not None
+    assert begin.get(qn("w:fldCharType")) == "begin"
+    assert begin.get(qn("w:dirty")) == "true"
+    assert field.separate is not None
+    separate = field.separate.find(qn("w:fldChar"))
+    assert separate is not None
+    assert separate.get(qn("w:dirty")) is None
+    end = field.end.find(qn("w:fldChar"))
+    assert end is not None
+    assert end.get(qn("w:dirty")) is None
+    assert field_instruction(field) == 'STYLEREF "heading 1"'

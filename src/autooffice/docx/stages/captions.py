@@ -6,6 +6,7 @@ Orkestrasi memakai helper domain ``autooffice.docx.package.captions`` dan
 """
 
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -211,8 +212,7 @@ def _add_warnings(report: CaptionReport, scope: str) -> None:
                 report.warnings.append("Tidak ada paragraf Heading1; penomoran caption dilewati.")
             else:
                 report.warnings.append(
-                    "Tidak ada Heading1 berformat 'BAB <romawi/arab>' atau "
-                    "'<nomor arab>. <judul>'; penomoran caption dilewati."
+                    "Tidak ada Heading1 bernomor; penomoran caption per bab dilewati."
                 )
         elif report.skipped_no_chapter:
             report.warnings.append(
@@ -246,6 +246,8 @@ def apply_captions(
     code_spec: CodeSpec | None = None,
     require_captions: bool = True,
     path: str | Path | None = None,
+    body_titles: Sequence[str] = (),
+    has_back_matter: bool = True,
 ) -> CaptionReport:
     """Format tabel/gambar, pastikan caption, lalu beri nomor per bab."""
 
@@ -262,7 +264,13 @@ def apply_captions(
     _ensure_captions(package, report, code_spec)
     _merge_renumber(
         report,
-        renumber_captions(package, scope=scope, spec=specs),
+        renumber_captions(
+            package,
+            scope=scope,
+            spec=specs,
+            body_titles=body_titles,
+            has_back_matter=has_back_matter,
+        ),
     )
     _add_warnings(report, scope)
 
@@ -286,6 +294,16 @@ def _document_path(ctx: object) -> Path | None:
     return Path(path) if path is not None else None
 
 
+def _body_titles(ctx: object) -> tuple[str, ...]:
+    structure = getattr(ctx, "structure", None)
+    return tuple(str(chapter.title) for chapter in getattr(structure, "body", ()) or ())
+
+
+def _has_back_matter(ctx: object) -> bool:
+    structure = getattr(ctx, "structure", None)
+    return bool(getattr(structure, "back_matter", ()))
+
+
 def _apply_from_context(
     package: DocumentPackage,
     ctx: object,
@@ -300,6 +318,8 @@ def _apply_from_context(
             figure_spec=figure_spec,
             code_spec=code_spec,
             path=_document_path(ctx),
+            body_titles=_body_titles(ctx),
+            has_back_matter=_has_back_matter(ctx),
         )
     except DocgenError:
         raise

@@ -1,6 +1,12 @@
 # ADR 0007: Hybrid `SEQ` untuk Daftar Tabel dan Gambar
 
-- Status: diterima
+> **Catatan superseded sebagian oleh [ADR 0015](../../decisions/0015-native-heading-numbering.md).**
+> Keputusan hybrid `SEQ` + prefix bab literal tetap berlaku. Analisis
+> `STYLEREF` pada ADR ini (heading nomor literal) tidak lagi berlaku setelah
+> numbering heading dipindah ke `w:numPr` native; header sekarang memakai
+> `STYLEREF \n` + field judul.
+
+- Status: diterima; analisis STYLEREF superseded oleh ADR 0015
 - Tanggal: 2026-11-09
 
 ## Konteks

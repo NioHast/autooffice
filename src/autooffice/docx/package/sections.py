@@ -17,6 +17,7 @@ Referensi: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.w
 import copy
 import posixpath
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -24,6 +25,7 @@ from lxml import etree
 
 from ..errors import DocgenError
 from . import paragraphs
+from .heading_numbering import classify_chapters, iter_chapter_candidates
 from .names import R_ID, W_P, W_PPR, W_SECTPR, W, local_name
 from .package import (
     DOCUMENT_PART,
@@ -49,14 +51,6 @@ _PAGE_NUMBER_FORMATS = frozenset(
 _SECTION_TYPES = frozenset({"nextPage", "continuous", "evenPage", "oddPage"})
 _HEADER_FOOTER_TYPES = frozenset({"default", "first", "even"})
 
-_CHAPTER_RE = re.compile(
-    r"^(?:BAB\s+(?:[IVXLCDM]+|\d+)(?=\b|\s)|\d+\.(?=\s|$))",
-    re.IGNORECASE,
-)
-_BACK_MATTER_RE = re.compile(
-    r"^(?:DAFTAR\s+PUSTAKA|DAFTAR\s+RUJUKAN|LAMPIRAN|BIBLIOGRAFI)\b",
-    re.IGNORECASE,
-)
 _PAGE_BREAK_TYPES = frozenset({"page"})
 
 
@@ -174,8 +168,18 @@ def _section_kind(
     return "front_matter"
 
 
-def iter_sections(package: DocumentPackage) -> tuple[Section, ...]:
-    """Kembalikan seluruh section di ``word/document.xml``."""
+def iter_sections(
+    package: DocumentPackage,
+    *,
+    body_titles: Sequence[str] = (),
+    has_back_matter: bool = True,
+) -> tuple[Section, ...]:
+    """Kembalikan seluruh section di ``word/document.xml``.
+
+    ``body_titles`` berasal dari ``structure.body``; dipakai untuk mengenali
+    batas front matter/body/back matter berdasarkan urutan judul bab, bukan
+    nama teks. Tanpa argumen ini, klasifikasi jatuh ke status numbering H1.
+    """
 
     body = _body(package)
     children = paragraphs.body_children(body)
@@ -192,20 +196,24 @@ def iter_sections(package: DocumentPackage) -> tuple[Section, ...]:
             start = index + 1
     boundaries.append((start, final_sect, len(children)))
 
+    roles = classify_chapters(
+        package,
+        body_titles=body_titles,
+        has_back_matter=has_back_matter,
+    )
     body_start: int | None = None
     back_start: int | None = None
-    for index, child in enumerate(children):
-        if child.tag != W_P:
+    for heading in iter_chapter_candidates(package):
+        role = roles.get(heading.paragraph)
+        try:
+            index = children.index(heading.paragraph)
+        except ValueError:
             continue
-        if body_start is None and paragraphs.heading_level(child) == 1:
-            text = _text(child)
-            if _CHAPTER_RE.match(text):
-                body_start = index
-        if body_start is not None and index >= body_start and paragraphs.heading_level(child) == 1:
-            text = _text(child)
-            if _BACK_MATTER_RE.match(text):
-                back_start = index
-                break
+        if role == "body" and body_start is None:
+            body_start = index
+        elif role == "back_matter" and body_start is not None and back_start is None:
+            back_start = index
+            break
 
     sections: list[Section] = []
     for section_index, (section_start, sect_pr, section_end) in enumerate(boundaries):

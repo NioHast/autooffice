@@ -32,6 +32,9 @@ class PageFormat:
     header_distance: int
     footer_distance: int
     gutter: int
+    # Nama style heading untuk field ``STYLEREF`` di header body. ``None``
+    # mempertahankan header body tanpa judul bab.
+    header_style_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +161,22 @@ class CodeTable:
 
 
 @dataclass(frozen=True)
+class CodeHighlightToken:
+    """Properti satu style token syntax highlighting Pandoc.
+
+    ``style_id`` adalah ``w:styleId`` yang ditulis Pandoc (mis.
+    ``KeywordTok``). Nilai ``color`` ``None`` berarti mewarisi warna
+    ``VerbatimChar``; ``bold``/``italic`` ``False`` berarti tidak menimpa
+    properti turunan.
+    """
+
+    style_id: str
+    color: str | None = None
+    bold: bool = False
+    italic: bool = False
+
+
+@dataclass(frozen=True)
 class CodeFormat:
     style: str
     font: CodeFont
@@ -169,6 +188,7 @@ class CodeFormat:
     border: CodeBorder
     table: CodeTable
     detect_styles: tuple[str, ...]
+    highlight: Mapping[str, CodeHighlightToken] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

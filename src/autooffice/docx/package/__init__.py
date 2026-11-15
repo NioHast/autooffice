@@ -84,19 +84,24 @@ from .fields import (  # noqa: E402
     iter_fields_in_root,
 )
 from .heading_numbering import (  # noqa: E402
+    ChapterRole,
     Heading,
     HeadingError,
     HeadingReport,
     NumberingSpec,
     apply_heading_numbering,
+    classify_chapters,
     heading_bookmark_name,
-    heading_text,
+    is_numbered_heading,
     is_unnumbered,
+    iter_chapter_candidates,
+    iter_chapter_headings,
     iter_headings,
+    paragraph_numbering,
 )
 from .names import *  # noqa: E402, F403
 from .names import __all__ as _names_all  # noqa: E402
-from .numbering import chapter_number, format_roman, roman_to_int, to_roman  # noqa: E402
+from .numbering import roman_to_int, to_roman  # noqa: E402
 from .package import (  # noqa: E402
     CONTENT_TYPES_PART,
     DOCUMENT_PART,
@@ -198,7 +203,6 @@ __all__ = [
     "body_children",
     "build_run",
     "canonicalize_xml",
-    "chapter_number",
     "clone_run",
     "content_width",
     "copy_rpr",
@@ -207,7 +211,6 @@ __all__ = [
     "ensure_rpr",
     "ensure_tblpr",
     "ensure_tcpr",
-    "format_roman",
     "get_or_add",
     "heading_level",
     "insert_ordered",
@@ -261,14 +264,19 @@ __all__ = [
     "iter_fields_in_part",
     "iter_fields_in_root",
     # Heading numbering API
+    "ChapterRole",
     "Heading",
     "HeadingError",
     "HeadingReport",
     "NumberingSpec",
     "apply_heading_numbering",
+    "classify_chapters",
     "heading_bookmark_name",
-    "heading_text",
+    "is_numbered_heading",
     "is_unnumbered",
+    "iter_chapter_candidates",
+    "iter_chapter_headings",
     "iter_headings",
+    "paragraph_numbering",
     *_names_all,
 ]

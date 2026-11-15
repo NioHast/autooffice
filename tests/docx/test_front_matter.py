@@ -11,6 +11,7 @@ import pytest
 
 from autooffice.docx.config import load_format, load_structure
 from autooffice.docx.document import Document
+from autooffice.docx.markdown.headings import LINE_BREAK
 from autooffice.docx.metadata import normalize_metadata
 from autooffice.docx.pipeline import ArtifactStore, Workspace
 from autooffice.docx.stages.front_matter import (
@@ -223,7 +224,7 @@ def test_abstract_without_title_uses_custom_style() -> None:
     assert '::: {custom-style="AbstractBody"}' in abstract_id
     assert '::: {custom-style="AbstractKeywords"}' in abstract_id
 
-    abstract_en = output[output.index("# ABSTRACT {-}") : output.index("BAB I")]
+    abstract_en = output[output.index("# ABSTRACT {-}") : output.index("PENDAHULUAN")]
     assert "CoverLine" not in abstract_en
     assert _TITLE.upper() not in abstract_en
     assert '::: {custom-style="AbstractBody"}' in abstract_en
@@ -243,7 +244,7 @@ def test_front_matter_order_and_no_toc_field() -> None:
         output.index("# KATA PENGANTAR {-}"),
         output.index("# ABSTRAK {-}"),
         output.index("# ABSTRACT {-}"),
-        output.index("BAB I"),
+        output.index("PENDAHULUAN"),
     ]
     assert positions == sorted(positions)
     assert "w:sdt" not in output
@@ -321,19 +322,19 @@ def test_spacer_zero_twips_is_empty() -> None:
     assert 'w:before="360"' in spacer(360)
 
 
-def test_heading_body_numbered_before_pandoc() -> None:
+def test_heading_body_uppercase_and_line_break_for_roman() -> None:
     output = _render()
 
-    assert "# BAB I`<w:br/>`{=openxml}PENDAHULUAN" in output
-    assert "## 1.1.`<w:tab/>`{=openxml}Latar Belakang" in output
-    assert "### 1.1.1.`<w:tab/>`{=openxml}Detail" in output
+    assert f"# {LINE_BREAK}PENDAHULUAN" in output
+    assert "## Latar Belakang" in output
+    assert "### Detail" in output
 
 
 def test_heading_arabic_dotted_for_assignment() -> None:
     output = _render(structure_id="assignment")
 
-    assert "# 1. PENDAHULUAN" in output
-    assert "## 1.1.`<w:tab/>`{=openxml}Latar Belakang" in output
+    assert "# PENDAHULUAN" in output
+    assert "## Latar Belakang" in output
 
 
 def test_template_replaces_placeholder_and_rejects_unknown() -> None:
@@ -383,7 +384,7 @@ def test_stage_front_matter_writes_markdown_idempotently(tmp_path: Path) -> None
     assert path.is_file()
     text = path.read_text(encoding="utf-8")
     assert 'custom-style="CoverTitle"' in text
-    assert "# BAB I" in text
+    assert f"# {LINE_BREAK}PENDAHULUAN" in text
     assert ctx.artifacts.get("markdown") == path
 
     second = stage.run(ctx)
@@ -473,6 +474,6 @@ def test_document_without_plantuml_can_still_pass_front_matter(tmp_path: Path) -
     assert result.status == "ok"
     front_matter = ctx.workspace.path("front_matter.md")
     text = front_matter.read_text(encoding="utf-8")
-    assert "# BAB I" in text
+    assert f"# {LINE_BREAK}PENDAHULUAN" in text
     assert "Teks tanpa diagram." in text
     assert ctx.artifacts.get("markdown") == front_matter

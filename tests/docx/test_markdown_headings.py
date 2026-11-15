@@ -1,97 +1,19 @@
-"""Tes unit penomoran heading Markdown dan ``balance_title``."""
+"""Tes unit persiapan heading Markdown dan ``balance_title``.
+
+Nomor heading tidak lagi ditulis ke Markdown; tes ini memastikan hanya
+uppercase H1 bernomor, raw inline ``w:br`` untuk ``BAB_ROMAN``, dan heading
+``unnumbered``/H2-H6 tidak berubah.
+"""
 
 import pytest
 
-from autooffice.docx.errors import DocgenError
 from autooffice.docx.markdown.headings import (
     LINE_BREAK,
-    TAB,
-    Heading,
-    HeadingNumberer,
-    MarkdownHeadingError,
-    NumberingSpec,
     balance_title,
-    format_chapter_number,
-    number_markdown,
-    number_markdown_headings,
+    finalize_markdown_headings,
     parse_heading,
-    roman,
     uppercase_markdown,
 )
-
-
-def test_roman_and_chapter_number() -> None:
-    assert roman(1) == "I"
-    assert roman(4) == "IV"
-    assert roman(9) == "IX"
-    assert roman(14) == "XIV"
-    assert roman(0) == ""
-    assert format_chapter_number(2, NumberingSpec("BAB_ROMAN")) == "BAB II"
-    assert format_chapter_number(2, NumberingSpec("ARABIC_DOTTED")) == "2."
-
-
-def test_invalid_numbering_spec_rejected() -> None:
-    assert issubclass(MarkdownHeadingError, DocgenError)
-    with pytest.raises(MarkdownHeadingError):
-        NumberingSpec(body="ROMAN")  # type: ignore[arg-type]
-
-
-def test_numbering_roman_h1_h2_h3_and_reset() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN"))
-
-    assert numberer.number(1, "Pendahuluan").number == "BAB I"
-    assert numberer.number(2, "Latar Belakang").number == "1.1."
-    assert numberer.number(3, "Rumusan").number == "1.1.1."
-    assert numberer.number(2, "Tujuan").number == "1.2."
-    assert numberer.number(1, "Pembahasan").number == "BAB II"
-    assert numberer.number(2, "Analisis").number == "2.1."
-
-
-def test_numbering_arabic_dotted() -> None:
-    numberer = HeadingNumberer(NumberingSpec("ARABIC_DOTTED"))
-
-    assert numberer.number(1, "Pendahuluan").number == "1."
-    assert numberer.number(2, "Latar Belakang").number == "1.1."
-    assert numberer.number(3, "Rumusan").number == "1.1.1."
-
-
-def test_sub_dot_disabled() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN", sub_dot=False, subsub_dot=False))
-
-    numberer.number(1, "Bab")
-    assert numberer.number(2, "Sub").number == "1.1"
-    assert numberer.number(3, "Subsub").number == "1.1.1"
-
-
-def test_h2_before_h1_uses_implicit_chapter() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN"))
-
-    assert numberer.number(2, "Sub Awal").number == "1.1."
-    assert numberer.number(1, "Bab Satu").number == "BAB I"
-    assert numberer.number(2, "Sub").number == "1.1."
-
-
-def test_unnumbered_h1_does_not_reset_counters() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN"))
-
-    assert numberer.number(1, "Pendahuluan").number == "BAB I"
-    assert numberer.number(2, "Latar Belakang").number == "1.1."
-    assert numberer.number(1, "Abstrak", unnumbered=True).number is None
-    assert numberer.number(2, "Metode").number == "1.2."
-    assert numberer.number(1, "Pembahasan").number == "BAB II"
-
-
-def test_h4_h6_not_numbered_and_do_not_change_counter() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN"))
-    numberer.number(1, "Bab")
-    assert numberer.number(2, "Sub").number == "1.1."
-
-    for level in (4, 5, 6):
-        heading = numberer.number(level, f"Level {level}")
-        assert heading.number is None
-        assert not heading.unnumbered
-
-    assert numberer.number(2, "Sub Berikut").number == "1.2."
 
 
 def test_parse_heading_attributes_and_unnumbered() -> None:
@@ -115,53 +37,53 @@ def test_uppercase_heading_preserves_inline_and_url() -> None:
     assert uppercase_markdown(text) == "SUB *MIRING* [TAUTAN](HTTP://EXAMPLE.COM) `kode`"
 
 
-def test_render_heading_roman_uses_line_break() -> None:
-    numberer = HeadingNumberer(NumberingSpec("BAB_ROMAN"))
-    heading = numberer.number(1, "Pendahuluan")
+def test_finalize_h1_roman_uppercase_and_line_break() -> None:
+    output = finalize_markdown_headings("# Pendahuluan\n", body="BAB_ROMAN")
 
-    assert heading == Heading(
-        level=1,
-        text="Pendahuluan",
-        number="BAB I",
-        unnumbered=False,
-    )
-    # Render H1 bukan tanggung jawab HeadingNumberer; dicek via Markdown.
-    output = number_markdown("# Pendahuluan\n", NumberingSpec("BAB_ROMAN"))
-    assert output == f"# BAB I{LINE_BREAK}PENDAHULUAN\n"
+    assert output == f"# {LINE_BREAK}PENDAHULUAN\n"
 
 
-def test_number_markdown_h2_h3_and_arabic() -> None:
-    markdown = "# Pendahuluan\n\n## Latar Belakang\n\n### Detail\n\n# Pembahasan\n\n## Analisis\n"
+def test_finalize_h1_arabic_uppercase_without_line_break() -> None:
+    output = finalize_markdown_headings("# Pendahuluan\n", body="ARABIC_DOTTED")
 
-    roman_output = number_markdown(markdown, NumberingSpec("BAB_ROMAN"))
-    assert f"# BAB I{LINE_BREAK}PENDAHULUAN\n" in roman_output
-    assert f"## 1.1.{TAB}Latar Belakang\n" in roman_output
-    assert f"### 1.1.1.{TAB}Detail\n" in roman_output
-    assert f"# BAB II{LINE_BREAK}PEMBAHASAN\n" in roman_output
-    assert f"## 2.1.{TAB}Analisis\n" in roman_output
-
-    arabic_output = number_markdown(markdown, NumberingSpec("ARABIC_DOTTED"))
-    assert arabic_output.startswith("# 1. PENDAHULUAN\n")
-    assert "## 1.1." in arabic_output
+    assert output == "# PENDAHULUAN\n"
 
 
-def test_number_markdown_unnumbered_and_attributes() -> None:
-    markdown = "# Ringkasan {-}\n\n## Sub {#sub}\n\n# Bab Satu\n\n## Anak\n"
-    output = number_markdown(markdown, NumberingSpec("BAB_ROMAN"))
+def test_finalize_h1_preserves_attributes() -> None:
+    output = finalize_markdown_headings("# Pendahuluan {#bab-1}\n", body="BAB_ROMAN")
 
-    assert "# Ringkasan {-}" in output
-    assert f"## 1.1.{TAB}Sub {{#sub}}\n" in output
-    assert f"# BAB I{LINE_BREAK}BAB SATU\n" in output
-    assert f"## 1.1.{TAB}Anak\n" in output
+    assert output == f"# {LINE_BREAK}PENDAHULUAN {{#bab-1}}\n"
 
 
-def test_number_markdown_skips_fenced_code() -> None:
+def test_finalize_h1_unnumbered_is_unchanged() -> None:
+    markdown = "# Lampiran {-}\n\n# Ringkasan {.unnumbered}\n"
+
+    output = finalize_markdown_headings(markdown, body="BAB_ROMAN")
+
+    assert output == markdown
+
+
+def test_finalize_h2_h6_are_unchanged() -> None:
+    markdown = "## Latar Belakang\n\n### Detail {#detail}\n\n###### Level Enam\n"
+
+    output = finalize_markdown_headings(markdown, body="BAB_ROMAN")
+
+    assert output == markdown
+
+
+def test_finalize_skips_fenced_code() -> None:
     markdown = "```markdown\n# bukan heading\n## juga bukan\n```\n\n# Pendahuluan\n"
-    output = number_markdown(markdown, NumberingSpec("BAB_ROMAN"))
+
+    output = finalize_markdown_headings(markdown, body="BAB_ROMAN")
 
     assert "# bukan heading" in output
     assert "## juga bukan" in output
-    assert f"# BAB I{LINE_BREAK}PENDAHULUAN\n" in output
+    assert f"# {LINE_BREAK}PENDAHULUAN\n" in output
+
+
+def test_finalize_rejects_unknown_body() -> None:
+    with pytest.raises(ValueError, match="tidak dikenal"):
+        finalize_markdown_headings("# Judul\n", body="ROMAN")
 
 
 def test_balance_title_short_title_single_line() -> None:
@@ -188,10 +110,3 @@ def test_balance_title_splits_long_title() -> None:
     assert 2 <= len(lines) <= 3
     assert " ".join(lines) == text
     assert max(len(line) for line in lines) < len(text)
-
-
-def test_number_markdown_and_alias_same() -> None:
-    markdown = "# Pendahuluan\n"
-    assert number_markdown(markdown, NumberingSpec()) == number_markdown_headings(
-        markdown, NumberingSpec()
-    )

@@ -121,6 +121,7 @@ def _style_fragment(style_id: str, tab_pos: int) -> etree._Element:
   <w:uiPriority w:val="39"/>
   <w:qFormat/>
   <w:pPr>
+    <w:numPr><w:numId w:val="0"/></w:numPr>
     <w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/>
     <w:ind w:firstLine="0"/>
     <w:jc w:val="center"/>

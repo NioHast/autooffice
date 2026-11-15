@@ -105,11 +105,9 @@ def test_docx_package_level_page_and_run_helpers_behave() -> None:
         append_text_run,
         body_children,
         build_run,
-        chapter_number,
         clone_run,
         content_width,
         copy_rpr,
-        format_roman,
         heading_level,
         int_attribute,
         make_run,
@@ -129,8 +127,6 @@ def test_docx_package_level_page_and_run_helpers_behave() -> None:
     assert ParagraphError.default_code == "PARAGRAPH"
     assert roman_to_int("XIV") == 14
     assert to_roman(14) == "XIV"
-    assert chapter_number("BAB IV") == 4
-    assert format_roman(4) == "IV"
 
     body = etree.fromstring(
         f'<w:body xmlns:w="{W_NS}">'
@@ -188,7 +184,6 @@ def test_docx_package_level_field_and_heading_helpers_behave() -> None:
         field_marker_kind,
         field_text_ranges,
         heading_bookmark_name,
-        heading_text,
         insert_field,
         is_unnumbered,
         qn,
@@ -224,17 +219,13 @@ def test_docx_package_level_field_and_heading_helpers_behave() -> None:
         "<w:r><w:t>1. PENDAHULUAN</w:t></w:r>"
         "</w:p>"
     )
-    assert heading_text(heading_paragraph) == "1. PENDAHULUAN"
-    assert heading_text(heading_paragraph, include_number=False) == "PENDAHULUAN"
-
     heading = Heading(
         level=1,
         paragraph=heading_paragraph,
         text="1. PENDAHULUAN",
-        number="1.",
         unnumbered=False,
     )
-    assert heading_bookmark_name(heading) == "_Toc1"
+    assert heading_bookmark_name(heading) == "_Toc1_PENDAHULUAN"
     report = HeadingReport(
         changed=False,
         numbered=1,

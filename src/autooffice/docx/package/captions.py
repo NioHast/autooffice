@@ -7,21 +7,22 @@ memindahkan caption ke sisi yang benar, dan menormalkan paragraf gambar.
 """
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from lxml import etree
 
-from . import DocxError, names, numbering
+from . import DocxError, names
 from .fields import field_text_ranges
+from .heading_numbering import ChapterRole, classify_chapters
+from .layout import is_chapter_heading
 from .paragraphs import (
     ParagraphError,
     document_body,
     int_attribute,
     paragraph_style_id,
-    paragraph_text,
     remove_direct_children,
 )
 from .runs import make_run
@@ -942,14 +943,16 @@ def _heading_chapter(
     report: CaptionReport,
     scope: str,
     counters: dict[CaptionKind, int],
+    roles: Mapping[etree._Element, ChapterRole],
 ) -> int | None:
     report.heading1_count += 1
-    chapter = numbering.chapter_number(paragraph_text(paragraph))
-    if chapter is not None:
-        report.chapter_headings += 1
-        if scope == "chapter":
-            counters[CaptionKind.FIGURE] = 0
-            counters[CaptionKind.TABLE] = 0
+    if roles.get(paragraph) != "body":
+        return None
+    report.chapter_headings += 1
+    chapter = report.chapter_headings
+    if scope == "chapter":
+        counters[CaptionKind.FIGURE] = 0
+        counters[CaptionKind.TABLE] = 0
     return chapter
 
 
@@ -996,6 +999,8 @@ def renumber_captions(
     *,
     scope: str = "chapter",
     spec: CaptionSpecs | None = None,
+    body_titles: Sequence[str] = (),
+    has_back_matter: bool = True,
 ) -> CaptionReport:
     """Beri nomor caption per bab (``chapter``) atau per dokumen."""
 
@@ -1009,11 +1014,16 @@ def renumber_captions(
     report = CaptionReport()
     current_chapter: int | None = None
     counters = {CaptionKind.FIGURE: 0, CaptionKind.TABLE: 0}
+    roles = classify_chapters(
+        package,
+        body_titles=body_titles,
+        has_back_matter=has_back_matter,
+    )
 
     for paragraph in _body(package).iter(W_P):
         style_id = paragraph_style_id(paragraph)
-        if names.is_heading_style(style_id) and names.normalize_style_id(style_id) == "heading1":
-            chapter = _heading_chapter(paragraph, report, scope, counters)
+        if is_chapter_heading(style_id):
+            chapter = _heading_chapter(paragraph, report, scope, counters, roles)
             if chapter is not None:
                 current_chapter = chapter
             continue

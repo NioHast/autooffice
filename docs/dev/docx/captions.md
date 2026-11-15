@@ -10,9 +10,10 @@ di [contracts/docx.md](../../contracts/docx.md).
 - Blok kode menjadi tabel 1x1 dengan border penuh.
 - Caption wajib ada; tabel tanpa caption menggagalkan stage.
 
-Nomor bab pada caption dibaca lewat helper di `numbering.py`. Field `SEQ`
-ditulis oleh `fields.py`, dan daftar tabel/gambar memakai hybrid prefix bab
-literal ditambah field `SEQ`.
+Nomor bab pada caption dihitung dari urutan heading bernomor di dokumen
+(`heading_numbering.is_unnumbered`), bukan dibaca dari teks heading. Field
+`SEQ` ditulis oleh `fields.py`, dan daftar tabel/gambar memakai hybrid prefix
+bab literal ditambah field `SEQ`.
 Detail keputusan ada di [../decisions/0007-seq-hybrid.md](../decisions/0007-seq-hybrid.md).
 
 ## Referensi resmi

@@ -129,3 +129,12 @@ def test_build_docx_terms_and_workspace_opt_in(
     assert (result.workspace / "reference.docx").is_file()
     assert (result.workspace / "Paritas.docx").is_file()
     assert all("stage 'terms' dinonaktifkan" not in warning for warning in result.warnings)
+
+
+def test_build_docx_is_byte_identical_across_runs(tmp_path: Path) -> None:
+    document = _copy_project(tmp_path)
+
+    first = build_docx(document, out=tmp_path / "out1")
+    second = build_docx(document, out=tmp_path / "out2")
+
+    assert first.docx.read_bytes() == second.docx.read_bytes()

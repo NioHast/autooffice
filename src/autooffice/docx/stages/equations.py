@@ -5,20 +5,23 @@ Persamaan display dikenali dari ``m:oMathPara`` anak langsung ``w:p`` atau
 ``(bab.n)``. Nomor ditulis sebagai run biasa di luar OMML, sehingga isi
 persamaan tidak berubah.
 
-Nomor bab berasal dari Heading1 atau ``ChapterTitle`` berformat
-``BAB <romawi/arab>``. Counter direset setiap bab baru dan bertambah untuk
-setiap paragraf persamaan, termasuk persamaan ber-field yang dilewati.
+Nomor bab berasal dari urutan Heading1/``ChapterTitle`` yang bernomor, bukan
+dari teks heading: numbering heading memakai list label native Word sehingga
+teks heading tidak lagi memuat ``BAB <romawi/arab>``. Counter direset setiap
+bab bernomor baru dan bertambah untuk setiap paragraf persamaan, termasuk
+persamaan ber-field yang dilewati. Nomor persamaan ``(bab.n)`` tetap literal.
 """
 
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from lxml import etree
 
 from ..errors import DocgenError
 from ..package.fields import has_field
+from ..package.heading_numbering import classify_chapters
 from ..package.layout import (
     PPR_ORDER,
     document_root,
@@ -36,7 +39,6 @@ from ..package.names import (
     W_VAL,
     normalize_style_id,
 )
-from ..package.numbering import chapter_number
 from ..package.package import DocumentPackage
 from ..package.page import content_width
 from ..package.paragraphs import document_body, paragraph_style_id, paragraph_text
@@ -284,7 +286,12 @@ def format_equation_paragraph(
 # ---------------------------------------------------------------------------
 
 
-def _apply_numbers(body: etree._Element, report: EquationReport, spec: EquationSpec) -> None:
+def _apply_numbers(
+    body: etree._Element,
+    report: EquationReport,
+    spec: EquationSpec,
+    roles: Mapping[etree._Element, str],
+) -> None:
     """Beri nomor persamaan per bab dan perbarui ``report``.
 
     Paragraf terhapus dilewati; persamaan sebelum heading bab atau yang sudah
@@ -304,10 +311,9 @@ def _apply_numbers(body: etree._Element, report: EquationReport, spec: EquationS
 
         if is_chapter_heading(style_id) or normalize_style_id(style_id) in spec.chapter_styles:
             report.heading1_count += 1
-            chapter = chapter_number(paragraph_text(paragraph))
-            if chapter is not None:
+            if roles.get(paragraph) == "body":
                 report.chapter_headings += 1
-                current_chapter = chapter
+                current_chapter = report.chapter_headings
                 counter = 0
             continue
 
@@ -348,8 +354,7 @@ def _add_warnings(report: EquationReport) -> None:
             )
         else:
             report.warnings.append(
-                "Tidak ada Heading1/ChapterTitle berformat 'BAB <romawi/arab>'; "
-                "penomoran persamaan dilewati."
+                "Tidak ada Heading1/ChapterTitle bernomor; penomoran persamaan dilewati."
             )
     elif report.skipped_no_chapter:
         report.warnings.append(
@@ -368,6 +373,8 @@ def format_equations(
     package: DocumentPackage,
     *,
     spec: EquationSpec | None = None,
+    body_titles: Sequence[str] = (),
+    has_back_matter: bool = True,
 ) -> EquationReport:
     """Beri nomor persamaan display pada ``DocumentPackage`` hidup."""
 
@@ -377,12 +384,27 @@ def format_equations(
     before_hash = tree_digest(root)
 
     report = EquationReport()
-    _apply_numbers(body, report, spec)
+    roles = classify_chapters(
+        package,
+        body_titles=body_titles,
+        has_back_matter=has_back_matter,
+    )
+    _apply_numbers(body, report, spec, roles)
     _add_warnings(report)
 
     if tree_digest(root) != before_hash:
         set_document_root(package, root)
     return report
+
+
+def _body_titles(ctx: object) -> tuple[str, ...]:
+    structure = getattr(ctx, "structure", None)
+    return tuple(str(chapter.title) for chapter in getattr(structure, "body", ()) or ())
+
+
+def _has_back_matter(ctx: object) -> bool:
+    structure = getattr(ctx, "structure", None)
+    return bool(getattr(structure, "back_matter", ()))
 
 
 class EquationsStage(BaseStage):
@@ -402,7 +424,12 @@ class EquationsStage(BaseStage):
 
         try:
             before = tree_digest(document_root(package))
-            report = format_equations(package, spec=_spec_from_context(ctx))
+            report = format_equations(
+                package,
+                spec=_spec_from_context(ctx),
+                body_titles=_body_titles(ctx),
+                has_back_matter=_has_back_matter(ctx),
+            )
             changed = tree_digest(document_root(package)) != before
         except EquationError:
             raise
