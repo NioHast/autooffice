@@ -1,7 +1,13 @@
 """Tes coverage nyata dari shape, table cell, notes, dan alt text."""
 
+from collections import Counter
+from types import SimpleNamespace
+from typing import Self
+
 import pytest
+from lxml import etree
 from pptx import Presentation
+from pptx.oxml.ns import qn
 from pptx.util import Emu
 
 from autooffice.deck.model.deck_ir import (
@@ -12,9 +18,16 @@ from autooffice.deck.model.deck_ir import (
     SlideIR,
 )
 from autooffice.deck.render.pptx import PptxRenderer
-from autooffice.deck.render.pptx.coverage import CoverageError, collect_coverage
-from autooffice.deck.render.pptx.shapes import set_keyed_shape
-from autooffice.deck.render.protocol import OutputTarget, RenderRequest
+from autooffice.deck.render.pptx.coverage import (
+    CoverageError,
+    _check_alt,
+    _check_notes,
+    _Scan,
+    _scan_slide,
+    collect_coverage,
+)
+from autooffice.deck.render.pptx.shapes import KEY_MARKER, set_keyed_shape
+from autooffice.deck.render.protocol import CoverageReport, OutputTarget, RenderRequest
 
 
 def _deck(*, keys: tuple[KeyBinding, ...]) -> DeckIR:
@@ -144,3 +157,156 @@ def test_notes_text_is_counted_as_key() -> None:
 
     assert report.missing_keys == ()
     assert report.ok is True
+
+
+class _CountingBindings(tuple):
+    """Tuple binding yang menghitung setiap kali diiterasi."""
+
+    def __new__(cls, bindings: tuple[KeyBinding, ...]) -> Self:
+        instance = super().__new__(cls, bindings)
+        instance.iterations = 0
+        return instance
+
+    def __iter__(self):
+        self.iterations += 1
+        return super().__iter__()
+
+
+def _fake_keyed_shape(key: str) -> SimpleNamespace:
+    element = etree.Element(qn("p:sp"))
+    node = etree.SubElement(element, qn("p:cNvPr"))
+    node.set("name", f"{KEY_MARKER}{key}")
+    node.set("title", key)
+    node.set("descr", "Teks")
+    return SimpleNamespace(
+        _element=element,
+        has_table=False,
+        has_text_frame=True,
+        text_frame=SimpleNamespace(text="Teks"),
+    )
+
+
+def _scale_presentation(
+    slide_count: int = 300,
+) -> tuple[SimpleNamespace, DeckIR, CoverageReport]:
+    """Bangun presentasi sintetis dengan 20 key per slide dan temuan yang diketahui."""
+    slides: list[SimpleNamespace] = []
+    slide_irs: list[SlideIR] = []
+    bindings: list[KeyBinding] = []
+    missing: list[str] = []
+    duplicate: set[str] = set()
+    unkeyed: set[str] = set()
+    for index in range(slide_count):
+        slide_id = f"s{index + 1:03d}"
+        keys = [f"{slide_id}.text{position}.text" for position in range(1, 21)]
+        shapes = [_fake_keyed_shape(key) for key in keys]
+        if (index + 1) % 37 == 0:
+            shapes.pop()
+            missing.append(keys[-1])
+        if (index + 1) % 53 == 0:
+            shapes.append(_fake_keyed_shape(keys[0]))
+            duplicate.add(keys[0])
+        if index > 0 and index % 41 == 0:
+            previous_key = f"s{index:03d}.text2.text"
+            shapes.append(_fake_keyed_shape(previous_key))
+            duplicate.add(previous_key)
+            unkeyed.add(f"{slide_id}:{previous_key}")
+        extra_key = f"{slide_id}.extra.text"
+        shapes.append(_fake_keyed_shape(extra_key))
+        unkeyed.add(extra_key)
+        slides.append(SimpleNamespace(shapes=tuple(shapes), has_notes_slide=False))
+        slide_irs.append(SlideIR(slide_id, "content", index, (), None, None))
+        bindings.extend(_scale_binding(key, slide_id) for key in keys)
+    deck = DeckIR(
+        schema="autooffice.deck/v1",
+        meta={"title": "Scale Deck", "author": "AutoOffice"},
+        theme_name="indigo",
+        slides=tuple(slide_irs),
+        keys=KeyManifest(_CountingBindings(tuple(bindings))),
+    )
+    expected = CoverageReport(
+        missing_keys=tuple(sorted(missing)),
+        duplicate_keys=tuple(sorted(duplicate)),
+        unkeyed_visible=tuple(sorted(unkeyed)),
+        missing_alt=(),
+    )
+    return SimpleNamespace(slides=tuple(slides)), deck, expected
+
+
+def _scale_binding(key: str, slide_id: str) -> KeyBinding:
+    return KeyBinding(
+        key=key,
+        slide_id=slide_id,
+        block_id=None,
+        leaf="text",
+        kind="text",
+        sync=True,
+        yaml_path=(),
+        value="nilai",
+        plain_text="nilai",
+    )
+
+
+def _reference_report(presentation: SimpleNamespace, deck: DeckIR) -> CoverageReport:
+    """Agregasi coverage dengan pencarian per key tanpa indeks."""
+    scan = _Scan()
+    for slide, slide_ir in zip(presentation.slides, deck.slides, strict=True):
+        _scan_slide(slide, slide_ir, scan)
+        _check_notes(slide, slide_ir, scan)
+        _check_alt(slide, slide_ir, scan)
+
+    bindings = deck.keys.bindings
+    declared = tuple(binding.key for binding in bindings)
+    declared_set = set(declared)
+    rendered = [key for keys in scan.keys_by_slide.values() for key in keys]
+    rendered_set = set(rendered)
+    counts = Counter(rendered)
+    declared_counts = Counter(declared)
+    duplicate = {key for key, count in counts.items() if count > 1} | {
+        key for key, count in declared_counts.items() if count > 1
+    }
+    missing = sorted(
+        {
+            binding.key
+            for binding in bindings
+            if binding.key not in set(scan.keys_by_slide.get(binding.slide_id, ()))
+        }
+    )
+    unkeyed = list(scan.unkeyed)
+    unkeyed.extend(sorted(rendered_set - declared_set))
+    for key in sorted(rendered_set & declared_set):
+        expected_slides = {binding.slide_id for binding in bindings if binding.key == key}
+        actual_slides = {slide_id for slide_id, keys in scan.keys_by_slide.items() if key in keys}
+        for slide_id in sorted(actual_slides - expected_slides):
+            unkeyed.append(f"{slide_id}:{key}")
+    return CoverageReport(
+        missing_keys=tuple(missing),
+        duplicate_keys=tuple(sorted(duplicate)),
+        unkeyed_visible=tuple(sorted(set(unkeyed))),
+        missing_alt=tuple(sorted(set(scan.missing_alt))),
+    )
+
+
+def test_scale_renderer_coverage_matches_golden_report() -> None:
+    presentation, deck, expected = _scale_presentation()
+
+    report = collect_coverage(presentation, deck)
+    iterations = deck.keys.bindings.iterations
+
+    assert len(presentation.slides) == 300
+    assert len(deck.keys.bindings) == 6000
+    assert report == expected
+    assert iterations <= 4
+    assert len(report.unkeyed_visible) == 307
+    assert len(report.duplicate_keys) == 12
+    assert report.ok is False
+
+
+def test_renderer_coverage_matches_reference_aggregation() -> None:
+    presentation, deck, expected = _scale_presentation(slide_count=48)
+
+    report = collect_coverage(presentation, deck)
+    reference = _reference_report(presentation, deck)
+
+    assert report == expected
+    assert report == reference

@@ -48,7 +48,7 @@ from ..package.runs import build_run
 from ..package.xml import (
     iter_paragraphs,
     qn,
-    sha256_c14n,
+    tree_digest,
 )
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 from .toc import STYLES_PART, ensure_list_entry_style, format_tab_fallback
@@ -360,8 +360,8 @@ class ListsStage(BaseStage):
                 code="STAGE-PACKAGE",
             )
 
-        before_document = sha256_c14n(package.xml(DOCUMENT_PART))
-        before_styles = sha256_c14n(package.xml(STYLES_PART))
+        before_document = tree_digest(package.xml(DOCUMENT_PART))
+        before_styles = tree_digest(package.xml(STYLES_PART))
         labels, scope = _caption_settings(getattr(ctx, "format", None))
         try:
             tab_pos = _list_tab_position(package, ctx)
@@ -380,8 +380,8 @@ class ListsStage(BaseStage):
                 code=exc.code,
             ) from exc
         changed = (
-            sha256_c14n(package.xml(DOCUMENT_PART)) != before_document
-            or sha256_c14n(package.xml(STYLES_PART)) != before_styles
+            tree_digest(package.xml(DOCUMENT_PART)) != before_document
+            or tree_digest(package.xml(STYLES_PART)) != before_styles
         )
         return StageResult(
             stage=self.name.value,

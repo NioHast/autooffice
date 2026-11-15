@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autooffice"
-version = "2.0.1"
+version = "2.1.0"
 description = "Pipeline dokumen dan presentasi AutoOffice dari Markdown dan YAML."
 readme = "README.md"
 requires-python = ">=3.15"

@@ -31,7 +31,7 @@ from ..package.tables import (
     make_code_table,
     normalize_code_tables,
 )
-from ..package.xml import sha256_c14n
+from ..package.xml import tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 if TYPE_CHECKING:  # pragma: no cover - hanya anotasi
@@ -129,7 +129,7 @@ def apply_code(
     code_spec = spec or CodeSpec()
     root = package.xml(DOCUMENT_PART)
     body = document_body(package)
-    before = sha256_c14n(root)
+    before = tree_digest(root)
 
     report = CodeReport()
     # Normalisasi tabel lama lebih dulu agar tabel baru tidak ikut dihitung
@@ -144,7 +144,7 @@ def apply_code(
             "dibiarkan utuh."
         )
 
-    report.changed = sha256_c14n(root) != before
+    report.changed = tree_digest(root) != before
     if report.changed:
         package.set_xml(DOCUMENT_PART, root)
     return report

@@ -1,6 +1,7 @@
 """Test pengukuran teks dan block memakai metrik font bundle."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -517,3 +518,147 @@ def test_table_height_includes_cell_margins_and_caption_gap(
     )
 
     assert measurement.height_emu == expected_height
+
+
+@pytest.fixture
+def measure_caches() -> Iterator[None]:
+    """Kosongkan cache pengukuran sebelum dan sesudah test cache."""
+    measure._measure_text_cached.cache_clear()
+    measure._measure_code_text_cached.cache_clear()
+    yield
+    measure._measure_text_cached.cache_clear()
+    measure._measure_code_text_cached.cache_clear()
+
+
+def test_text_measurement_cache_hit_returns_equal_result(
+    theme: Theme, measure_caches: None
+) -> None:
+    first = measure_text("Halo dunia", available_width_emu=WIDTH, theme=theme)
+    second = measure_text("Halo dunia", available_width_emu=WIDTH, theme=theme)
+    info = measure._measure_text_cached.cache_info()
+
+    assert second == first
+    assert info.hits == 1
+    assert info.misses == 1
+    assert info.currsize == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "overrides"),
+    [
+        pytest.param("Teks lain", {}, id="text"),
+        pytest.param("Halo dunia", {"available_width_emu": WIDTH + 1}, id="width"),
+        pytest.param("Halo dunia", {"font_size_pt": 17.0}, id="font-size"),
+        pytest.param("Halo dunia", {"weight": 700}, id="weight"),
+        pytest.param("Halo dunia", {"line_height": 1.5}, id="line-height"),
+        pytest.param("Halo dunia", {"tracking_em": 0.03}, id="tracking"),
+    ],
+)
+def test_text_measurement_cache_key_covers_each_input(
+    theme: Theme,
+    measure_caches: None,
+    text: str,
+    overrides: dict[str, int | float],
+) -> None:
+    base_arguments: dict[str, int | float] = {"available_width_emu": WIDTH}
+    variant_arguments = base_arguments | overrides
+
+    measure_text("Halo dunia", theme=theme, **base_arguments)
+    measure_text(text, theme=theme, **variant_arguments)
+    info = measure._measure_text_cached.cache_info()
+
+    assert info.misses == 2
+    assert info.currsize == 2
+
+
+def test_text_measurement_cache_uses_resolved_theme_values(
+    theme: Theme, measure_caches: None
+) -> None:
+    alternate = replace(
+        theme,
+        typography=replace(theme.typography, body_pt=theme.typography.body_pt + 2),
+    )
+
+    default = measure_text("Halo dunia", available_width_emu=WIDTH, theme=theme)
+    resized = measure_text("Halo dunia", available_width_emu=WIDTH, theme=alternate)
+    info = measure._measure_text_cached.cache_info()
+
+    assert resized != default
+    assert info.misses == 2
+    assert info.currsize == 2
+
+
+def test_code_measurement_cache_hit_returns_equal_result(
+    theme: Theme, measure_caches: None
+) -> None:
+    first = measure_code_text("x = 1", available_width_emu=WIDTH, theme=theme)
+    second = measure_code_text("x = 1", available_width_emu=WIDTH, theme=theme)
+    info = measure._measure_code_text_cached.cache_info()
+
+    assert second == first
+    assert info.hits == 1
+    assert info.misses == 1
+    assert info.currsize == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "overrides"),
+    [
+        pytest.param("y = 2", {}, id="text"),
+        pytest.param("x = 1", {"available_width_emu": WIDTH + 1}, id="width"),
+        pytest.param("x = 1", {"font_size_pt": 18.0}, id="font-size"),
+        pytest.param("x = 1", {"line_height": 1.5}, id="line-height"),
+    ],
+)
+def test_code_measurement_cache_key_covers_each_input(
+    theme: Theme,
+    measure_caches: None,
+    text: str,
+    overrides: dict[str, int | float],
+) -> None:
+    base_arguments: dict[str, int | float] = {"available_width_emu": WIDTH}
+    variant_arguments = base_arguments | overrides
+
+    measure_code_text("x = 1", theme=theme, **base_arguments)
+    measure_code_text(text, theme=theme, **variant_arguments)
+    info = measure._measure_code_text_cached.cache_info()
+
+    assert info.misses == 2
+    assert info.currsize == 2
+
+
+def test_measurement_caches_have_bounded_maxsize() -> None:
+    text_maxsize = measure._measure_text_cached.cache_parameters()["maxsize"]
+    code_maxsize = measure._measure_code_text_cached.cache_parameters()["maxsize"]
+
+    assert text_maxsize == measure._MEASURE_CACHE_MAXSIZE
+    assert code_maxsize == measure._MEASURE_CACHE_MAXSIZE
+    assert measure._MEASURE_CACHE_MAXSIZE > 0
+
+
+def test_text_measurement_cache_evicts_when_full(theme: Theme, measure_caches: None) -> None:
+    cache = measure._measure_text_cached
+    maxsize = cache.cache_parameters()["maxsize"]
+    assert isinstance(maxsize, int)
+
+    for index in range(maxsize + 1):
+        measure_text(str(index), available_width_emu=WIDTH, theme=theme)
+
+    info = cache.cache_info()
+
+    assert info.currsize == maxsize
+    assert info.misses == maxsize + 1
+
+
+def test_code_measurement_cache_evicts_when_full(theme: Theme, measure_caches: None) -> None:
+    cache = measure._measure_code_text_cached
+    maxsize = cache.cache_parameters()["maxsize"]
+    assert isinstance(maxsize, int)
+
+    for index in range(maxsize + 1):
+        measure_code_text(str(index), available_width_emu=WIDTH, theme=theme)
+
+    info = cache.cache_info()
+
+    assert info.currsize == maxsize
+    assert info.misses == maxsize + 1

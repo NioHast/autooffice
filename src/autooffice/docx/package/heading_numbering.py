@@ -19,7 +19,7 @@ from .names import W_BR, W_CR, W_PPR, W_T, W_TAB, W, local_name
 from .numbering import format_roman
 from .package import DOCUMENT_PART, DocumentPackage
 from .runs import build_run, clone_run
-from .xml import iter_paragraphs, iter_runs, run_text, sha256_c14n
+from .xml import iter_paragraphs, iter_runs, run_text, tree_digest
 
 
 class HeadingError(DocgenError):
@@ -416,7 +416,7 @@ def apply_heading_numbering(
     if spec.body not in ("BAB_ROMAN", "ARABIC_DOTTED"):
         raise HeadingError(f"Format penomoran body tidak dikenal: {spec.body!r}")
 
-    before = sha256_c14n(package.xml(DOCUMENT_PART))
+    before = tree_digest(package.xml(DOCUMENT_PART))
     chapter = 0
     sub = 0
     subsub = 0
@@ -480,7 +480,7 @@ def apply_heading_numbering(
         _replace_heading_content(paragraph, prefix, title_runs)
         numbered += 1
 
-    after = sha256_c14n(package.xml(DOCUMENT_PART))
+    after = tree_digest(package.xml(DOCUMENT_PART))
     return HeadingReport(
         changed=before != after,
         numbered=numbered,

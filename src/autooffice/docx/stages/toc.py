@@ -21,7 +21,7 @@ from ..package.names import W
 from ..package.package import DOCUMENT_PART, DocumentPackage
 from ..package.page import PAGE_SIZES, page_size
 from ..package.sections import SectionError, iter_sections
-from ..package.xml import parse_xml, sha256_c14n
+from ..package.xml import parse_xml, sha256_c14n, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 STYLES_PART = "word/styles.xml"
@@ -303,11 +303,11 @@ def ensure_list_entry_style(package: DocumentPackage, *, tab_pos: int | None) ->
 
 
 def _document_hash(package: object) -> str:
-    return sha256_c14n(package.xml(DOCUMENT_PART))  # type: ignore[attr-defined]
+    return tree_digest(package.xml(DOCUMENT_PART))  # type: ignore[attr-defined]
 
 
 def _styles_hash(package: object) -> str:
-    return sha256_c14n(package.xml(STYLES_PART))  # type: ignore[attr-defined]
+    return tree_digest(package.xml(STYLES_PART))  # type: ignore[attr-defined]
 
 
 def _toc_field_count(package: object) -> int:

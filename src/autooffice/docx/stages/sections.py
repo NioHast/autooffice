@@ -41,7 +41,7 @@ from ..package.sections import (
     set_page_size,
     set_section_type,
 )
-from ..package.xml import sha256_c14n
+from ..package.xml import tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 _CHAPTER_RE = re.compile(
@@ -61,7 +61,7 @@ class SectionsError(SectionError):
 
 
 def _document_hash(package: DocumentPackage) -> str:
-    return sha256_c14n(package.xml(DOCUMENT_PART))
+    return tree_digest(package.xml(DOCUMENT_PART))
 
 
 def _first_heading_after_cover(package: DocumentPackage) -> etree._Element | None:
@@ -117,7 +117,7 @@ def _apply_page_format(package: DocumentPackage, page: object) -> int:
         raise SectionsError("format.page.margins tidak tersedia")
     changed = 0
     for section in iter_sections(package):
-        before = sha256_c14n(section.sect_pr)
+        before = tree_digest(section.sect_pr)
         set_page_size(
             section,
             width=width,
@@ -134,7 +134,7 @@ def _apply_page_format(package: DocumentPackage, page: object) -> int:
             footer=int(getattr(page, "footer_distance", 0)),
             gutter=int(getattr(page, "gutter", 0)),
         )
-        if sha256_c14n(section.sect_pr) != before:
+        if tree_digest(section.sect_pr) != before:
             changed += 1
     return changed
 

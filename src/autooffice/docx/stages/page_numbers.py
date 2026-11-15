@@ -29,7 +29,7 @@ from ..package.sections import (
     set_part_xml,
     set_title_page,
 )
-from ..package.xml import sha256_c14n
+from ..package.xml import sha256_c14n, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 FRONT_FOOTER_SIZE_HALF_POINTS = 24
@@ -125,12 +125,12 @@ def _ensure_part(
 
 
 def _configure_cover(section: Section) -> bool:
-    before = sha256_c14n(section.sect_pr)
+    before = tree_digest(section.sect_pr)
     clear_header_footer_references(section)
     for tag in ("pgNumType", "titlePg"):
         for element in list(section.sect_pr.findall(W + tag)):
             section.sect_pr.remove(element)
-    return sha256_c14n(section.sect_pr) != before
+    return tree_digest(section.sect_pr) != before
 
 
 def _configure_front_matter(
@@ -139,7 +139,7 @@ def _configure_front_matter(
     *,
     start: int | None,
 ) -> bool:
-    before = sha256_c14n(section.sect_pr)
+    before = tree_digest(section.sect_pr)
     refs = section_header_footer(section)
     footer_root = page_part(
         "footer",
@@ -161,7 +161,7 @@ def _configure_front_matter(
     )
     set_title_page(section, False)
     set_page_number_format(section, fmt="lowerRoman", start=start)
-    return part_changed or sha256_c14n(section.sect_pr) != before
+    return part_changed or tree_digest(section.sect_pr) != before
 
 
 def _configure_body(
@@ -176,7 +176,7 @@ def _configure_body(
     ``SectionError`` dari helper part diteruskan ke pemanggil.
     """
 
-    before = sha256_c14n(section.sect_pr)
+    before = tree_digest(section.sect_pr)
     refs = section_header_footer(section)
 
     header_root = page_part(
@@ -242,7 +242,7 @@ def _configure_body(
         or changed_first_header
         or changed_footer
         or changed_first_footer
-        or sha256_c14n(section.sect_pr) != before
+        or tree_digest(section.sect_pr) != before
     )
 
 
@@ -316,7 +316,7 @@ class PageNumbersStage(BaseStage):
                 code="STAGE-PACKAGE",
             )
 
-        before_document = sha256_c14n(package.xml(DOCUMENT_PART))
+        before_document = tree_digest(package.xml(DOCUMENT_PART))
         front_seen = 0
         body_seen = 0
         changed = False
@@ -350,7 +350,7 @@ class PageNumbersStage(BaseStage):
                 code=exc.code,
             ) from exc
 
-        if sha256_c14n(package.xml(DOCUMENT_PART)) != before_document:
+        if tree_digest(package.xml(DOCUMENT_PART)) != before_document:
             changed = True
         return StageResult(
             stage=self.name.value,

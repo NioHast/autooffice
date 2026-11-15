@@ -77,7 +77,8 @@ def plantuml_version(executable: Path) -> str:
 - `find_java` mencari `AUTOOFFICE_JAVA`, lalu `JAVA_HOME/bin/java`, lalu `java`
   di `PATH`.
 - `plantuml_version` membaca versi engine dan menolak versi di bawah
-  1.2026.10.
+  1.2026.10. Untuk jar, versi dibaca dari manifest tanpa memanggil JVM; probe
+  `--version` menjadi fallback bila manifest tidak dapat dipakai.
 - Semua kegagalan render memakai `PlantUmlError` dengan atribut `code` berisi
   kode `PLANTUML-*`. Stage DOCX juga dapat melempar `StageError` atau
   `ToolMissingError` dengan kode `PLANTUML-*`.
@@ -114,6 +115,16 @@ def plantuml_version(executable: Path) -> str:
 - `doctor` melaporkan pemeriksaan bernama `plantuml` berisi path engine dan
   versinya bila terbaca. Pemeriksaan ini tidak menggagalkan `doctor`; build
   diagram yang gagal tetap gagal keras.
+
+### Deteksi versi jar
+
+Untuk berkas `.jar`, versi dibaca dari `META-INF/MANIFEST.MF`, field
+`Implementation-Version`, tanpa menyalakan JVM. Nama field tidak peka huruf
+besar-kecil dan baris lanjutan manifest disambung sesuai spesifikasi. Manifest
+yang hilang, lebih besar dari 64 KiB, rusak, atau memuat versi di bawah
+1.2026.10 tidak dipakai; `plantuml_version` menjalankan `--version` sebagai
+fallback agar aturan versi minimum dan pesan error tetap sama dengan executable
+non-jar. Versi yang sudah terbaca di-cache per fingerprint executable.
 
 Perintah render efektif, untuk jar:
 
@@ -174,14 +185,15 @@ Kegagalan menghentikan build dan tidak menulis PNG final.
 | `PLANTUML-NO-DIAGRAM` | DOCX | Sumber tidak memuat diagram (exit code 50). |
 | `PLANTUML-TIMEOUT` | bersama | Render atau probe versi melewati batas waktu. |
 | `PLANTUML-OUTPUT` | bersama | PNG tidak dihasilkan, tidak lengkap, atau tidak valid. |
-| `PLANTUML-CACHE` | deck | Cache tidak dapat dibaca, ditulis, atau disalin. |
+| `PLANTUML-CACHE` | bersama | Cache tidak dapat dibaca, ditulis, atau disalin, atau path/entri cache berupa symlink. |
 | `PLANTUML-WORKSPACE` | DOCX | Stage tidak mendapat workspace. |
 | `PLANTUML-NO-DOCUMENT` | DOCX | Stage tidak mendapat document pada konteks. |
 | `PLANTUML-STAGE` | DOCX | Kegagalan internal stage yang tidak terklasifikasi. |
 
 Stage DOCX dapat melempar `ToolMissingError` dengan kode `TOOL-MISSING` bila
-PlantUML tidak ditemukan sebelum render dimulai. Kode itu tetap dianggap
-kegagalan PlantUML dan pesannya menyebut `AUTOOFFICE_PLANTUML`.
+masih ada diagram yang perlu dirender dan PlantUML tidak ditemukan setelah cache
+diperiksa. Kode itu tetap dianggap kegagalan PlantUML dan pesannya menyebut
+`AUTOOFFICE_PLANTUML`.
 
 ## Cache
 
@@ -213,12 +225,39 @@ Cache diperiksa sebelum PlantUML diwajibkan. Perubahan isi sumber, theme, versi,
 atau opsi render menghasilkan cache key baru. File cache yang rusak atau bukan
 PNG lengkap dihapus dan dirender ulang.
 
-Pipeline DOCX memakai cache workspace, bukan cache persisten deck. PNG ditulis
-ke `.laporan-build/gambar/plantuml-<hash>.png`. Hash dihitung dari isi diagram
-yang dinormalisasi dan `RenderOptions` (`dpi`, `background`), lalu dipotong
-menjadi 12 karakter. PNG yang sudah ada dipakai ulang tanpa memanggil PlantUML.
-Hash DOCX tidak memuat versi engine; versi baru tetap memakai PNG yang sudah
-ada.
+Pipeline DOCX memakai dua lapis cache. Lapis pertama adalah PNG workspace di
+`.laporan-build/gambar/plantuml-<hash>.png`. Hash 12 karakter dihitung dari isi
+diagram yang dinormalisasi dan `RenderOptions` (`dpi`, `background`). PNG
+workspace yang valid dipakai ulang tanpa memanggil PlantUML; hash ini tidak
+memuat versi engine.
+
+Lapis kedua adalah cache persisten `.laporan/cache/plantuml/` di samping
+dokumen, sehingga build berikutnya tetap memakai render lama walau workspace
+sudah dibersihkan. Nama file `plantuml-<sha256>.png` dengan sidecar
+`plantuml-<sha256>.json`.
+
+Kunci cache persisten dihitung dari payload kanonik berisi:
+
+- hash render: isi diagram yang dinormalisasi dan opsi render (`dpi`,
+  `background`);
+- `RenderOptions` yang sama;
+- fingerprint executable: path, `mtime_ns`, dan ukuran berkas engine.
+
+Sidecar memuat `format`, `digest`, `render_hash`, `options`, dan `fingerprint`.
+Saat engine tersedia, lookup memakai digest penuh sehingga perubahan engine
+menghasilkan render baru. Bila engine tidak tersedia, stage mencari sidecar
+dengan `render_hash` dan opsi yang cocok, memvalidasi PNG, lalu menyalin PNG
+valid tanpa memanggil PlantUML. Bila tidak ada cache yang cocok dan engine tidak
+tersedia, stage melempar `ToolMissingError` seperti build tanpa cache. Entri
+yang rusak atau tidak lengkap dihapus lalu dirender ulang; entri dengan kunci
+berbeda dibiarkan sebagai cache untuk sumber atau opsi lain.
+
+Direktori `.laporan`, `.laporan/cache`, dan `.laporan/cache/plantuml` ditolak
+bila berupa symlink atau junction, bukan direktori, atau resolve-nya keluar dari
+direktori dokumen. Entri cache berupa symlink juga dihapus dan tidak diikuti.
+PNG dan sidecar ditulis melalui berkas sementara, `flush`, `fsync`, lalu
+`os.replace`. Kegagalan menyiapkan atau menulis cache dilaporkan sebagai
+`PLANTUML-CACHE`.
 
 ## Keamanan proses
 
@@ -287,6 +326,7 @@ ada.
 | Hanya `.puml` yang diterima dan path keluar root ditolak. | `tests/deck/media/test_plantuml.py` |
 | Cache hit tidak menjalankan render ulang. | `tests/deck/media/test_plantuml.py` |
 | Cache valid dipakai meski engine tidak tersedia. | `tests/deck/media/test_plantuml.py` |
+| Versi jar dibaca dari manifest tanpa proses; manifest tidak dapat dipakai jatuh ke `--version`. | `tests/deck/media/test_plantuml.py` |
 | Cache dengan 8 byte signature saja dihapus dan dirender ulang. | `tests/deck/media/test_plantuml_security.py` |
 | PNG valid wajib memiliki `IHDR`/`IDAT`/`IEND` dan CRC benar. | `tests/deck/media/test_plantuml_security.py` |
 | Symlink pada nama temp tidak diikuti. | `tests/deck/media/test_plantuml_security.py` |
@@ -296,6 +336,8 @@ ada.
 | Engine hilang, versi lama, atau gagal berarti error keras. | `tests/deck/media/test_plantuml.py` |
 | `doctor` melaporkan pemeriksaan `plantuml`. | `tests/cli/test_doctor.py` |
 | Fence DOCX wajib caption, dirender, dan diganti gambar. | `tests/docx/test_plantuml_docx.py` |
+| Cache persisten DOCX dipakai ulang tanpa engine dan bertahan setelah workspace dibersihkan. | `tests/docx/test_plantuml_docx.py` |
+| Cache persisten DOCX ditolak bila direktori atau entrinya symlink. | `tests/docx/test_plantuml_docx.py` |
 | Syntax error DOCX memakai `PLANTUML-SYNTAX` dan tidak menulis PNG. | `tests/docx/test_plantuml_docx.py` |
 | Diagram masuk PPTX sebagai picture dengan alt dan caption. | `tests/deck/render/pptx/test_diagram.py` |
 | Tidak ada fallback teks atau shape. | `tests/deck/render/pptx/test_diagram.py` |

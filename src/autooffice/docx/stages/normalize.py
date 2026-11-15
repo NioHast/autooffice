@@ -19,7 +19,7 @@ from ..package.layout import (
     normalize_paragraph,
     preserve_tabs,
 )
-from ..package.xml import sha256_c14n
+from ..package.xml import tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 # Nama error kontrak stage-api.
@@ -42,9 +42,9 @@ class NormalizeStage(BaseStage):
             raise NormalizeError("stage normalize membutuhkan DocumentPackage dari stage pandoc")
 
         try:
-            before = sha256_c14n(document_root(package))
+            before = tree_digest(document_root(package))
             report = normalize_layout(package, spec=_spec_from_context(ctx))
-            changed = sha256_c14n(document_root(package)) != before
+            changed = tree_digest(document_root(package)) != before
         except NormalizeError:
             raise
         except Exception as exc:  # pragma: no cover - pengaman kontrak

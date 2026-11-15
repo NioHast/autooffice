@@ -46,7 +46,7 @@ from .xml import (
     iter_paragraphs,
     iter_runs,
     qn,
-    sha256_c14n,
+    tree_digest,
 )
 
 W_B = qn("w:b")
@@ -510,7 +510,7 @@ def normalize_layout(
 
     spec = spec or LayoutSpec()
     root = document_root(package)
-    before_hash = sha256_c14n(root)
+    before_hash = tree_digest(root)
 
     checked = 0
     normalized = 0
@@ -562,7 +562,7 @@ def normalize_layout(
         else:
             unchanged += 1
 
-    changed = sha256_c14n(root) != before_hash
+    changed = tree_digest(root) != before_hash
     if changed:
         set_document_root(package, root)
 

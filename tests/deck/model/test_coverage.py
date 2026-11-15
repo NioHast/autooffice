@@ -1,10 +1,12 @@
 """Test coverage plan dan deteksi key/alt yang tidak lengkap."""
 
 from pathlib import Path
+from typing import Self
 
 from autooffice.deck.model import (
     BlockIR,
     DeckIR,
+    KeyBinding,
     KeyManifest,
     SlideIR,
     build_coverage_plan,
@@ -12,6 +14,7 @@ from autooffice.deck.model import (
     compile_deck,
     load_deck,
 )
+from autooffice.deck.model.coverage import _expected_leaves
 
 
 def _deck(blocks: tuple[BlockIR, ...], *, source: dict[str, str] | None = None) -> DeckIR:
@@ -161,3 +164,112 @@ def test_visible_and_sync_keys_are_separated(fixture_dir: Path) -> None:
     assert "s01.chart1.title" in plan.visible_keys
     assert "s01.chart1.title" not in plan.sync_keys
     assert "s01.notes" in plan.sync_keys
+
+
+class _CountingBindings(tuple):
+    """Tuple binding yang menghitung setiap kali diiterasi."""
+
+    def __new__(cls, bindings: tuple[KeyBinding, ...]) -> Self:
+        instance = super().__new__(cls, bindings)
+        instance.iterations = 0
+        return instance
+
+    def __iter__(self):
+        self.iterations += 1
+        return super().__iter__()
+
+
+def _scale_deck() -> DeckIR:
+    """Bangun deck sintetis 300 slide dengan 20 binding per slide."""
+    slides: list[SlideIR] = []
+    bindings: list[KeyBinding] = []
+    for index in range(300):
+        slide_id = f"s{index + 1:03d}"
+        blocks = [
+            BlockIR(
+                block_id=f"text{position}",
+                block_type="text",
+                span=None,
+                role=None,
+                fields={"text": f"Teks {position}", "heading": f"Judul {position}"},
+            )
+            for position in range(1, 11)
+        ]
+        if index % 50 == 0:
+            blocks.append(
+                BlockIR(
+                    block_id="extra",
+                    block_type="text",
+                    span=None,
+                    role=None,
+                    fields={"text": "Ekstra", "heading": "Ekstra"},
+                )
+            )
+        source = {"text": "Sumber"} if index % 30 == 0 else None
+        slides.append(SlideIR(slide_id, "content", index, tuple(blocks), None, source))
+        for position in range(1, 11):
+            for leaf in ("text", "heading"):
+                bindings.append(
+                    KeyBinding(
+                        key=f"{slide_id}.text{position}.{leaf}",
+                        slide_id=slide_id,
+                        block_id=f"text{position}",
+                        leaf=leaf,
+                        kind="text",
+                        sync=True,
+                        yaml_path=("slides", index, "blocks", position - 1, leaf),
+                        value="nilai",
+                        plain_text="nilai",
+                    )
+                )
+    return DeckIR(
+        schema="autooffice.deck/v1",
+        meta={"title": "Scale Deck"},
+        theme_name="indigo",
+        slides=tuple(slides),
+        keys=KeyManifest(_CountingBindings(tuple(bindings))),
+    )
+
+
+def _reference_unkeyed_visible(deck: DeckIR) -> tuple[str, ...]:
+    """Hitung unkeyed_visible dengan pemindaian binding per slide."""
+    bindings = deck.keys.bindings
+    declarations: dict[str, set[str]] = {}
+    for binding in bindings:
+        if binding.block_id is None:
+            continue
+        namespace = f"{binding.slide_id}.{binding.block_id}"
+        declarations.setdefault(namespace, set()).add(binding.leaf)
+
+    unkeyed: list[str] = []
+    for slide in deck.slides:
+        slide_leaves = {
+            binding.leaf
+            for binding in bindings
+            if binding.slide_id == slide.slide_id and binding.block_id is None
+        }
+        if slide.source is not None and "source.text" not in slide_leaves:
+            unkeyed.append(f"{slide.slide_id}.source")
+        for block in slide.blocks:
+            namespace = f"{slide.slide_id}.{block.block_id}"
+            if set(_expected_leaves(block)) - declarations.get(namespace, set()):
+                unkeyed.append(namespace)
+    return tuple(unkeyed)
+
+
+def test_scale_plan_matches_reference_and_keeps_binding_scans_linear() -> None:
+    deck = _scale_deck()
+
+    plan = build_coverage_plan(deck)
+    iterations = deck.keys.bindings.iterations
+    reference = _reference_unkeyed_visible(deck)
+
+    assert len(deck.slides) == 300
+    assert len(deck.keys.bindings) == 6000
+    assert plan.unkeyed_visible == reference
+    assert "s001.extra" in plan.unkeyed_visible
+    assert "s031.source" in plan.unkeyed_visible
+    assert plan.missing_alt == ()
+    assert plan.charts == ()
+    assert plan.ok is False
+    assert iterations <= 8

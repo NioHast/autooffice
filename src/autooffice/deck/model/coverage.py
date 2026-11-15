@@ -112,8 +112,10 @@ def build_coverage_plan(deck: DeckIR) -> CoveragePlan:
     data_keys = tuple(binding.key for binding in bindings if binding.kind == "data")
 
     declarations: dict[str, set[str]] = {}
+    slide_leaves_by_slide: dict[str, set[str]] = {}
     for binding in bindings:
         if binding.block_id is None:
+            slide_leaves_by_slide.setdefault(binding.slide_id, set()).add(binding.leaf)
             continue
         namespace = f"{binding.slide_id}.{binding.block_id}"
         declarations.setdefault(namespace, set()).add(binding.leaf)
@@ -122,11 +124,9 @@ def build_coverage_plan(deck: DeckIR) -> CoveragePlan:
     missing_alt: list[str] = []
     charts: list[ChartCoverage] = []
     for slide in deck.slides:
-        slide_leaves = {
-            binding.leaf
-            for binding in bindings
-            if binding.slide_id == slide.slide_id and binding.block_id is None
-        }
+        slide_leaves: set[str] | frozenset[str] = slide_leaves_by_slide.get(
+            slide.slide_id, frozenset()
+        )
         if slide.source is not None and "source.text" not in slide_leaves:
             unkeyed_visible.append(f"{slide.slide_id}.source")
         for block in slide.blocks:

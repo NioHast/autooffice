@@ -67,7 +67,7 @@ from ..package.paragraphs import (
 from ..package.paragraphs import (
     make_empty_paragraph as _canonical_make_empty_paragraph,
 )
-from ..package.xml import qn, sha256_c14n
+from ..package.xml import qn, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 W_FOOTNOTE_REFERENCE = qn("w:footnoteReference")
@@ -524,9 +524,9 @@ class BlankLinesStage(BaseStage):
             raise BlankLineError("stage blank_lines membutuhkan DocumentPackage dari stage pandoc")
 
         try:
-            before = sha256_c14n(document_root(package))
+            before = tree_digest(document_root(package))
             report = insert_blank_lines(package, spec=BlankLineSpec())
-            changed = sha256_c14n(document_root(package)) != before
+            changed = tree_digest(document_root(package)) != before
         except BlankLineError:
             raise
         except Exception as exc:  # pragma: no cover - pengaman kontrak

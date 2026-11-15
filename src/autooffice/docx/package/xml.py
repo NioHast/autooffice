@@ -389,6 +389,23 @@ def sha256_c14n(
     return hashlib.sha256(canonicalize_xml(data, profile=profile)).hexdigest()
 
 
+def tree_digest(root: etree._Element | etree._ElementTree) -> str:
+    """SHA-256 dari serialisasi langsung pohon XML hidup.
+
+    Fungsi ini dipakai untuk deteksi perubahan sebelum/sesudah pada pohon yang
+    sama. Berbeda dengan :func:`sha256_c14n`, tidak ada ``deepcopy``, C14N,
+    maupun penghapusan artefak Word sehingga biayanya jauh lebih rendah.
+    Konsekuensinya digest sensitif terhadap perbedaan serialisasi, bukan hanya
+    semantik; false positive boleh terjadi, false negative tidak.
+    """
+
+    try:
+        payload: bytes = etree.tostring(root, encoding="utf-8")
+    except (etree.LxmlError, ValueError, TypeError) as exc:
+        raise XmlError(f"XML gagal dihitung digest-nya: {exc}") from exc
+    return hashlib.sha256(payload).hexdigest()
+
+
 def iter_paragraphs(
     root: etree._Element | etree._ElementTree,
     *,
@@ -607,4 +624,5 @@ __all__ = [
     "run_text",
     "serialize_xml",
     "sha256_c14n",
+    "tree_digest",
 ]

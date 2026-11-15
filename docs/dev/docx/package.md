@@ -21,11 +21,17 @@ global yang berlaku untuk semua modul DOCX. Kontrak lengkap ada di
    [../pipeline/overview.md](../pipeline/overview.md#satu-load-dan-satu-save).
 2. **Part non-target byte-identik.** Hanya part yang dideklarasikan stage yang
    boleh berubah. Part lain dipertahankan apa adanya, termasuk metadata ZIP.
-3. **Perubahan XML diukur dengan c14n.** Dua hasil dianggap sama bila
-   canonical XML dan SHA-256-nya sama.
-4. **Save atomic.** Output ditulis ke file sementara di direktori tujuan, lalu
+3. **Deteksi perubahan pada pohon yang sama memakai `tree_digest`.** Stage yang
+   memutasi pohon XML yang sama membandingkan SHA-256 serialisasi langsung
+   sebelum dan sesudah, tanpa `deepcopy` atau C14N. Ini digest serialisasi,
+   bukan digest semantik: perbedaan serialisasi boleh menghasilkan false
+   positive, tetapi perubahan nyata tidak boleh lolos (false negative).
+4. **Idempotensi byte dan antar-pohon memakai c14n.** Dua hasil build atau dua
+   pohon terpisah dianggap sama bila canonical XML dan SHA-256-nya sama
+   (`sha256_c14n`).
+5. **Save atomic.** Output ditulis ke file sementara di direktori tujuan, lalu
    `os.replace`.
-5. **Tidak ada intermediate DOCX di direktori output.** DOCX antara hanya ada
+6. **Tidak ada intermediate DOCX di direktori output.** DOCX antara hanya ada
    di workspace dan dihapus kecuali `--keep-intermediate`.
 
 ## Part yang lazim berubah
@@ -50,6 +56,14 @@ menghasilkan:
 - hash c14n `document.xml` yang sama;
 - byte part non-target yang sama;
 - output akhir yang sama.
+
+Deteksi perubahan internal satu stage tidak memakai c14n. Untuk pohon XML yang
+sama sebelum dan sesudah mutasi, stage memakai `tree_digest`, yaitu SHA-256
+serialisasi langsung. Biayanya jauh lebih rendah karena tidak ada `deepcopy` dan
+C14N, dengan konsekuensi digest sensitif terhadap perbedaan serialisasi. C14N
+tetap menjadi ukuran idempotensi dua run atau dua pohon terpisah, karena
+perbandingan itu harus tahan terhadap perbedaan namespace prefix dan urutan
+atribut.
 
 Tidak ada pass Word atau PDF setelah save. Package ditulis sekali dan menjadi
 output final DOCX. Field native yang belum terisi tidak mengubah byte package

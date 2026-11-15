@@ -1,14 +1,16 @@
 """Test batas pengukuran teks, varian field block, dan contain media."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import pytest
 
+import autooffice.deck.layout.measure as measure
 from autooffice.deck.layout.measure import (
     BlockMeasurement,
     MeasurementError,
     TextMeasurement,
     measure_block,
+    measure_code_text,
     measure_text,
 )
 from autooffice.deck.model.deck_ir import BlockIR
@@ -292,3 +294,74 @@ def test_media_zero_available_height_reports_minimum_overflow(
 
     assert measurement.height_emu == theme.spacing.md_emu
     assert measurement.overflow_height_emu == theme.spacing.md_emu
+
+
+@pytest.fixture
+def cleared_measure_caches() -> Iterator[None]:
+    """Kosongkan cache pengukuran sebelum dan sesudah test validasi."""
+    measure._measure_text_cached.cache_clear()
+    measure._measure_code_text_cached.cache_clear()
+    yield
+    measure._measure_text_cached.cache_clear()
+    measure._measure_code_text_cached.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("width", "font_size_pt", "line_height", "message"),
+    [
+        pytest.param(0, None, None, "Lebar", id="width"),
+        pytest.param(WIDTH, 0.0, None, "Ukuran font", id="font-size"),
+        pytest.param(WIDTH, None, 0.0, "Line-height", id="line-height"),
+    ],
+)
+def test_text_validation_runs_before_cache(
+    theme: Theme,
+    cleared_measure_caches: None,
+    width: int,
+    font_size_pt: float | None,
+    line_height: float | None,
+    message: str,
+) -> None:
+    with pytest.raises(MeasurementError, match=message):
+        measure_text(
+            "Halo",
+            available_width_emu=width,
+            theme=theme,
+            font_size_pt=font_size_pt,
+            line_height=line_height,
+        )
+
+    info = measure._measure_text_cached.cache_info()
+
+    assert info.hits == 0
+    assert info.misses == 0
+    assert info.currsize == 0
+
+
+@pytest.mark.parametrize(
+    ("width", "line_height", "message"),
+    [
+        pytest.param(0, None, "Lebar", id="width"),
+        pytest.param(WIDTH, 0.0, "Line-height", id="line-height"),
+    ],
+)
+def test_code_validation_runs_before_cache(
+    theme: Theme,
+    cleared_measure_caches: None,
+    width: int,
+    line_height: float | None,
+    message: str,
+) -> None:
+    with pytest.raises(MeasurementError, match=message):
+        measure_code_text(
+            "x = 1",
+            available_width_emu=width,
+            theme=theme,
+            line_height=line_height,
+        )
+
+    info = measure._measure_code_text_cached.cache_info()
+
+    assert info.hits == 0
+    assert info.misses == 0
+    assert info.currsize == 0

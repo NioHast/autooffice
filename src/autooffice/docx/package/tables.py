@@ -27,7 +27,7 @@ from .xml import (
     get_or_add,
     insert_ordered,
     qn,
-    sha256_c14n,
+    tree_digest,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - hanya anotasi
@@ -533,7 +533,7 @@ def _normalize_table_rows(
 
 
 def _normalize_table(table: etree._Element, spec: TableSpec) -> bool:
-    before = sha256_c14n(table)
+    before = tree_digest(table)
 
     table_properties = ensure_tblpr(table)
     paragraphs.remove_direct_children(table_properties, W_SHD)
@@ -558,7 +558,7 @@ def _normalize_table(table: etree._Element, spec: TableSpec) -> bool:
             for run in rows[row_index].iter(names.W_R):
                 _clear_run_bold(run)
 
-    return sha256_c14n(table) != before
+    return tree_digest(table) != before
 
 
 def normalize_table(
@@ -621,7 +621,7 @@ def _code_border_spec(spec: CodeSpec) -> BorderSpec:
 
 
 def _format_code_table(table: etree._Element, spec: CodeSpec) -> bool:
-    before = sha256_c14n(table)
+    before = tree_digest(table)
 
     table_properties = ensure_tblpr(table)
     paragraphs.remove_direct_children(table_properties, W_SHD)
@@ -652,7 +652,7 @@ def _format_code_table(table: etree._Element, spec: CodeSpec) -> bool:
             paragraphs.remove_direct_children(cell_properties, W_TC_BORDERS)
             _set_cell_margin_element(cell_properties, spec.cell_margin)
 
-    return sha256_c14n(table) != before
+    return tree_digest(table) != before
 
 
 def format_code_table(

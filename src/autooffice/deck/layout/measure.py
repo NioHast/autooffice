@@ -25,6 +25,10 @@ from autooffice.design.theme import Theme
 
 _EMU_PER_POINT = 12700
 _FONT_PIXEL_SIZE = 128
+# Batas atas cache pengukuran; teks yang sama sering diukur berulang antar
+# slide, tetapi jumlah entri tetap dibatasi supaya deck besar tidak menahan
+# memori tanpa batas.
+_MEASURE_CACHE_MAXSIZE = 8192
 _TITLE_ROLES = frozenset({"display", "title"})
 _SMALL_ROLES = frozenset({"caption", "label", "kicker"})
 _ROLE_WEIGHTS = {
@@ -104,6 +108,9 @@ def measure_text(
 
     Teks yang tidak muat tetap dilaporkan melalui ``overflow_width_emu``;
     fungsi ini tidak memotong, mengecilkan font, atau menambahkan ellipsis.
+    Hasil di-memoize berdasarkan ukuran font, line-height, dan tracking yang
+    sudah diresolusi, sehingga ``Theme`` tetap menjadi satu-satunya sumber
+    nilai tipografi tanpa ikut disimpan di cache.
     """
     if available_width_emu <= 0:
         raise MeasurementError("Lebar pengukuran teks harus positif.")
@@ -115,11 +122,30 @@ def measure_text(
         raise MeasurementError("Line-height pengukuran harus positif.")
     effective_tracking = theme.typography.tracking_em if tracking_em is None else tracking_em
 
+    return _measure_text_cached(
+        text,
+        available_width_emu,
+        size_pt,
+        weight,
+        effective_line_height,
+        effective_tracking,
+    )
+
+
+@lru_cache(maxsize=_MEASURE_CACHE_MAXSIZE)
+def _measure_text_cached(
+    text: str,
+    available_width_emu: int,
+    font_size_pt: float,
+    weight: int,
+    line_height: float,
+    tracking_em: float,
+) -> TextMeasurement:
     font = _load_font(_font_file_for_weight(weight))
-    font_size_emu = _round_emu(size_pt * _EMU_PER_POINT)
-    line_height_emu = max(1, _round_emu(font_size_emu * effective_line_height))
+    font_size_emu = _round_emu(font_size_pt * _EMU_PER_POINT)
+    line_height_emu = max(1, _round_emu(font_size_emu * line_height))
     scale = font_size_emu / _FONT_PIXEL_SIZE
-    tracking_emu = effective_tracking * font_size_emu
+    tracking_emu = tracking_em * font_size_emu
 
     lines, overflow_width_emu = _wrap_text(
         text,
@@ -153,7 +179,9 @@ def measure_code_text(
     Setiap baris eksplisit dipecah per karakter bila melebihi kapasitas slot.
     Spasi di awal dan spasi ganda ikut dihitung; tab diperluas ke tab stop
     empat kolom. Tidak ada glyph monospace yang dibundel, jadi advance diambil
-    konservatif dari ukuran font.
+    konservatif dari ukuran font. Hasil di-memoize berdasarkan ukuran font dan
+    line-height yang sudah diresolusi; fungsi ini murni terhadap argumen
+    eksplisit dan konstanta modul.
     """
     if available_width_emu <= 0:
         raise MeasurementError("Lebar pengukuran teks harus positif.")
@@ -165,8 +193,23 @@ def measure_code_text(
     if effective_line_height <= 0:
         raise MeasurementError("Line-height pengukuran harus positif.")
 
-    font_size_emu = size_pt * _EMU_PER_POINT
-    line_height_emu = max(1, _round_emu(font_size_emu * effective_line_height))
+    return _measure_code_text_cached(
+        text,
+        available_width_emu,
+        size_pt,
+        effective_line_height,
+    )
+
+
+@lru_cache(maxsize=_MEASURE_CACHE_MAXSIZE)
+def _measure_code_text_cached(
+    text: str,
+    available_width_emu: int,
+    font_size_pt: float,
+    line_height: float,
+) -> TextMeasurement:
+    font_size_emu = font_size_pt * _EMU_PER_POINT
+    line_height_emu = max(1, _round_emu(font_size_emu * line_height))
     character_width_emu = font_size_emu * _CODE_ADVANCE_EM
     capacity = max(1, int(available_width_emu // character_width_emu))
 

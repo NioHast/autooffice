@@ -6,7 +6,10 @@ disimpan di cache berbasis SHA-256. Cache key memuat isi sumber, token theme,
 versi PlantUML, dan opsi render.
 
 PlantUML dapat berupa executable native atau berkas ``.jar`` yang dijalankan
-dengan Java. Referensi: https://plantuml.com/command-line
+dengan Java. Untuk berkas ``.jar``, versi dibaca dari ``META-INF/MANIFEST.MF``
+agar tidak perlu menyalakan Java; probe ``--version`` hanya dipakai bila
+manifest tidak memuat versi yang valid dan memenuhi versi minimum.
+Referensi: https://plantuml.com/command-line
 """
 
 import ctypes
@@ -20,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import zipfile
 import zlib
 from collections.abc import Mapping
 from contextlib import suppress
@@ -39,6 +43,8 @@ PLANTUML_INSTALL_HINT = (
     f"Bila Java tidak ada di PATH, set {JAVA_ENV_VAR} ke path executable java."
 )
 MIN_PLANTUML_VERSION = (1, 2026, 10)
+JAR_MANIFEST_PATH = "META-INF/MANIFEST.MF"
+MAX_MANIFEST_BYTES = 64 * 1024
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 CACHE_FORMAT = 1
@@ -75,6 +81,7 @@ _PLANTUML_VERSION_RE = re.compile(
     re.IGNORECASE,
 )
 _BARE_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:\.\d+)*")
+_MANIFEST_VERSION_KEY = "implementation-version"
 _VERSION_CACHE: dict[tuple[str, int, int], str] = {}
 
 
@@ -228,14 +235,21 @@ def find_java() -> Path | None:
 def plantuml_version(executable: Path) -> str:
     """Baca versi PlantUML dan tolak versi di bawah minimum.
 
-    Perintah dijalankan sebagai ``[<base command>, "--version"]``. Output wajib
-    memuat ``PlantUML version X.Y.Z`` dan versi yang lebih lama dari
-    ``MIN_PLANTUML_VERSION`` ditolak.
+    Berkas ``.jar`` dibaca lebih dulu dari ``META-INF/MANIFEST.MF``. Manifest
+    yang hilang, rusak, atau memuat versi di bawah ``MIN_PLANTUML_VERSION``
+    tidak dipakai; probe ``[<base command>, "--version"]`` tetap dijalankan
+    agar keputusan versi dan pesan error sama dengan executable non-jar.
+    Output probe wajib memuat ``PlantUML version X.Y.Z`` dan versi yang lebih
+    lama dari ``MIN_PLANTUML_VERSION`` ditolak.
     """
     fingerprint = _executable_fingerprint(executable)
     cached = _VERSION_CACHE.get(fingerprint)
     if cached is not None:
         return cached
+    manifest_version = _jar_manifest_version(executable)
+    if manifest_version is not None:
+        _VERSION_CACHE[fingerprint] = manifest_version
+        return manifest_version
     command = [*_base_command(executable), "--version"]
     try:
         result = _run_captured(command, timeout=VERSION_TIMEOUT)
@@ -521,6 +535,90 @@ def _version_launch_error(executable: Path, error: OSError) -> PlantUmlError:
         f"Gagal membaca versi PlantUML: {error}",
         code="PLANTUML-VERSION",
     )
+
+
+def _jar_manifest_version(executable: Path) -> str | None:
+    """Versi dari manifest jar, atau ``None`` bila manifest tidak dapat dipakai.
+
+    Manifest hanya menjadi jalur cepat untuk versi yang valid dan memenuhi
+    ``MIN_PLANTUML_VERSION``. Manifest yang terlalu lama sengaja tidak langsung
+    ditolak: pemanggil menjalankan probe ``--version`` sehingga perilaku versi
+    minimum dan pesan error tetap identik dengan executable non-jar.
+    """
+    if executable.suffix.lower() != ".jar":
+        return None
+    manifest = _read_jar_manifest(executable)
+    if manifest is None:
+        return None
+    version = _parse_manifest_version(manifest)
+    if version is None:
+        return None
+    try:
+        _require_minimum_version(version)
+    except PlantUmlError:
+        return None
+    return version
+
+
+def _read_jar_manifest(executable: Path) -> str | None:
+    """Baca ``META-INF/MANIFEST.MF`` dari jar dengan batas ukuran.
+
+    Jar diperlakukan sebagai input yang belum tepercaya: ukuran entri yang
+    dideklarasikan diperiksa sebelum dekompresi dan pembacaan tetap dibatasi
+    agar manifest besar tidak menghabiskan memori.
+    """
+    try:
+        with zipfile.ZipFile(executable) as archive:
+            try:
+                entry = archive.getinfo(JAR_MANIFEST_PATH)
+            except KeyError:
+                return None
+            if entry.file_size > MAX_MANIFEST_BYTES:
+                return None
+            with archive.open(entry) as handle:
+                data = handle.read(MAX_MANIFEST_BYTES + 1)
+    except (
+        OSError,
+        EOFError,
+        RuntimeError,
+        NotImplementedError,
+        ValueError,
+        zipfile.BadZipFile,
+        zlib.error,
+    ):
+        return None
+    if len(data) > MAX_MANIFEST_BYTES:
+        return None
+    return data.decode("utf-8", errors="replace")
+
+
+def _parse_manifest_version(manifest: str) -> str | None:
+    """Ambil ``Implementation-Version`` dari bagian utama manifest.
+
+    Nama kunci tidak peka huruf besar-kecil. Baris lanjutan (diawali satu
+    spasi) disambung sesuai spesifikasi manifest, dan bagian utama berakhir di
+    baris kosong pertama. Nilai harus berupa versi PlantUML utuh; selain itu
+    dianggap tidak dikenali.
+    """
+    fields: list[str] = []
+    for line in manifest.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if not line:
+            break
+        if line.startswith(" "):
+            if not fields:
+                return None
+            fields[-1] += line[1:]
+            continue
+        fields.append(line)
+    for field in fields:
+        key, separator, value = field.partition(":")
+        if not separator or key.strip().lower() != _MANIFEST_VERSION_KEY:
+            continue
+        candidate = value.strip()
+        if _BARE_VERSION_RE.fullmatch(candidate):
+            return candidate
+        return None
+    return None
 
 
 def _parse_plantuml_version(output: str) -> str | None:

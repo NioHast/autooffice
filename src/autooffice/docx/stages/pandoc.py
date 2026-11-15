@@ -33,10 +33,12 @@ from ..pipeline import BaseStage, StageContext, StageName, StageResult, canonica
 __all__ = [
     "DEFAULT_TIMEOUT",
     "PANDOC_INSTALL_HINT",
+    "SOURCE_DATE_EPOCH",
     "PandocError",
     "PandocInvocation",
     "PandocStage",
     "build_pandoc_command",
+    "build_pandoc_environment",
     "build_pandoc_metadata",
     "find_pandoc",
     "resolve_bibliography",
@@ -45,12 +47,17 @@ __all__ = [
 ]
 
 DEFAULT_TIMEOUT = 300
+# Pandoc memakai jam dinding untuk dcterms:created/modified dan timestamp ZIP.
+# 2020-01-01T00:00:00Z membuat output reproducible tanpa mengubah zona waktu.
+SOURCE_DATE_EPOCH = "1577836800"
 PANDOC_INSTALL_HINT = (
     "Pasang Pandoc dari https://pandoc.org/installing.html, lalu pastikan "
     "`pandoc` ada di PATH atau berikan path pandoc secara eksplisit."
 )
 METADATA_FILENAME = "pandoc-metadata.yaml"
 DEFAULT_BIBLIOGRAPHY_HEADING = "DAFTAR PUSTAKA"
+CUSTOM_PROPERTIES_PART = "docProps/custom.xml"
+PATH_CUSTOM_PROPERTIES = frozenset({"csl", "bibliography"})
 
 
 class PandocError(ExternalToolError):
@@ -454,6 +461,7 @@ def build_pandoc_command(
     command = [
         *_executable_command(executable),
         str(markdown),
+        "--to=docx",
         f"--top-level-division={top_level_division}",
         f"--metadata=toc={'true' if toc else 'false'}",
     ]
@@ -478,6 +486,67 @@ def build_pandoc_command(
     return command
 
 
+def build_pandoc_environment(overrides: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Salin environment proses dan pasang waktu Pandoc yang deterministik.
+
+    Pandoc memakai ``SOURCE_DATE_EPOCH`` untuk ``dcterms:created``,
+    ``dcterms:modified``, dan timestamp ZIP. Nilai tetap membuat hasil build
+    sama di mesin dan waktu berbeda. Variabel lain, termasuk ``PATH`` dan
+    ``SYSTEMROOT``, tetap diwarisi agar executable dan library Pandoc dapat
+    ditemukan.
+    """
+
+    environment = dict(os.environ)
+    if overrides is not None:
+        environment.update(overrides)
+    # Nilai tetap dipasang terakhir: override pemanggil tidak boleh membuat
+    # output kembali bergantung pada jam dinding.
+    environment["SOURCE_DATE_EPOCH"] = SOURCE_DATE_EPOCH
+    return environment
+
+
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _path_basename(value: str) -> str:
+    normalized = value.replace("\\", "/").rstrip("/")
+    return normalized.rsplit("/", 1)[-1]
+
+
+def _sanitize_custom_properties(package: DocumentPackage) -> bool:
+    """Ganti path absolut pada custom property Pandoc dengan nama berkas.
+
+    Pandoc menulis ``csl`` dan ``bibliography`` dari argv ke
+    ``docProps/custom.xml``. Path absolut membuat DOCX berbeda antar checkout
+    walau isi dokumen sama. Nilai diganti dengan basename; part, relationship,
+    dan content type tetap utuh sehingga package tidak perlu dihapus.
+    """
+
+    if not package.has_part(CUSTOM_PROPERTIES_PART):
+        return False
+    root = package.xml(CUSTOM_PROPERTIES_PART)
+    changed = False
+    for node in root.iter():
+        if not isinstance(node.tag, str) or _local_name(node.tag) != "property":
+            continue
+        if node.get("name") not in PATH_CUSTOM_PROPERTIES:
+            continue
+        for value in node.iter():
+            if value is node or not isinstance(value.tag, str):
+                continue
+            text = value.text
+            if not text or ("/" not in text and "\\" not in text):
+                continue
+            basename = _path_basename(text)
+            if basename != text:
+                value.text = basename
+                changed = True
+    if changed:
+        package.set_xml(CUSTOM_PROPERTIES_PART, root)
+    return changed
+
+
 def run_pandoc(
     command: Sequence[str],
     *,
@@ -485,7 +554,7 @@ def run_pandoc(
     cwd: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> None:
-    """Jalankan Pandoc dan angkat ``PandocError`` yang dapat ditindaklanjuti."""
+    """Jalankan Pandoc dengan environment deterministik dan angkat error jelas."""
 
     try:
         completed = subprocess.run(
@@ -496,7 +565,7 @@ def run_pandoc(
             errors="replace",
             timeout=timeout,
             cwd=str(cwd) if cwd is not None else None,
-            env=dict(env) if env is not None else None,
+            env=build_pandoc_environment(env),
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
@@ -646,6 +715,11 @@ class PandocStage(BaseStage):
             try:
                 run_pandoc(command, timeout=invocation.timeout)
                 package = _load_output(temporary, markdown=markdown)
+                if _sanitize_custom_properties(package):
+                    # Tulis ulang intermediate agar artifact pandoc_docx di
+                    # workspace juga bebas path checkout, bukan hanya package
+                    # in-memory yang dipakai stage berikutnya.
+                    package.save(temporary, atomic=False)
                 os.replace(temporary, output)
             except BaseException:
                 temporary.unlink(missing_ok=True)

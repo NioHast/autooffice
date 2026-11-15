@@ -40,7 +40,7 @@ from ..package.numbering import chapter_number
 from ..package.package import DocumentPackage
 from ..package.page import content_width
 from ..package.paragraphs import document_body, paragraph_style_id, paragraph_text
-from ..package.xml import ensure_ppr, get_or_add, qn, sha256_c14n
+from ..package.xml import ensure_ppr, get_or_add, qn, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 W_LEFT = qn("w:left")
@@ -374,13 +374,13 @@ def format_equations(
     spec = spec or EquationSpec()
     root = document_root(package)
     body = document_body(package)
-    before_hash = sha256_c14n(root)
+    before_hash = tree_digest(root)
 
     report = EquationReport()
     _apply_numbers(body, report, spec)
     _add_warnings(report)
 
-    if sha256_c14n(root) != before_hash:
+    if tree_digest(root) != before_hash:
         set_document_root(package, root)
     return report
 
@@ -401,9 +401,9 @@ class EquationsStage(BaseStage):
             raise EquationError("stage equations membutuhkan DocumentPackage dari stage pandoc")
 
         try:
-            before = sha256_c14n(document_root(package))
+            before = tree_digest(document_root(package))
             report = format_equations(package, spec=_spec_from_context(ctx))
-            changed = sha256_c14n(document_root(package)) != before
+            changed = tree_digest(document_root(package)) != before
         except EquationError:
             raise
         except Exception as exc:  # pragma: no cover - pengaman kontrak

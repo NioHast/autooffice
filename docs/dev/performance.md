@@ -1,9 +1,10 @@
 # Performance
 
-Halaman ini menjelaskan tes performa deck besar di `tests/performance/`.
-Tes tersebut menjaga agar kompilasi, pembentukan key manifest, dan layout plan
-tetap selesai dalam waktu wajar saat jumlah slide bertambah. Tes ini bukan
-benchmark mikro dan tidak memakai ambang waktu per operasi.
+Halaman ini menjelaskan tes performa deck besar di `tests/performance/`
+dan optimasi cache serta indeks yang sudah diterapkan. Tes tersebut menjaga
+agar kompilasi, pembentukan key manifest, dan layout plan tetap selesai dalam
+waktu wajar saat jumlah slide bertambah. Tes ini bukan benchmark mikro dan
+tidak memakai ambang waktu per operasi.
 
 ## Cakupan
 
@@ -65,6 +66,26 @@ Jalankan satu test tertentu:
 ```bash
 uv run pytest tests/performance/test_large_deck.py -q -k deterministic
 ```
+
+## Cache dan indeks
+
+Beberapa optimasi sudah diterapkan dan dijaga test perilaku, bukan hanya
+benchmark:
+
+| Area | Mekanisme | Efek terukur |
+| --- | --- | --- |
+| PlantUML DOCX | Cache persisten `.laporan/cache/plantuml` dengan kunci hash render + opsi + fingerprint executable, plus sidecar untuk fallback tanpa engine. | 4x cold, 2,4x warm |
+| Pengukuran deck | `lru_cache` 8.192 entri untuk `measure_text` dan `measure_code_text`; kunci memakai nilai tipografi yang sudah diresolusi. | 2,62x cold, 19,3x warm |
+| Coverage deck | Indeks binding per key dan per slide sehingga plan dan report tidak memindai seluruh binding berulang kali. | 16x dan 7,86x |
+| Perubahan pohon DOCX | `tree_digest` menghitung SHA-256 serialisasi langsung, menggantikan C14N pada pohon yang sama. | sekitar 12x |
+| Versi PlantUML | `Implementation-Version` dibaca dari manifest jar tanpa JVM; subprocess `--version` hanya fallback. | 11,5x |
+
+Angka di atas berasal dari pengukuran mesin pengembangan dan bukan ambang test,
+sehingga boleh berubah antar-mesin. Yang dijaga suite adalah perilaku: cache
+tidak memanggil engine saat hit, invalidasi cache benar, hasil pengukuran cache
+sama dengan jalur non-cache, dan plan coverage tetap cocok dengan referensi.
+Rincian kontrak cache PlantUML ada di
+[contracts/plantuml.md](../contracts/plantuml.md#cache).
 
 ## Batas dan interpretasi
 

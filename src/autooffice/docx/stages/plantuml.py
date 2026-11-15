@@ -22,6 +22,11 @@ Setiap diagram di-hash dari isi PlantUML dan opsi render. Berkas PNG yang sudah
 ada dipakai ulang tanpa memanggil PlantUML lagi bila strukturnya valid; PNG
 rusak atau terpotong dirender ulang.
 
+``render_blocks`` menerima ``cache_dir`` opsional untuk cache persisten
+content-addressed. Kunci cache memuat hash render, opsi render, dan fingerprint
+executable, dengan sidecar JSON untuk lookup saat PlantUML tidak tersedia.
+Tanpa ``cache_dir`` perilaku tetap hanya memakai PNG di workspace.
+
 Referensi: https://plantuml.com
 """
 
@@ -32,8 +37,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zlib
+from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,6 +53,9 @@ HASH_LENGTH = 12
 DEFAULT_TIMEOUT = 180
 MAX_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_ERROR_BYTES = 64 * 1024
+CACHE_FORMAT = 1
+CACHE_METADATA_SUFFIX = ".json"
+MAX_CACHE_METADATA_BYTES = 1_000_000
 
 PLANTUML_ENV_VAR = "AUTOOFFICE_PLANTUML"
 JAVA_ENV_VAR = "AUTOOFFICE_JAVA"
@@ -322,6 +333,392 @@ def render_hash(
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:HASH_LENGTH]
+
+
+# ---------------------------------------------------------------------------
+# Cache persisten
+# ---------------------------------------------------------------------------
+
+
+def _is_link(path: Path) -> bool:
+    """True untuk symlink maupun junction Windows tanpa mengikuti target."""
+
+    is_junction = getattr(path, "is_junction", None)
+    return path.is_symlink() or bool(is_junction is not None and is_junction())
+
+
+def _executable_fingerprint(executable: str | Path) -> dict[str, object]:
+    """Fingerprint stabil executable: path, mtime_ns, dan ukuran."""
+
+    path = Path(executable)
+    try:
+        stat = path.stat()
+    except OSError:
+        return {"path": str(path), "mtime_ns": 0, "size": 0}
+    return {
+        "path": str(path),
+        "mtime_ns": stat.st_mtime_ns,
+        "size": stat.st_size,
+    }
+
+
+def _cache_digest(
+    render_digest: str,
+    options: RenderOptions,
+    fingerprint: Mapping[str, object],
+) -> str:
+    """Hash cache penuh dari hash render, opsi, dan fingerprint executable."""
+
+    payload = {
+        "format": CACHE_FORMAT,
+        "render_hash": render_digest,
+        "options": options.as_dict(),
+        "fingerprint": dict(fingerprint),
+    }
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _cache_metadata_path(png_path: Path) -> Path:
+    return png_path.with_suffix(CACHE_METADATA_SUFFIX)
+
+
+def _cache_mtime(path: Path) -> int:
+    try:
+        return path.lstat().st_mtime_ns
+    except OSError:
+        return 0
+
+
+def _discard_cache_entry(png_path: Path) -> None:
+    """Hapus PNG cache dan sidecar-nya tanpa mengikuti symlink."""
+
+    for candidate in (png_path, _cache_metadata_path(png_path)):
+        try:
+            candidate.unlink(missing_ok=True)
+        except OSError:
+            continue
+
+
+def _cache_png_is_valid(png_path: Path) -> bool:
+    """Validasi PNG cache; symlink dan entri rusak dibuang."""
+
+    if _is_link(png_path):
+        _discard_cache_entry(png_path)
+        return False
+    if not png_path.is_file():
+        return False
+    if _png_file_problem(png_path) is not None:
+        _discard_cache_entry(png_path)
+        return False
+    return True
+
+
+def _read_cache_metadata(path: Path) -> dict[str, object] | None:
+    """Baca sidecar cache; symlink dan payload tidak valid ditolak."""
+
+    if _is_link(path) or not path.is_file():
+        return None
+    try:
+        if path.stat().st_size > MAX_CACHE_METADATA_BYTES:
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _cache_metadata_matches_request(
+    payload: Mapping[str, object],
+    *,
+    render_digest: str,
+    options: RenderOptions,
+) -> bool:
+    if payload.get("format") != CACHE_FORMAT:
+        return False
+    if payload.get("render_hash") != render_digest:
+        return False
+    if not isinstance(payload.get("fingerprint"), dict):
+        return False
+    return payload.get("options") == options.as_dict()
+
+
+def _cache_metadata_matches(
+    payload: Mapping[str, object],
+    *,
+    digest: str,
+    render_digest: str,
+    options: RenderOptions,
+    fingerprint: Mapping[str, object],
+) -> bool:
+    return (
+        _cache_metadata_matches_request(
+            payload,
+            render_digest=render_digest,
+            options=options,
+        )
+        and payload.get("digest") == digest
+        and payload.get("fingerprint") == dict(fingerprint)
+    )
+
+
+def _cached_png_for(
+    cache_dir: Path,
+    *,
+    digest: str,
+    render_digest: str,
+    options: RenderOptions,
+    fingerprint: Mapping[str, object],
+) -> Path | None:
+    """Cari entri cache persis untuk fingerprint executable saat ini."""
+
+    png_path = cache_dir / f"plantuml-{digest}.png"
+    if _is_link(png_path):
+        _discard_cache_entry(png_path)
+        return None
+    metadata_path = _cache_metadata_path(png_path)
+    if _is_link(metadata_path):
+        _discard_cache_entry(png_path)
+        return None
+    payload = _read_cache_metadata(metadata_path)
+    if payload is None or not _cache_metadata_matches(
+        payload,
+        digest=digest,
+        render_digest=render_digest,
+        options=options,
+        fingerprint=fingerprint,
+    ):
+        return None
+    if not _cache_png_is_valid(png_path):
+        return None
+    return png_path
+
+
+def _find_cached_png(
+    cache_dir: Path,
+    *,
+    render_digest: str,
+    options: RenderOptions,
+) -> Path | None:
+    """Cari PNG valid menurut sidecar saat fingerprint executable tidak tersedia."""
+
+    try:
+        candidates = list(cache_dir.glob(f"plantuml-*{CACHE_METADATA_SUFFIX}"))
+    except OSError:
+        return None
+    candidates.sort(key=lambda path: (_cache_mtime(path), path.name), reverse=True)
+    for metadata_path in candidates:
+        png_path = metadata_path.with_suffix(".png")
+        if _is_link(metadata_path):
+            _discard_cache_entry(png_path)
+            continue
+        payload = _read_cache_metadata(metadata_path)
+        if payload is None:
+            _discard_cache_entry(png_path)
+            continue
+        stored_digest = payload.get("digest")
+        if not isinstance(stored_digest, str):
+            _discard_cache_entry(png_path)
+            continue
+        if metadata_path.stem != f"plantuml-{stored_digest}":
+            _discard_cache_entry(png_path)
+            continue
+        if not _cache_metadata_matches_request(
+            payload,
+            render_digest=render_digest,
+            options=options,
+        ):
+            continue
+        if _cache_png_is_valid(png_path):
+            return png_path
+    return None
+
+
+def _validate_cache_dir(cache_dir: Path) -> Path:
+    """Siapkan cache persisten dan tolak symlink atau path bukan direktori."""
+
+    if _is_link(cache_dir):
+        raise PlantUmlError(
+            f"Cache PlantUML tidak boleh berupa symlink: {cache_dir}",
+            code="PLANTUML-CACHE",
+        )
+    if cache_dir.exists() and not cache_dir.is_dir():
+        raise PlantUmlError(
+            f"Cache PlantUML bukan direktori: {cache_dir}",
+            code="PLANTUML-CACHE",
+        )
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise PlantUmlError(
+            f"Gagal menyiapkan cache PlantUML {cache_dir}: {exc}",
+            code="PLANTUML-CACHE",
+        ) from exc
+    if _is_link(cache_dir):
+        raise PlantUmlError(
+            f"Cache PlantUML tidak boleh berupa symlink: {cache_dir}",
+            code="PLANTUML-CACHE",
+        )
+    return cache_dir
+
+
+def _document_cache_dir(workspace_root: str | Path) -> Path | None:
+    """Derive cache persisten di samping dokumen dari root workspace.
+
+    Pipeline menempatkan workspace di ``<document_dir>/.laporan-build``,
+    sehingga parent root workspace adalah direktori dokumen. Cache hanya
+    dikembalikan bila komponennya bukan symlink dan resolve-nya tetap berada di
+    dalam direktori dokumen.
+    """
+
+    document_dir = Path(workspace_root).parent
+    report_dir = document_dir / ".laporan"
+    cache_root = report_dir / "cache"
+    cache_dir = cache_root / "plantuml"
+    for candidate in (report_dir, cache_root, cache_dir):
+        if _is_link(candidate):
+            return None
+        if candidate.exists() and not candidate.is_dir():
+            return None
+    try:
+        resolved_document = document_dir.resolve()
+        resolved_cache = cache_dir.resolve(strict=False)
+    except OSError, RuntimeError:
+        return None
+    if not resolved_cache.is_relative_to(resolved_document):
+        return None
+    return cache_dir
+
+
+def _copy_png_atomic(source: Path, target: Path, *, code: str = "PLANTUML-OUTPUT") -> None:
+    """Salin PNG melalui berkas sementara, flush, fsync, lalu ``os.replace``."""
+
+    temporary: Path | None = None
+    descriptor = -1
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            dir=target.parent,
+        )
+        temporary = Path(name)
+        with os.fdopen(descriptor, "wb") as writer:
+            descriptor = -1
+            with source.open("rb") as reader:
+                shutil.copyfileobj(reader, writer)
+            writer.flush()
+            os.fsync(writer.fileno())
+        os.replace(temporary, target)
+        temporary = None
+    except OSError as exc:
+        raise PlantUmlError(
+            f"Gagal menyalin PNG PlantUML ke {target}: {exc}",
+            code=code,
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            with suppress(OSError):
+                os.close(descriptor)
+        if temporary is not None:
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
+
+
+def _write_atomic_bytes(target: Path, data: bytes) -> None:
+    """Tulis sidecar cache secara atomik."""
+
+    temporary: Path | None = None
+    descriptor = -1
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            dir=target.parent,
+        )
+        temporary = Path(name)
+        with os.fdopen(descriptor, "wb") as writer:
+            descriptor = -1
+            writer.write(data)
+            writer.flush()
+            os.fsync(writer.fileno())
+        os.replace(temporary, target)
+        temporary = None
+    except OSError as exc:
+        raise PlantUmlError(
+            f"Gagal menulis metadata cache PlantUML {target}: {exc}",
+            code="PLANTUML-CACHE",
+        ) from exc
+    finally:
+        if descriptor >= 0:
+            with suppress(OSError):
+                os.close(descriptor)
+        if temporary is not None:
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
+
+
+def _store_cached_png(
+    source_png: Path,
+    cache_dir: Path,
+    *,
+    digest: str,
+    render_digest: str,
+    options: RenderOptions,
+    fingerprint: Mapping[str, object],
+) -> None:
+    """Simpan PNG hasil render yang sudah valid tanpa menimpa entri valid."""
+
+    png_path = cache_dir / f"plantuml-{digest}.png"
+    if (
+        _cached_png_for(
+            cache_dir,
+            digest=digest,
+            render_digest=render_digest,
+            options=options,
+            fingerprint=fingerprint,
+        )
+        is not None
+    ):
+        return
+    problem = _png_file_problem(source_png)
+    if problem is not None:
+        raise PlantUmlError(
+            f"PNG PlantUML tidak valid untuk cache {source_png.name}: {problem}.",
+            code="PLANTUML-CACHE",
+        )
+    for candidate in (png_path, _cache_metadata_path(png_path)):
+        if _is_link(candidate):
+            try:
+                candidate.unlink(missing_ok=True)
+            except OSError as exc:
+                raise PlantUmlError(
+                    f"Gagal menghapus symlink cache PlantUML {candidate}: {exc}",
+                    code="PLANTUML-CACHE",
+                ) from exc
+    _copy_png_atomic(source_png, png_path, code="PLANTUML-CACHE")
+    payload = {
+        "format": CACHE_FORMAT,
+        "digest": digest,
+        "render_hash": render_digest,
+        "options": options.as_dict(),
+        "fingerprint": dict(fingerprint),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    _write_atomic_bytes(_cache_metadata_path(png_path), encoded)
 
 
 def _escape_alt_text(caption: str) -> str:
@@ -718,6 +1115,7 @@ def render_blocks(
     options: RenderOptions | None = None,
     timeout: int = DEFAULT_TIMEOUT,
     path: str | Path | None = None,
+    cache_dir: Path | None = None,
 ) -> str:
     """Render semua blok PlantUML dan kembalikan Markdown hasil penggantian.
 
@@ -725,9 +1123,15 @@ def render_blocks(
     diganti dengan ``![caption](gambar/plantuml-<hash>.png)``. Diagram yang
     PNG-nya sudah ada dipakai ulang tanpa memanggil PlantUML.
 
+    Bila ``cache_dir`` diberikan, cache persisten diperiksa sebelum render.
+    Kunci cache memuat hash render (sumber + opsi) dan fingerprint executable.
+    Saat PlantUML tidak tersedia, sidecar cache dipakai untuk menemukan render
+    valid dari executable mana pun. Tanpa ``cache_dir`` hanya workspace yang
+    dipakai, seperti perilaku sebelumnya.
+
     ``PlantUmlError`` dilempar untuk input tidak valid atau render gagal.
     ``ToolMissingError`` dilempar bila masih ada diagram yang perlu dirender
-    tetapi PlantUML tidak ditemukan.
+    dan tidak ada cache valid tetapi PlantUML tidak ditemukan.
     """
 
     blocks = extract_blocks(markdown, path=path)
@@ -749,11 +1153,41 @@ def render_blocks(
             _discard_invalid_png(plan.image_path)
         pending.setdefault(plan.digest, plan)
 
-    if pending:
-        executable = find_plantuml(plantuml)
-        if executable is None:
+    if not pending:
+        return _rewrite_markdown(markdown, plans)
+
+    executable = find_plantuml(plantuml)
+    cache_root = _validate_cache_dir(Path(cache_dir)) if cache_dir is not None else None
+    fingerprint = _executable_fingerprint(executable) if executable is not None else None
+    unresolved: list[_BlockPlan] = []
+
+    for plan in pending.values():
+        cached_png: Path | None = None
+        if cache_root is not None:
+            if fingerprint is not None:
+                digest = _cache_digest(plan.digest, render_options, fingerprint)
+                cached_png = _cached_png_for(
+                    cache_root,
+                    digest=digest,
+                    render_digest=plan.digest,
+                    options=render_options,
+                    fingerprint=fingerprint,
+                )
+            else:
+                cached_png = _find_cached_png(
+                    cache_root,
+                    render_digest=plan.digest,
+                    options=render_options,
+                )
+        if cached_png is not None:
+            _copy_png_atomic(cached_png, plan.image_path)
+            continue
+        unresolved.append(plan)
+
+    if unresolved:
+        if executable is None or fingerprint is None:
             raise ToolMissingError("plantuml", _plantuml_missing_message(plantuml))
-        for plan in pending.values():
+        for plan in unresolved:
             _render_plantuml(
                 plan.block.code,
                 plan.image_path,
@@ -761,6 +1195,15 @@ def render_blocks(
                 render_options,
                 timeout=timeout,
             )
+            if cache_root is not None:
+                _store_cached_png(
+                    plan.image_path,
+                    cache_root,
+                    digest=_cache_digest(plan.digest, render_options, fingerprint),
+                    render_digest=plan.digest,
+                    options=render_options,
+                    fingerprint=fingerprint,
+                )
 
     return _rewrite_markdown(markdown, plans)
 
@@ -813,6 +1256,7 @@ class PlantUmlStage(BaseStage):
                 body,
                 Path(workspace.root),
                 path=document_path,
+                cache_dir=_document_cache_dir(Path(workspace.root)),
             )
         except DocgenError:
             raise

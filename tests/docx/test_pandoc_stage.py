@@ -15,9 +15,11 @@ from autooffice.docx.errors import ToolMissingError
 from autooffice.docx.package import DocumentPackage
 from autooffice.docx.pipeline import ArtifactStore, StageName, Workspace, canonical_prefix
 from autooffice.docx.stages.pandoc import (
+    SOURCE_DATE_EPOCH,
     PandocError,
     PandocStage,
     build_pandoc_command,
+    build_pandoc_environment,
     build_pandoc_metadata,
     find_pandoc,
     resolve_bibliography,
@@ -77,18 +79,27 @@ def _fake_pandoc(
     reference: Path,
     *,
     fail: bool = False,
+    env_record: Path | None = None,
 ) -> tuple[Path, Path]:
     """Buat fake Pandoc Python yang menyalin DOCX valid dan merekam argv."""
 
     record = tmp_path / "pandoc-argv.json"
     script = tmp_path / "fake-pandoc.py"
+    env_line = ""
+    if env_record is not None:
+        env_line = (
+            f"Path({str(env_record)!r}).write_text("
+            "json.dumps(dict(os.environ)), encoding='utf-8')\n"
+        )
     script.write_text(
         "import json\n"
+        "import os\n"
         "import shutil\n"
         "import sys\n"
         "from pathlib import Path\n"
         "args = sys.argv[1:]\n"
         f"Path({str(record)!r}).write_text(json.dumps(args), encoding='utf-8')\n"
+        f"{env_line}"
         f"if {fail!r}:\n"
         "    print('fake pandoc gagal', file=sys.stderr)\n"
         "    raise SystemExit(3)\n"
@@ -164,6 +175,7 @@ def test_build_command_without_lua_and_toc_pandoc(tmp_path: Path) -> None:
 
     assert command[0] == "pandoc"
     assert str(tmp_path / "input.md") in command
+    assert "--to=docx" in command
     assert "--top-level-division=chapter" in command
     assert "--metadata=toc=false" in command
     assert "--citeproc" in command
@@ -203,6 +215,19 @@ def test_build_command_citeproc_optional(tmp_path: Path) -> None:
     assert "--citeproc" not in command
 
 
+def test_build_pandoc_environment_sets_fixed_time_and_keeps_inherited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DOCGEN_PANDOC_TEST_MARKER", "inherited")
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1")
+
+    environment = build_pandoc_environment({"DOCGEN_PANDOC_EXTRA": "override"})
+
+    assert environment["SOURCE_DATE_EPOCH"] == SOURCE_DATE_EPOCH
+    assert environment["DOCGEN_PANDOC_TEST_MARKER"] == "inherited"
+    assert environment["DOCGEN_PANDOC_EXTRA"] == "override"
+
+
 def test_metadata_front_matter_does_not_send_title_block(
     tmp_path: Path,
     format_spec,
@@ -217,6 +242,7 @@ def test_metadata_front_matter_does_not_send_title_block(
 
     assert metadata["lang"] == "id-ID"
     assert metadata["reference-section-title"] == format_spec.bibliography_style.heading
+    assert set(metadata) == {"lang", "reference-section-title"}
     assert "title" not in metadata
     assert "author" not in metadata
     assert "date" not in metadata
@@ -410,9 +436,12 @@ def test_stage_output_uses_report_name(
 def test_stage_runs_fake_pandoc_and_produces_docx(
     tmp_path: Path,
     format_spec,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("DOCGEN_PANDOC_TEST_MARKER", "inherited")
     reference = _reference(tmp_path, format_spec)
-    fake, record = _fake_pandoc(tmp_path, reference)
+    env_record = tmp_path / "pandoc-env.json"
+    fake, record = _fake_pandoc(tmp_path, reference, env_record=env_record)
     ctx = _context(
         tmp_path,
         format_spec=format_spec,
@@ -434,6 +463,7 @@ def test_stage_runs_fake_pandoc_and_produces_docx(
     assert result.artifacts[0] == output
 
     args = json.loads(record.read_text(encoding="utf-8"))
+    assert "--to=docx" in args
     assert "--citeproc" in args
     assert "--top-level-division=chapter" in args
     assert "--metadata=toc=false" in args
@@ -449,6 +479,10 @@ def test_stage_runs_fake_pandoc_and_produces_docx(
     assert not any("--lua-filter" in item for item in args)
     assert not any("docx.lua" in item for item in args)
     assert "--toc" not in args
+
+    environment = json.loads(env_record.read_text(encoding="utf-8"))
+    assert environment["SOURCE_DATE_EPOCH"] == SOURCE_DATE_EPOCH
+    assert environment["DOCGEN_PANDOC_TEST_MARKER"] == "inherited"
 
     # Metadata file tidak memuat title/author sehingga tidak ada title block
     # ganda di samping sampul yang sudah dirender front_matter.

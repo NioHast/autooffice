@@ -185,6 +185,24 @@ def assert_option(arguments: list[str], flag: str, value: str) -> None:
     assert arguments[arguments.index(flag) + 1] == value
 
 
+def make_file_symlink(link: Path, target: Path) -> None:
+    """Buat symlink berkas atau lewati tes bila platform menolaknya."""
+
+    try:
+        link.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink berkas tidak didukung: {error}")
+
+
+def make_directory_symlink(link: Path, target: Path) -> None:
+    """Buat symlink direktori atau lewati tes bila platform menolaknya."""
+
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink direktori tidak didukung: {error}")
+
+
 # ---------------------------------------------------------------------------
 # Ekstraksi
 # ---------------------------------------------------------------------------
@@ -535,6 +553,199 @@ def test_render_blocks_cache_does_not_call_engine(
     assert second == first
     assert read_calls(log) == calls
     assert len(list((base / "gambar").glob("plantuml-*.png"))) == 1
+
+
+def test_render_blocks_uses_persistent_cache_without_engine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first_base = tmp_path / "build-1"
+    second_base = tmp_path / "build-2"
+    cache_dir = tmp_path / "cache"
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+    source = plantuml_fence("Diagram pipeline", CODE_SEQUENCE)
+
+    first = render_blocks(
+        source,
+        first_base,
+        plantuml=fake_plantuml,
+        cache_dir=cache_dir,
+    )
+
+    cached_pngs = list(cache_dir.glob("plantuml-*.png"))
+    cached_metadata = list(cache_dir.glob("plantuml-*.json"))
+    assert len(cached_pngs) == 1
+    assert len(cached_metadata) == 1
+    payload = json.loads(cached_metadata[0].read_text(encoding="utf-8"))
+    executable_stat = fake_plantuml.stat()
+    assert payload["format"] == plantuml_module.CACHE_FORMAT
+    assert payload["render_hash"] == render_hash(CODE_SEQUENCE)
+    assert payload["options"] == {"dpi": 192, "background": "white"}
+    assert payload["fingerprint"] == {
+        "path": str(fake_plantuml),
+        "mtime_ns": executable_stat.st_mtime_ns,
+        "size": executable_stat.st_size,
+    }
+    assert payload["digest"] == cached_pngs[0].stem.removeprefix("plantuml-")
+    calls = read_calls(log)
+    assert len(calls) == 1
+
+    os.utime(cached_pngs[0], (1_000_000_000, 1_000_000_000))
+    cached_mtime = cached_pngs[0].stat().st_mtime_ns
+    second = render_blocks(
+        source,
+        second_base,
+        plantuml=tmp_path / "tidak-ada-plantuml",
+        cache_dir=cache_dir,
+    )
+
+    assert second == first
+    assert read_calls(log) == calls
+    assert cached_pngs[0].stat().st_mtime_ns == cached_mtime
+    image_name = f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+    image = second_base / "gambar" / image_name
+    assert image.read_bytes() == PNG_1X1
+    assert f"](gambar/{image_name})" in second
+
+    third_base = tmp_path / "build-3"
+    third = render_blocks(
+        source,
+        third_base,
+        plantuml=fake_plantuml,
+        cache_dir=cache_dir,
+    )
+
+    assert third == first
+    assert read_calls(log) == calls
+    assert cached_pngs[0].stat().st_mtime_ns == cached_mtime
+    assert (third_base / "gambar" / image_name).read_bytes() == PNG_1X1
+
+
+def test_persistent_cache_invalidated_by_source_options_and_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_dir = tmp_path / "cache"
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+
+    render_blocks(
+        plantuml_fence("Diagram satu", CODE_SEQUENCE),
+        tmp_path / "build-1",
+        plantuml=fake_plantuml,
+        cache_dir=cache_dir,
+    )
+    render_blocks(
+        plantuml_fence("Diagram dua", CODE_OTHER),
+        tmp_path / "build-2",
+        plantuml=fake_plantuml,
+        cache_dir=cache_dir,
+    )
+    render_blocks(
+        plantuml_fence("Diagram satu", CODE_SEQUENCE),
+        tmp_path / "build-3",
+        plantuml=fake_plantuml,
+        options=RenderOptions(dpi=96),
+        cache_dir=cache_dir,
+    )
+    assert len(read_calls(log)) == 3
+    assert len(list(cache_dir.glob("plantuml-*.png"))) == 3
+
+    executable_stat = fake_plantuml.stat()
+    os.utime(
+        fake_plantuml,
+        ns=(executable_stat.st_atime_ns, executable_stat.st_mtime_ns + 1_000_000_000),
+    )
+    render_blocks(
+        plantuml_fence("Diagram satu", CODE_SEQUENCE),
+        tmp_path / "build-4",
+        plantuml=fake_plantuml,
+        cache_dir=cache_dir,
+    )
+
+    assert len(read_calls(log)) == 4
+    assert len(list(cache_dir.glob("plantuml-*.png"))) == 4
+    assert len(list(cache_dir.glob("plantuml-*.json"))) == 4
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(b"bukan png", id="garbage"),
+        pytest.param(VALID_PNG[:-8], id="truncated"),
+    ],
+)
+def test_persistent_cache_corrupt_png_is_rerendered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    payload: bytes,
+) -> None:
+    first_base = tmp_path / "build-1"
+    second_base = tmp_path / "build-2"
+    cache_dir = tmp_path / "cache"
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+    source = plantuml_fence("Diagram pipeline", CODE_SEQUENCE)
+
+    render_blocks(source, first_base, plantuml=fake_plantuml, cache_dir=cache_dir)
+    cached_png = next(cache_dir.glob("plantuml-*.png"))
+    cached_png.write_bytes(payload)
+
+    result = render_blocks(source, second_base, plantuml=fake_plantuml, cache_dir=cache_dir)
+
+    assert len(read_calls(log)) == 2
+    assert cached_png.read_bytes() == PNG_1X1
+    assert len(list(cache_dir.glob("plantuml-*.json"))) == 1
+    image_name = f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+    assert (second_base / "gambar" / image_name).read_bytes() == PNG_1X1
+    assert f"](gambar/{image_name})" in result
+
+
+def test_persistent_cache_entry_symlink_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first_base = tmp_path / "build-1"
+    second_base = tmp_path / "build-2"
+    cache_dir = tmp_path / "cache"
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+    source = plantuml_fence("Diagram pipeline", CODE_SEQUENCE)
+
+    render_blocks(source, first_base, plantuml=fake_plantuml, cache_dir=cache_dir)
+    cached_png = next(cache_dir.glob("plantuml-*.png"))
+    sentinel = tmp_path / "sentinel.png"
+    sentinel.write_bytes(VALID_PNG)
+    cached_png.unlink()
+    make_file_symlink(cached_png, sentinel)
+
+    result = render_blocks(source, second_base, plantuml=fake_plantuml, cache_dir=cache_dir)
+
+    assert len(read_calls(log)) == 2
+    assert sentinel.read_bytes() == VALID_PNG
+    assert not cached_png.is_symlink()
+    assert cached_png.read_bytes() == PNG_1X1
+    image_name = f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+    assert (second_base / "gambar" / image_name).read_bytes() == PNG_1X1
+    assert f"](gambar/{image_name})" in result
+
+
+def test_render_blocks_rejects_symlinked_cache_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "tugas"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    cache_dir = tmp_path / "cache"
+    make_directory_symlink(cache_dir, outside)
+    fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+
+    with pytest.raises(PlantUmlError, match="symlink") as error:
+        render_blocks(
+            plantuml_fence("Diagram pipeline", CODE_SEQUENCE),
+            base,
+            plantuml=fake_plantuml,
+            cache_dir=cache_dir,
+        )
+
+    assert error.value.code == "PLANTUML-CACHE"
+    assert list(outside.iterdir()) == []
+    assert read_calls(log) == []
+    assert list((base / "gambar").glob("plantuml-*.png")) == []
 
 
 def test_render_blocks_same_diagram_rendered_once(
@@ -1383,6 +1594,52 @@ def test_stage_renders_blocks_and_is_idempotent(
     assert output.read_text(encoding="utf-8") == text
     assert len(read_calls(log)) == 2
     assert fake_plantuml.is_file()
+
+
+def test_stage_persistent_cache_survives_workspace_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_plantuml, log = make_fake_plantuml(tmp_path, monkeypatch)
+    body = "# BAB I\n\n" + plantuml_fence("Diagram pipeline", CODE_SEQUENCE) + "\n"
+    image_name = f"plantuml-{render_hash(CODE_SEQUENCE)}.png"
+
+    def context() -> SimpleNamespace:
+        return SimpleNamespace(
+            document=SimpleNamespace(body=body, path=tmp_path / "document.md"),
+            workspace=Workspace(root=tmp_path / ".laporan-build", keep=False),
+            artifacts=ArtifactStore(),
+        )
+
+    first_ctx = context()
+    first = PlantUmlStage().run(first_ctx)
+
+    cache_dir = tmp_path / ".laporan" / "cache" / "plantuml"
+    cached_pngs = list(cache_dir.glob("plantuml-*.png"))
+    assert first.status == "ok"
+    assert first.changed is True
+    assert cache_dir.is_dir()
+    assert len(cached_pngs) == 1
+    assert len(list(cache_dir.glob("plantuml-*.json"))) == 1
+    assert not (first_ctx.workspace.root / ".laporan").exists()
+    assert not (first_ctx.workspace.root / "cache").exists()
+    assert (first_ctx.workspace.root / "gambar" / image_name).is_file()
+    assert len(read_calls(log)) == 1
+
+    first_ctx.workspace.cleanup()
+    assert not first_ctx.workspace.root.exists()
+    assert cache_dir.is_dir()
+
+    monkeypatch.setenv(PLANTUML_ENV_VAR, str(tmp_path / "tidak-ada-plantuml"))
+    second_ctx = context()
+    second = PlantUmlStage().run(second_ctx)
+
+    assert second.status == "ok"
+    assert second.changed is True
+    assert len(read_calls(log)) == 1
+    assert (second_ctx.workspace.root / "gambar" / image_name).read_bytes() == PNG_1X1
+    output = second_ctx.workspace.path("plantuml.md").read_text(encoding="utf-8")
+    assert "```{.plantuml" not in output
+    assert f"](gambar/{image_name})" in output
 
 
 def test_stage_missing_document_raises_domain_error(tmp_path: Path) -> None:

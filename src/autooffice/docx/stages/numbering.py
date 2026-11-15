@@ -32,7 +32,7 @@ from ..package.names import (
 from ..package.package import DocumentPackage
 from ..package.paragraphs import int_attribute
 from ..package.runs import strip_bold_from_rpr
-from ..package.xml import ensure_ppr, get_or_add, iter_paragraphs, qn, sha256_c14n
+from ..package.xml import ensure_ppr, get_or_add, iter_paragraphs, qn, tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 
 W_ILVL = qn("w:ilvl")
@@ -340,8 +340,8 @@ def format_numbering(
     if getattr(package, "has_part", None) and package.has_part(NUMBERING_PART):
         numbering_root = package.xml(NUMBERING_PART)
 
-    doc_before = sha256_c14n(root)
-    numbering_before = sha256_c14n(numbering_root) if numbering_root is not None else None
+    doc_before = tree_digest(root)
+    numbering_before = tree_digest(numbering_root) if numbering_root is not None else None
 
     numbering_index = _build_numbering_index(numbering_root) if numbering_root is not None else {}
 
@@ -407,9 +407,9 @@ def format_numbering(
             numbering_changed = True
         report.bold_removed += removed
 
-    document_changed = document_changed or sha256_c14n(root) != doc_before
+    document_changed = document_changed or tree_digest(root) != doc_before
     if numbering_root is not None:
-        numbering_changed = numbering_changed or sha256_c14n(numbering_root) != numbering_before
+        numbering_changed = numbering_changed or tree_digest(numbering_root) != numbering_before
 
     if document_changed:
         set_document_root(package, root)
@@ -434,15 +434,15 @@ class NumberingStage(BaseStage):
             raise NumberingError("stage numbering membutuhkan DocumentPackage dari stage pandoc")
 
         try:
-            before_document = sha256_c14n(document_root(package))
+            before_document = tree_digest(document_root(package))
             has_numbering = bool(
                 getattr(package, "has_part", None) and package.has_part(NUMBERING_PART)
             )
-            before_numbering = sha256_c14n(package.xml(NUMBERING_PART)) if has_numbering else None
+            before_numbering = tree_digest(package.xml(NUMBERING_PART)) if has_numbering else None
             report = format_numbering(package, spec=NumberingSpec())
-            changed = sha256_c14n(document_root(package)) != before_document
+            changed = tree_digest(document_root(package)) != before_document
             if not changed and before_numbering is not None:
-                changed = sha256_c14n(package.xml(NUMBERING_PART)) != before_numbering
+                changed = tree_digest(package.xml(NUMBERING_PART)) != before_numbering
         except NumberingError:
             raise
         except Exception as exc:  # pragma: no cover - pengaman kontrak

@@ -33,7 +33,7 @@ from ..package.tables import (
     format_tables,
     iter_tables,
 )
-from ..package.xml import sha256_c14n
+from ..package.xml import tree_digest
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 from .code import code_spec_from_format
 
@@ -250,7 +250,7 @@ def apply_captions(
     """Format tabel/gambar, pastikan caption, lalu beri nomor per bab."""
 
     root = package.xml(DOCUMENT_PART)
-    before = sha256_c14n(root)
+    before = tree_digest(root)
 
     specs = caption_specs or CaptionSpecs()
     layout = figure_spec or FigureLayoutSpec()
@@ -266,7 +266,7 @@ def apply_captions(
     )
     _add_warnings(report, scope)
 
-    report.changed = sha256_c14n(root) != before
+    report.changed = tree_digest(root) != before
     if report.changed:
         package.set_xml(DOCUMENT_PART, root)
 

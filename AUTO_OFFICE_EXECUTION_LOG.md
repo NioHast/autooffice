@@ -828,3 +828,77 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
   - `tests/contract/test_f0_scaffold.py`, `tests/deck/media/test_plantuml.py`, `tests/deck/media/test_plantuml_security.py`
   - `tests/deck/render/pptx/test_diagram.py`, `tests/docx/test_plantuml_docx.py`, `tests/tools/test_coverage_policy.py`, `tests/tools/test_removed_features.py`
   - `docs/dev/learn/00-start-here.md`, `docs/dev/packaging.md`
+
+## 2026-11-15 - Optimasi performa dan determinisme Pandoc
+
+- Masalah: build DOCX mengulang render PlantUML antar-build, hashing C14N
+  dipanggil 241 kali per build, layout deck mengukur teks yang sama berulang
+  kali, coverage memindai seluruh binding secara kuadratik, pembacaan versi
+  PlantUML menyalakan JVM, dan output Pandoc tidak deterministik karena
+  timestamp serta path absolut di `docProps/custom.xml`.
+- Resolusi:
+  - Cache PlantUML DOCX persisten di `.laporan/cache/plantuml`; kunci cache
+    memuat hash render, opsi render, dan fingerprint executable (path,
+    `mtime_ns`, ukuran), dengan sidecar JSON untuk lookup saat engine tidak
+    tersedia; symlink dan junction ditolak.
+  - Deteksi perubahan pohon XML yang sama pada stage DOCX memakai `tree_digest`
+    (SHA-256 serialisasi langsung) menggantikan C14N; C14N tetap dipakai untuk
+    idempotensi byte dan perbandingan antar-pohon.
+  - Pengukuran teks dan kode deck memakai `lru_cache` 8.192 entri dengan kunci
+    nilai tipografi yang sudah diresolusi.
+  - `build_coverage_plan` dan `collect_coverage` memakai indeks binding per key
+    dan per slide, bukan pemindaian ulang seluruh binding.
+  - Versi PlantUML dibaca dari `META-INF/MANIFEST.MF` field
+    `Implementation-Version` tanpa JVM; probe subprocess `--version` hanya
+    menjadi fallback.
+  - Pandoc dipanggil dengan `--to=docx` eksplisit dan
+    `SOURCE_DATE_EPOCH=1577836800`; `custom.xml` disanitasi sehingga `csl` dan
+    `bibliography` memakai basename, bukan path absolut checkout.
+- Catatan/verifikasi:
+  - Angka benchmark lane optimasi di mesin pengembangan: layout 2,62x cold dan
+    19,3x warm; coverage 16x dan 7,86x; versi manifest 11,5x; `tree_digest`
+    sekitar 12x; cache PlantUML DOCX 4x cold dan 2,4x warm. Angka ini hasil
+    pengukuran, bukan ambang test.
+  - Verifikasi lane dokumen/versi: `check_docs` 113 dokumen, 831 tautan, 30 TOC,
+    62 entri registry, Broken 0; `tests/docx/test_command.py` 2 passed; test
+    versi `tests/cli/test_cli.py` + `tests/cli/test_cli_lazy.py` +
+    `tests/contract/test_f0_scaffold.py` 43 passed; test targeted cache
+    PlantUML, manifest, `tree_digest`, measurement, dan coverage 44 passed;
+    `uv lock --check` lulus setelah `autooffice` 2.0.1 -> 2.1.0 dan
+    `uv sync --extra dev --extra google --reinstall-package autooffice`.
+  - Gate penuh tidak dijalankan ulang di lane dokumen/versi ini; file produksi
+    performa dimiliki lane lain.
+- File yang berubah:
+  - `AUTO_OFFICE_EXECUTION_LOG.md`, `pyproject.toml`, `uv.lock`
+  - `src/autooffice/__init__.py`, `src/autooffice/deck/layout/measure.py`,
+    `src/autooffice/deck/media/plantuml.py`
+  - `src/autooffice/deck/model/coverage.py`,
+    `src/autooffice/deck/render/pptx/coverage.py`
+  - `src/autooffice/docx/package/heading_numbering.py`,
+    `src/autooffice/docx/package/layout.py`,
+    `src/autooffice/docx/package/tables.py`, `src/autooffice/docx/package/xml.py`
+  - `src/autooffice/docx/stages/blank_lines.py`,
+    `src/autooffice/docx/stages/captions.py`,
+    `src/autooffice/docx/stages/code.py`,
+    `src/autooffice/docx/stages/equations.py`
+  - `src/autooffice/docx/stages/lists.py`,
+    `src/autooffice/docx/stages/normalize.py`,
+    `src/autooffice/docx/stages/numbering.py`,
+    `src/autooffice/docx/stages/page_numbers.py`
+  - `src/autooffice/docx/stages/pandoc.py`,
+    `src/autooffice/docx/stages/plantuml.py`,
+    `src/autooffice/docx/stages/sections.py`,
+    `src/autooffice/docx/stages/toc.py`
+  - `tests/cli/test_cli.py`, `tests/cli/test_cli_lazy.py`,
+    `tests/contract/test_f0_scaffold.py`
+  - `tests/deck/layout/test_measure.py`,
+    `tests/deck/layout/test_measure_edges.py`,
+    `tests/deck/media/test_plantuml.py`
+  - `tests/deck/model/test_coverage.py`,
+    `tests/deck/render/pptx/test_renderer_coverage.py`
+  - `tests/docx/test_pandoc_determinism.py`, `tests/docx/test_pandoc_stage.py`,
+    `tests/docx/test_plantuml_docx.py`, `tests/docx/test_tree_digest.py`
+  - `tests/fixtures/golden/docx/minimal/baseline.json`
+  - `docs/contracts/plantuml.md`, `docs/dev/docx/package.md`,
+    `docs/dev/learn/00-start-here.md`, `docs/dev/packaging.md`
+  - `docs/dev/performance.md`, `docs/dev/pipeline/stages.md`

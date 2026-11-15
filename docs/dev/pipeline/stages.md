@@ -28,7 +28,9 @@ Stage `plantuml` membaca fence `{.plantuml caption="..."}` dengan caption
 wajib dan isi tidak kosong, menulis PNG ke `gambar/plantuml-<hash>.png`, dan
 menulis Markdown hasil penggantian ke `plantuml.md` dengan artefak
 `plantuml.markdown`. Engine diambil dari `AUTOOFFICE_PLANTUML` (jar atau
-executable); `AUTOOFFICE_JAVA` opsional.
+executable); `AUTOOFFICE_JAVA` opsional. Hasil render disimpan juga di cache
+persisten `.laporan/cache/plantuml`, sehingga build berikutnya memakai ulang PNG
+yang sama tanpa memanggil PlantUML walau workspace sudah dibersihkan.
 
 Render memakai PlantUML 1.2026.10 atau lebih baru di Java 21 dengan `-pipe`,
 `-secure`, `--pragma layout=smetana`, dpi 192, `--disable-metadata`,

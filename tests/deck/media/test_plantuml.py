@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import time
+import zipfile
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from PIL import Image
 import autooffice.deck.media.plantuml as plantuml_module
 from autooffice.deck.media.plantuml import (
     JAVA_ENV_VAR,
+    MAX_MANIFEST_BYTES,
     PLANTUML_ENV_VAR,
     PLANTUML_INSTALL_HINT,
     PNG_SIGNATURE,
@@ -103,6 +105,32 @@ if stderr_bytes:
     sys.stderr.flush()
 """
 
+FAKE_JAVA = """\
+import json
+import os
+import sys
+
+arguments = sys.argv[1:]
+log = os.environ.get("FAKE_JAVA_LOG")
+if log:
+    with open(log, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(arguments) + "\\n")
+
+if "--version" in arguments:
+    print(os.environ.get("FAKE_PLANTUML_VERSION", "PlantUML version 1.2026.10 (test)"))
+"""
+
+
+def manifest_text(version: str, *, key: str = "Implementation-Version") -> str:
+    """Manifest jar minimal dengan satu entri versi."""
+    return (
+        "Manifest-Version: 1.0\r\n"
+        "Main-Class: net.sourceforge.plantuml.Run\r\n"
+        f"{key}: {version}\r\n"
+        "Build-Jdk-Spec: 21\r\n"
+        "\r\n"
+    )
+
 
 @pytest.fixture(scope="module")
 def theme():
@@ -133,6 +161,51 @@ def make_fake_plantuml(
     return script, log
 
 
+def make_fake_jar(
+    tmp_path: Path,
+    *,
+    manifest: str | None = None,
+    name: str = "plantuml.jar",
+) -> Path:
+    """Tulis jar palsu; entri manifest hanya ditambahkan bila diberikan."""
+    jar = tmp_path / name
+    with zipfile.ZipFile(jar, "w") as archive:
+        archive.writestr("net/sourceforge/plantuml/Run.class", b"\x00")
+        if manifest is not None:
+            archive.writestr("META-INF/MANIFEST.MF", manifest)
+    return jar
+
+
+def make_fake_java(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Pasang java palsu dan kembalikan log invocation-nya."""
+    log = tmp_path / "java-log.jsonl"
+    script = tmp_path / "fake_java.py"
+    script.write_text(FAKE_JAVA, encoding="utf-8", newline="\n")
+    monkeypatch.setenv("FAKE_JAVA_LOG", str(log))
+    monkeypatch.setattr(plantuml_module, "find_java", lambda: script)
+    return log
+
+
+def forbid_process(*_args: object, **_kwargs: object) -> None:
+    """Gagalkan test bila ada upaya mencari Java atau menjalankan proses."""
+    raise AssertionError("manifest valid tidak boleh diikuti proses eksternal")
+
+
+def installed_plantuml_jar() -> Path | None:
+    """Path ``plantuml.jar`` bawaan bila tersedia di mesin uji."""
+    override = os.environ.get(PLANTUML_ENV_VAR)
+    if override:
+        candidate = Path(override)
+        if candidate.suffix.lower() == ".jar" and candidate.is_file():
+            return candidate
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidate = Path(local_app_data) / "Programs" / "autooffice-plantuml" / "plantuml.jar"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def read_calls(log: Path) -> list[list[str]]:
     """Baca seluruh invocation yang dicatat fake PlantUML."""
     if not log.exists():
@@ -148,6 +221,11 @@ def render_calls(log: Path) -> list[list[str]]:
 def version_calls(log: Path) -> list[list[str]]:
     """Ambil invocation probe versi."""
     return [call for call in read_calls(log) if call == ["--version"]]
+
+
+def java_version_calls(log: Path) -> list[list[str]]:
+    """Ambil invocation ``--version`` yang diterima java palsu."""
+    return [call for call in read_calls(log) if "--version" in call]
 
 
 def option(arguments: list[str], flag: str) -> str:
@@ -1305,6 +1383,195 @@ def test_jar_version_launch_failure_reports_java(
         plantuml_version(jar)
 
     assert error.value.code == "PLANTUML-JAVA"
+
+
+def test_jar_manifest_version_skips_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = make_fake_jar(tmp_path, manifest=manifest_text("1.2026.10"))
+    monkeypatch.setattr(plantuml_module, "_run_captured", forbid_process)
+    monkeypatch.setattr(plantuml_module, "find_java", forbid_process)
+
+    assert plantuml_version(jar) == "1.2026.10"
+
+
+def test_jar_manifest_version_key_is_case_insensitive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = make_fake_jar(
+        tmp_path,
+        manifest=manifest_text("1.2026.10", key="implementation-version"),
+    )
+    monkeypatch.setattr(plantuml_module, "_run_captured", forbid_process)
+    monkeypatch.setattr(plantuml_module, "find_java", forbid_process)
+
+    assert plantuml_version(jar) == "1.2026.10"
+
+
+def test_jar_manifest_version_joins_continuation_lines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    folded = "Manifest-Version: 1.0\r\nImplementation-Version: 1.2026.\r\n 10\r\n\r\n"
+    jar = make_fake_jar(tmp_path, manifest=folded)
+    monkeypatch.setattr(plantuml_module, "_run_captured", forbid_process)
+    monkeypatch.setattr(plantuml_module, "find_java", forbid_process)
+
+    assert plantuml_version(jar) == "1.2026.10"
+
+
+def test_manifest_continuation_without_field_is_unrecognized() -> None:
+    manifest = " Implementation-Version: 1.2026.10\r\n"
+
+    assert plantuml_module._parse_manifest_version(manifest) is None
+
+
+def test_manifest_version_without_trailing_blank_line_is_parsed() -> None:
+    manifest = "Implementation-Version: 1.2026.10"
+
+    assert plantuml_module._parse_manifest_version(manifest) == "1.2026.10"
+
+
+def test_manifest_without_implementation_version_is_unrecognized() -> None:
+    manifest = "Manifest-Version: 1.0\r\nMain-Class: net.sourceforge.plantuml.Run\r\n\r\n"
+
+    assert plantuml_module._parse_manifest_version(manifest) is None
+
+
+def test_jar_without_manifest_falls_back_to_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = make_fake_jar(tmp_path)
+    log = make_fake_java(tmp_path, monkeypatch)
+    monkeypatch.setenv("FAKE_PLANTUML_VERSION", "PlantUML version 1.2026.11 (test)")
+
+    assert plantuml_version(jar) == "1.2026.11"
+    assert java_version_calls(log) == [["-Djava.awt.headless=true", "-jar", str(jar), "--version"]]
+
+
+@pytest.mark.parametrize(
+    "manifest_version",
+    ["1.2026", "1.2026.10-SNAPSHOT", "PlantUML development build", ""],
+)
+def test_jar_with_unusable_manifest_falls_back_to_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    manifest_version: str,
+) -> None:
+    jar = make_fake_jar(tmp_path, manifest=manifest_text(manifest_version))
+    log = make_fake_java(tmp_path, monkeypatch)
+    monkeypatch.setenv("FAKE_PLANTUML_VERSION", "PlantUML version 1.2026.11 (test)")
+
+    assert plantuml_version(jar) == "1.2026.11"
+    assert len(java_version_calls(log)) == 1
+
+
+def test_jar_oversized_manifest_falls_back_to_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    oversized = manifest_text("1.2026.10") + "X-Padding: " + "x" * MAX_MANIFEST_BYTES + "\r\n"
+    jar = make_fake_jar(tmp_path, manifest=oversized)
+    log = make_fake_java(tmp_path, monkeypatch)
+    monkeypatch.setenv("FAKE_PLANTUML_VERSION", "PlantUML version 1.2026.11 (test)")
+
+    assert plantuml_version(jar) == "1.2026.11"
+    assert len(java_version_calls(log)) == 1
+
+
+def test_jar_manifest_read_over_limit_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _LyingEntry:
+        file_size = 1
+
+    class _OversizedHandle:
+        def __enter__(self) -> _OversizedHandle:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, size: int) -> bytes:
+            return b"x" * size
+
+    class _LyingArchive:
+        def __init__(self, *_args: object) -> None:
+            pass
+
+        def __enter__(self) -> _LyingArchive:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def getinfo(self, _name: str) -> _LyingEntry:
+            return _LyingEntry()
+
+        def open(self, _entry: _LyingEntry) -> _OversizedHandle:
+            return _OversizedHandle()
+
+    monkeypatch.setattr(
+        plantuml_module,
+        "zipfile",
+        SimpleNamespace(ZipFile=_LyingArchive, BadZipFile=zipfile.BadZipFile),
+    )
+
+    assert plantuml_module._read_jar_manifest(tmp_path / "lying.jar") is None
+
+
+def test_jar_too_old_manifest_defers_to_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = make_fake_jar(tmp_path, manifest=manifest_text("1.2026.9"))
+    log = make_fake_java(tmp_path, monkeypatch)
+    monkeypatch.setenv("FAKE_PLANTUML_VERSION", "PlantUML version 1.2026.9 (test)")
+
+    with pytest.raises(PlantUmlError, match="terlalu lama") as error:
+        plantuml_version(jar)
+
+    assert error.value.code == "PLANTUML-VERSION"
+    assert len(java_version_calls(log)) == 1
+
+
+def test_jar_manifest_version_is_cached_per_executable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = make_fake_jar(tmp_path, manifest=manifest_text("1.2026.10"))
+    reads: list[Path] = []
+    original = plantuml_module._read_jar_manifest
+
+    def counting_read(path: Path) -> str | None:
+        reads.append(path)
+        return original(path)
+
+    monkeypatch.setattr(plantuml_module, "_read_jar_manifest", counting_read)
+    monkeypatch.setattr(plantuml_module, "_run_captured", forbid_process)
+    monkeypatch.setattr(plantuml_module, "find_java", forbid_process)
+
+    assert plantuml_version(jar) == "1.2026.10"
+    assert plantuml_version(jar) == "1.2026.10"
+    assert reads == [jar]
+
+
+def test_installed_jar_reports_version_from_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jar = installed_plantuml_jar()
+    if jar is None:
+        pytest.skip("plantuml.jar bawaan tidak ditemukan di mesin ini")
+    if plantuml_module._jar_manifest_version(jar) != "1.2026.10":
+        pytest.skip(f"plantuml.jar terpasang bukan rilis 1.2026.10: {jar}")
+    monkeypatch.setattr(plantuml_module, "_run_captured", forbid_process)
+    monkeypatch.setattr(plantuml_module, "find_java", forbid_process)
+
+    assert plantuml_version(jar) == "1.2026.10"
 
 
 def test_find_plantuml_prefers_env_override(tmp_path: Path, monkeypatch) -> None:
