@@ -797,3 +797,10 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
   - `src/autooffice/docx/stages/pandoc.py`, `src/autooffice/docx/stages/sections.py`, `src/autooffice/docx/stages/style_reference.py`, `tests/cli/test_targets.py`
   - `tests/docx/test_docx_config.py`, `tests/docx/test_front_matter.py`, `tests/docx/test_pandoc_stage.py`, `tests/packaging/test_autooffice_package.py`
   - `tests/packaging/test_wheel_contents.py`
+
+## 2026-11-15 - Prasyarat runtime dan development di README
+
+- Masalah: README mencampur prasyarat runtime dan development serta tidak menegaskan bahwa dependency transitif dipasang otomatis.
+- Resolusi: bagian Prasyarat dipecah menjadi Runtime dan Development, hanya memuat kebutuhan langsung, plus daftar paket yang tidak perlu dipasang manual.
+- Catatan/verifikasi: `check_docs` 0 broken; `doctor` memeriksa Pandoc dan aset font.
+- File yang berubah: `README.md`, `AUTO_OFFICE_EXECUTION_LOG.md`.

@@ -29,18 +29,46 @@ dari luar tidak dijamin akan diterima atau dipertahankan.
 
 ## Prasyarat
 
-- **Python 3.15** dan **uv**. Jalankan `uv sync --extra dev` sekali dari akar
-  repo. Tambahkan `--extra google` untuk target Slides.
-- **Pandoc** dengan `--citeproc` untuk DOCX dari Markdown.
-- **Mermaid CLI (`mmdc`)** bila dokumen atau deck memakai diagram Mermaid.
-  Pasang Node.js lalu jalankan `npm install -g @mermaid-js/mermaid-cli`.
-- **Google credentials** dan OAuth untuk target `slides`: extra `google`,
-  client OAuth, dan izin Drive/Sheets/Slides. Tutorial ada di
-  [docs/user/google-oauth.md](docs/user/google-oauth.md).
-- **Tidak ada Office, COM, atau `pywin32`.** DOCX dan PPTX dibangun murni
-  dengan Python di Windows, Linux, dan macOS. Microsoft Word atau PowerPoint
-  hanya diperlukan bila pengguna ingin memperbarui field DOCX atau mengekspor
-  PDF secara manual.
+Daftar ini hanya memuat kebutuhan langsung. Seluruh paket Python, baik langsung
+maupun transitif, dipasang otomatis dari `uv.lock`; jangan memasang `lxml`,
+`pillow`, `python-pptx`, atau `ruamel.yaml` secara manual.
+
+### Runtime
+
+| Kebutuhan | Wajib untuk | Catatan |
+| --- | --- | --- |
+| Python 3.15 | semua perintah | Dikelola `uv`; versi ada di `.python-version`. |
+| `uv` | semua perintah | Menyinkronkan `.venv` dan menjalankan `uv run`. |
+| Pandoc dengan `--citeproc` | DOCX dari Markdown | Versi 3.x disarankan; `doctor` memeriksa ketersediaannya. |
+| Node.js + Mermaid CLI (`mmdc`) | dokumen atau deck dengan diagram Mermaid | `npm install -g @mermaid-js/mermaid-cli`. |
+| Kredensial Google OAuth | hanya target `slides` | `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`; lihat [docs/user/google-oauth.md](docs/user/google-oauth.md). |
+| Microsoft Word atau PowerPoint | opsional, manual | Memperbarui field DOCX (Ctrl+A, F9) dan mengekspor PDF. |
+
+- Build DOCX dan PPTX tidak memerlukan Office, COM, `pywin32`, atau PowerShell.
+- Jaringan hanya diperlukan untuk target `slides`.
+- `uv run autooffice doctor` memeriksa Python, workspace, Pandoc, aset font
+  bundled, dan modul Google untuk target `slides`.
+
+### Development
+
+| Kebutuhan | Catatan |
+| --- | --- |
+| Semua prasyarat runtime | Test acceptance memakai Pandoc; diagram memakai `mmdc`. |
+| `uv sync --extra dev --extra google` | Memasang paket dev dan Google ke `.venv`. |
+| Python 3.15 dan `uv` | Sama seperti runtime. |
+
+Alat pengembangan langsung: `pytest`, `pytest-cov`, `mypy`, `ruff`,
+`hypothesis`, `import-linter`, `cosmic-ray`, dan `python-docx` (hanya untuk
+test). Tidak ada alat dev yang masuk wheel runtime.
+
+### Yang tidak perlu dipasang manual
+
+- Paket Python runtime: `lxml`, `pillow`, `python-pptx`, `ruamel.yaml`.
+- Paket Python dev: seluruh isi extra `dev`.
+- Dependency transitif, misalnya `typing-extensions`, `google-api-core`, atau `aiohttp`.
+
+Semua dipasang otomatis dari `uv.lock`. Daftar lengkap dapat diperiksa dengan
+`uv tree`.
 
 ## Quickstart
 
