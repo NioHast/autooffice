@@ -9,7 +9,7 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | ---: | --- | --- | --- | --- |
 | 10 | `validate` | `autooffice/docx/stages/validate.py` | - | Caption tabel dan alt text gambar. |
 | 20 | `mermaid` | `autooffice/docx/stages/mermaid.py` | workspace | Blok Mermaid menjadi PNG. |
-| 30 | `style_reference` | `autooffice/docx/stages/style_reference.py` | workspace, cache | `reference.docx` turunan dari `format.yml`. |
+| 30 | `style_reference` | `autooffice/docx/stages/style_reference.py` | workspace, cache | `reference.docx` turunan dari `format.yaml`. |
 | 35 | `front_matter` | `autooffice/docx/stages/front_matter.py` | workspace | Sampul, template, abstrak, nomor heading. |
 | 40 | `pandoc` | `autooffice/docx/stages/pandoc.py` | package | Markdown menjadi DOCX. |
 | 50 | `sections` | `autooffice/docx/stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, nomor heading DOCX. |

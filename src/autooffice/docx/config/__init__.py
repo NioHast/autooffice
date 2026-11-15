@@ -1,4 +1,4 @@
-"""Pembacaan dan validasi ``format.yml`` serta ``structure.yml``.
+"""Pembacaan dan validasi ``format.yaml`` serta ``structure.yaml``.
 
 API masuk adalah :func:`load_format`, :func:`load_structure`,
 :func:`format_override_warning`, :func:`load_yaml_mapping`, dan

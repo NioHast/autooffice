@@ -1,4 +1,4 @@
-"""Parser ``format.yml`` dan validasi aset format.
+"""Parser ``format.yaml`` dan validasi aset format.
 
 Modul ini memuat :func:`load_format` dan :func:`format_override_warning`.
 Parser membangun model immutable dari blok ``page``, ``font``, ``abstract``,
@@ -1185,7 +1185,7 @@ def _parse_assets(data: Mapping[str, Any] | None, *, format_dir: Path, path: Pat
 
 
 def load_format(format_id: str, *, root: Path | None = None) -> Format:
-    """Muat dan validasi ``formats/<format_id>/format.yml``.
+    """Muat dan validasi ``formats/<format_id>/format.yaml``.
 
     Mengembalikan ``Format`` immutable dengan path aset yang sudah di-resolve
     dan data YAML read-only. ``root`` opsional mengganti direktori data paket.
@@ -1195,14 +1195,14 @@ def load_format(format_id: str, *, root: Path | None = None) -> Format:
 
     path_mod.validate_id(format_id, kind="format")
     directory = path_mod.format_dir(format_id, root=root)
-    path = directory / "format.yml"
+    path = directory / "format.yaml"
     if not path.is_file():
         raise ConfigError(
-            f"format '{format_id}': format.yml tidak ditemukan",
+            f"format '{format_id}': format.yaml tidak ditemukan",
             code="CFG-FORMAT-MISSING",
             path=path,
         )
-    data = load_yaml_mapping(path, label="format.yml")
+    data = load_yaml_mapping(path, label="format.yaml")
     _check_unknown(
         data,
         _FORMAT_KEYS,

@@ -49,7 +49,7 @@ Aturan berikut mengikat semua perubahan. Checklist rinci ada di
   DOCX adalah artefak build, sedangkan PDF diekspor manual dari Word.
 - Satu dokumen adalah satu `document.md`; tidak ada mode folder atau file bab
   terpisah. Setiap Heading 1 harus cocok dengan urutan `body` pada
-  `structure.yml`.
+  `structure.yaml`.
 - Jangan menulis nomor bab, tabel, gambar, atau persamaan secara manual.
 - Tabel wajib memiliki baris `: Judul tabel`. Gambar wajib memiliki alt text
   non-kosong.

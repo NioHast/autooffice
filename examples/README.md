@@ -22,7 +22,7 @@ gambar, dan `references.bib` berada dalam satu direktori.
 | Daftar gambar/tabel | tidak | ya | tidak |
 | Lampiran | - | 1 | - |
 
-Daftar isi dan daftar gambar/tabel diaktifkan oleh `structure.yml`, bukan oleh
+Daftar isi dan daftar gambar/tabel diaktifkan oleh `structure.yaml`, bukan oleh
 kunci front matter `document.md`. Jangan menulis `toc`, `daftar_gambar`, atau
 `daftar_tabel` di contoh.
 

@@ -15,7 +15,7 @@ Style inti yang dipakai pipeline:
 - style sampul seperti `CoverTitle`, `CoverSubtitle`, `CoverName`,
   `CoverInstitution`, dan `CoverImage`.
 
-`style_reference` menghasilkan `reference.docx` turunan dari `format.yml`.
+`style_reference` menghasilkan `reference.docx` turunan dari `format.yaml`.
 Sumber `reference.docx` di `src/autooffice/docx/data/` tidak pernah ditimpa.
 
 ## Referensi resmi
@@ -28,4 +28,4 @@ URL resminya ada di [registry referensi](../references.md).
 - [package.md](package.md) untuk part `word/styles.xml`.
 - [fields.md](fields.md) untuk field yang memakai style TOC.
 - [terms.md](terms.md) untuk style `IstilahAsing` dan `IstilahReview`.
-- [../formats.md](../formats.md) untuk `format.yml`.
+- [../formats.md](../formats.md) untuk `format.yaml`.

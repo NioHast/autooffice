@@ -258,7 +258,7 @@ def test_page_break_between_front_matter() -> None:
     assert output.count(PAGE_BREAK_XML) == 5
 
 
-def test_section_break_uses_format_yml_margins() -> None:
+def test_section_break_uses_format_yaml_margins() -> None:
     output = _render()
 
     assert 'w:top="2268"' in output
@@ -267,7 +267,7 @@ def test_section_break_uses_format_yml_margins() -> None:
     assert 'w:left="2268"' in output
     assert 'w:header="720"' in output
     assert 'w:footer="720"' in output
-    # Nilai default berasal dari ``format.yml``, bukan bawaan Word.
+    # Nilai default berasal dari ``format.yaml``, bukan bawaan Word.
     assert 'w:top="1134"' not in output
     assert 'w:right="1417"' not in output
 

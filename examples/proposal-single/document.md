@@ -24,8 +24,8 @@ berubah ketika naskah disunting. Pendekatan berbasis Markdown memisahkan isi
 dari presentasi sehingga naskah dapat diperiksa sebagai teks biasa
 [@gruber2004markdown; @pandoc2024].
 
-Pipeline `autooffice` menempatkan aturan visual di `format.yml`, urutan bab di
-`structure.yml`, dan isi proposal di `document.md`. Sebelum build dijalankan,
+Pipeline `autooffice` menempatkan aturan visual di `format.yaml`, urutan bab di
+`structure.yaml`, dan isi proposal di `document.md`. Sebelum build dijalankan,
 front matter, urutan Heading 1, gambar, dan berkas bibliografi divalidasi.
 Dengan cara ini, kesalahan konfigurasi ditemukan lebih awal dan tidak baru
 terlihat setelah DOCX terbentuk.

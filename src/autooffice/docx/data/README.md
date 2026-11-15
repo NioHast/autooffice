@@ -10,7 +10,7 @@ mengubah output build, jadi perlakukan seperti kontrak.
 ## Ownership
 
 - [Kontrak format dan struktur](../../../../docs/dev/formats.md) adalah sumber
-  kebenaran skema `format.yml`, `structure.yml`, dan front matter. README ini
+  kebenaran skema `format.yaml`, `structure.yaml`, dan front matter. README ini
   tidak mendefinisikan key baru.
 - ID format dan struktur adalah nama direktori. Menambah format atau struktur
   berarti menambah direktori yang sesuai, data valid, dan pembaruan kontrak
@@ -18,17 +18,17 @@ mengubah output build, jadi perlakukan seperti kontrak.
 - Nilai format dimiliki pemilik format; nilai urutan dan struktur dimiliki
   pemilik struktur; keputusan istilah dimiliki peninjau glosarium. Jangan
   menambah file ad hoc di folder ini.
-- Sumber kebenaran nilai: `formats/<id>/format.yml`,
-  `structures/<id>/structure.yml`, `glossary/istilah.tsv`, dan aset di
+- Sumber kebenaran nilai: `formats/<id>/format.yaml`,
+  `structures/<id>/structure.yaml`, `glossary/istilah.tsv`, dan aset di
   direktori yang sama.
 
 ## Struktur YAML
 
-- `formats/<id>/format.yml` mengatur nilai visual: `page`, `font`,
+- `formats/<id>/format.yaml` mengatur nilai visual: `page`, `font`,
   `headings`, `captions`, `figures`, `code`, `bibliography_style`,
   `citation`, dan `assets`. Semua dimensi memakai satuan yang didukung
   kontrak; warna memakai heksadesimal `RRGGBB`.
-- `structures/<id>/structure.yml` mengatur urutan dan pilihan: `front_matter`,
+- `structures/<id>/structure.yaml` mengatur urutan dan pilihan: `front_matter`,
   `body`, `back_matter`, `toc`, `numbering`, `lists`, dan `cover`.
   `front_matter` dengan `source: template` merujuk ke
   `structures/<id>/templates/<nama>.md`.

@@ -10,8 +10,8 @@ layout, dan theme adalah data paket yang dibaca saat runtime.
 | Lapisan | Lokasi | Tanggung jawab | Tidak boleh berisi |
 | --- | --- | --- | --- |
 | Konten DOCX | `document.md`, `references.bib`, `istilah.tsv`, `gambar/` | Teks, sitasi, glosarium tambahan, dan aset | Aturan margin, urutan bab, field Word |
-| Struktur DOCX | `src/autooffice/docx/data/structures/<id>/structure.yml` | Urutan front matter, body, back matter, penomoran, TOC, daftar, cover | Nilai margin, font, CSL |
-| Format DOCX | `src/autooffice/docx/data/formats/<id>/format.yml` | Halaman, font, heading, caption, kode, sitasi, aset visual | Teks naskah, urutan bab |
+| Struktur DOCX | `src/autooffice/docx/data/structures/<id>/structure.yaml` | Urutan front matter, body, back matter, penomoran, TOC, daftar, cover | Nilai margin, font, CSL |
+| Format DOCX | `src/autooffice/docx/data/formats/<id>/format.yaml` | Halaman, font, heading, caption, kode, sitasi, aset visual | Teks naskah, urutan bab |
 | Pipeline DOCX | `src/autooffice/docx/` | Validasi, orkestrasi stage, mutasi DOCX, output, manifest | Teks naskah, salinan aturan format |
 | Konten deck | `deck.yaml`, `transcripts.md`, `assets/`, `diagrams/` | Meta, slide, block, aset, transkrip | Token warna, layout preset, kode renderer |
 | Pipeline deck | `src/autooffice/deck/`, `src/autooffice/design/` | Compiler DeckIR, layout, copy checker, renderer, chart, transkrip | Teks naskah DOCX, aturan format Word |
@@ -27,7 +27,7 @@ document.md
   |
   +-- validate             front matter, aset, caption Markdown
   +-- mermaid              blok Mermaid menjadi PNG di workspace
-  +-- style_reference      reference.docx turunan dari format.yml
+  +-- style_reference      reference.docx turunan dari format.yaml
   +-- front_matter         sampul, template, abstrak, nomor heading
   +-- pandoc               Markdown menjadi DOCX
   |

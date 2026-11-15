@@ -1,4 +1,4 @@
-"""Parser ``structure.yml`` dan aturan struktur dokumen.
+"""Parser ``structure.yaml`` dan aturan struktur dokumen.
 
 Modul ini memuat :func:`load_structure` serta parser front matter, body, back
 matter, numbering, lists, dan cover. Aturan source front/back matter, ID bab,
@@ -378,7 +378,7 @@ def _parse_cover(data: Any, *, path: Path) -> CoverOverrides:
 
 
 def load_structure(structure_id: str, *, root: Path | None = None) -> Structure:
-    """Muat dan validasi ``structures/<structure_id>/structure.yml``.
+    """Muat dan validasi ``structures/<structure_id>/structure.yaml``.
 
     Mengembalikan ``Structure`` immutable; template front matter di-resolve
     terhadap direktori struktur. ``root`` opsional mengganti direktori data
@@ -388,14 +388,14 @@ def load_structure(structure_id: str, *, root: Path | None = None) -> Structure:
 
     path_mod.validate_id(structure_id, kind="struktur")
     directory = path_mod.structure_dir(structure_id, root=root)
-    path = directory / "structure.yml"
+    path = directory / "structure.yaml"
     if not path.is_file():
         raise ConfigError(
-            f"struktur '{structure_id}': structure.yml tidak ditemukan",
+            f"struktur '{structure_id}': structure.yaml tidak ditemukan",
             code="CFG-STRUCTURE-MISSING",
             path=path,
         )
-    data = load_yaml_mapping(path, label="structure.yml")
+    data = load_yaml_mapping(path, label="structure.yaml")
     _check_unknown(
         data,
         _STRUCTURE_KEYS,

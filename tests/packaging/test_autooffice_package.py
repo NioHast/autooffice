@@ -94,13 +94,13 @@ def test_docx_package_data_resolves() -> None:
     """Format, structure, and glossary data resolve inside the package."""
 
     format_root = paths.format_dir("undip-msi")
-    assert (format_root / "format.yml").is_file()
+    assert (format_root / "format.yaml").is_file()
     assert (format_root / "citation.csl").is_file()
     assert (format_root / "reference.docx").is_file()
     assert (format_root / "logo.jpg").is_file()
 
     structure_root = paths.structure_dir("assignment")
-    assert (structure_root / "structure.yml").is_file()
+    assert (structure_root / "structure.yaml").is_file()
 
     assert paths.glossary_file().is_file()
 

@@ -1,7 +1,7 @@
 # Format: Universitas Diponegoro - Magister Sistem Informasi (UNDIP MSI)
 # Nilai format, identitas, CSL, dan bibliography untuk struktur UNDIP MSI.
 # Nomor bab (prefix/format) tidak disimpan di sini karena berbeda per
-# struktur; lihat structures/<id>/structure.yml bagian numbering.
+# struktur; lihat structures/<id>/structure.yaml bagian numbering.
 # Skema mengikuti kontrak DOCX di docs/contracts/docx.md.
 format: undip-msi
 name: "Universitas Diponegoro - Magister Sistem Informasi"
@@ -96,7 +96,7 @@ headings:
       indent_left: 1.25cm
       indent_hanging: 1.25cm
 
-# Gaya judul daftar isi. Toggle daftar isi ada di structure.yml (`toc`),
+# Gaya judul daftar isi. Toggle daftar isi ada di structure.yaml (`toc`),
 # bukan di sini.
 toc_heading:
   heading_style: "TOCHeading"

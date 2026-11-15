@@ -107,7 +107,7 @@ Jangan menambahkan `daftar_gambar`, `daftar_tabel`, `preset`, `margin_preset`,
 `approval`, `statement`, `references`, `csl`, `reference-doc`, `template`, atau
 `cover` ke front matter. Kunci itu sudah dihapus dan menghasilkan error
 migrasi. Kunci `toc` di front matter juga ditolak sebagai kunci tidak dikenal
-(`CFG-UNKNOWN-KEY`); daftar isi dikendalikan oleh `toc` di `structure.yml`,
+(`CFG-UNKNOWN-KEY`); daftar isi dikendalikan oleh `toc` di `structure.yaml`,
 bukan oleh naskah.
 
 ## Heading

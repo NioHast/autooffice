@@ -2,7 +2,7 @@
 
 Modul ini memuat loader YAML aman serta konversi nilai generik (teks, boolean,
 angka, dimensi, ukuran font, warna, perataan, enum, dan daftar teks) yang
-dipakai bersama oleh parser ``format.yml`` dan ``structure.yml``. Semua
+dipakai bersama oleh parser ``format.yaml`` dan ``structure.yaml``. Semua
 kegagalan input dilempar sebagai ``ConfigError`` dengan kode stabil; tidak ada
 helper yang memutasi input dan tidak ada fallback.
 

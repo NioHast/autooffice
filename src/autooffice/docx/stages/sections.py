@@ -6,7 +6,7 @@ sebelum stage lain bekerja:
 - sampul berakhir pada section sendiri;
 - front matter dan body tidak berbagi section;
 - setiap Heading1 ``BAB ...`` dan back matter dimulai pada section baru;
-- seluruh section memakai ukuran halaman dan margin dari ``format.yml``.
+- seluruh section memakai ukuran halaman dan margin dari ``format.yaml``.
 
 TOC, nomor halaman, dan header/footer bukan tanggung jawab stage ini. Nomor
 heading body diterapkan sebelum section break agar heading bernomor ikut

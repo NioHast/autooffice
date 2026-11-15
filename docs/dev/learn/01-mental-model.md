@@ -43,22 +43,22 @@ dua sumber kebenaran.
 | Lapisan | Pemilik data | Contoh konkret | Pertanyaan yang dijawab |
 | --- | --- | --- | --- |
 | Konten | `document.md` dan aset di sampingnya | `examples/thesis-single/document.md`, `references.bib`, `gambar/` | Apa yang ditulis? |
-| Struktur | `structure.yml` | `src/autooffice/docx/data/structures/thesis/structure.yml` | Bagian apa yang muncul dan dalam urutan apa? |
-| Format | `format.yml` dan aset format | `src/autooffice/docx/data/formats/undip-msi/format.yml` | Bagaimana tampilannya? |
+| Struktur | `structure.yaml` | `src/autooffice/docx/data/structures/thesis/structure.yaml` | Bagian apa yang muncul dan dalam urutan apa? |
+| Format | `format.yaml` dan aset format | `src/autooffice/docx/data/formats/undip-msi/format.yaml` | Bagaimana tampilannya? |
 | Pipeline | `src/autooffice/docx/` | `pipeline.py`, `stages/`, `package/` | Bagaimana data diubah menjadi artefak? |
 
 Aturan praktis:
 
 - Jangan menulis margin atau font di `document.md`.
-- Jangan menulis urutan bab di `format.yml`.
-- Jangan menyalin nilai `format.yml` ke stage. Stage menerima model `Format`
+- Jangan menulis urutan bab di `format.yaml`.
+- Jangan menyalin nilai `format.yaml` ke stage. Stage menerima model `Format`
   yang sudah divalidasi.
 - Jangan mengubah DOCX hasil build untuk memperbaiki naskah. Perbaiki
   `document.md`, lalu build ulang.
 
 `document.md` adalah satu berkas. Struktur `body` berisi daftar bab logis,
 bukan daftar path berkas. Tidak ada folder `chapters/` dan tidak ada
-`metadata.yml` terpisah.
+`metadata.yaml` terpisah.
 
 ## Sumber kebenaran dan artefak
 

@@ -71,7 +71,7 @@ package yang sama.
 | ---: | --- | --- | --- | --- |
 | 10 | `validate` | `stages/validate.py` | - | Caption tabel dan alt text gambar di Markdown. |
 | 20 | `mermaid` | `stages/mermaid.py` | workspace | Render blok Mermaid menjadi PNG dan tulis `mermaid.md`. |
-| 30 | `style_reference` | `stages/style_reference.py` | workspace, cache | Hasilkan `reference.docx` turunan dari `format.yml`. |
+| 30 | `style_reference` | `stages/style_reference.py` | workspace, cache | Hasilkan `reference.docx` turunan dari `format.yaml`. |
 | 35 | `front_matter` | `stages/front_matter.py` | workspace | Sampul, template, abstrak, penomoran heading, Markdown final. |
 | 40 | `pandoc` | `stages/pandoc.py` | package | Markdown final menjadi DOCX awal. |
 | 50 | `sections` | `stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, nomor heading DOCX. |
@@ -174,7 +174,7 @@ Workspace default adalah `.laporan-build/` di samping `document.md`. Tanpa
 `--keep-intermediate`, workspace dihapus di blok `finally`, termasuk saat build
 gagal. Dengan `--keep-intermediate`, isinya dipertahankan untuk diperiksa,
 misalnya `front_matter.md`, `mermaid.md`, `reference.docx`,
-`pandoc-metadata.yml`, dan DOCX antara.
+`pandoc-metadata.yaml`, dan DOCX antara.
 
 ## Membaca kegagalan stage
 

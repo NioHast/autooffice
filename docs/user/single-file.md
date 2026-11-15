@@ -2,7 +2,7 @@
 
 `autooffice` memakai satu berkas Markdown sebagai sumber: `document.md`.
 Berkas itu memuat YAML front matter dan seluruh body. Tidak ada direktori `chapters/`,
-tidak ada `manifest.yml`, dan tidak ada perintah `build-file` terpisah.
+tidak ada `manifest.yaml`, dan tidak ada perintah `build-file` terpisah.
 Perintah `check` dan `build` menerima path `document.md` secara langsung.
 
 Alur ini cocok untuk tugas, proposal, dan tesis yang ditulis sebagai satu
@@ -50,7 +50,7 @@ default-nya `references.bib`, tetapi berkasnya tetap harus tersedia.
 ## Body dan bab
 
 Setiap Heading 1 adalah satu bab. Jumlah dan urutannya harus sama dengan
-`body` pada `structure.yml`:
+`body` pada `structure.yaml`:
 
 - `assignment`: Pendahuluan, Pembahasan, Penutup.
 - `proposal`: Pendahuluan, Tinjauan Pustaka, Metode Penelitian, Jadwal

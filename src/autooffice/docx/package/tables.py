@@ -222,7 +222,7 @@ class TableSpec:
 
 @dataclass(frozen=True)
 class CodeSpec:
-    """Nilai visual blok kode yang sudah dinormalisasi dari ``format.yml``."""
+    """Nilai visual blok kode yang sudah dinormalisasi dari ``format.yaml``."""
 
     style_id: str = "SourceCode"
     detect_styles: tuple[str, ...] = DEFAULT_CODE_STYLES

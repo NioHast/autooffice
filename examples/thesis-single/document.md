@@ -121,8 +121,8 @@ dan penomoran halaman.
 
 | Lapisan | Berkas | Tanggung jawab |
 | --- | --- | --- |
-| Format | `format.yml` | Margin, font, caption, CSL, dan aset visual |
-| Struktur | `structure.yml` | Urutan bab, front matter, TOC, dan penomoran |
+| Format | `format.yaml` | Margin, font, caption, CSL, dan aset visual |
+| Struktur | `structure.yaml` | Urutan bab, front matter, TOC, dan penomoran |
 | Konten | `document.md` | Judul, abstrak, bab, tabel, gambar, dan sitasi |
 | Pipeline | `src/autooffice/docx` | Validasi, orkestrasi stage, dan penulisan DOCX |
 
@@ -193,7 +193,7 @@ paket ditunjukkan pada gambar berikut.
 flowchart TD
   subgraph SUMBER["Naskah dan aturan"]
     MD["document.md<br/>front matter, bab, dan aset"]
-    CFG["format.yml + structure.yml<br/>aturan visual dan urutan bab"]
+    CFG["format.yaml + structure.yaml<br/>aturan visual dan urutan bab"]
   end
   subgraph ASET["Aset dokumen"]
     IMG["gambar/"]
@@ -230,8 +230,8 @@ pemeriksaan konfigurasi dirangkum pada tabel berikut.
 ## Pembahasan
 
 Pemisahan lapisan membuat perubahan format tidak menyentuh naskah. Urutan
-bab hanya didefinisikan sekali di `structure.yml`, sedangkan aturan visual
-berada di `format.yml`. Dengan demikian, dokumen contoh dapat dipindahkan ke
+bab hanya didefinisikan sekali di `structure.yaml`, sedangkan aturan visual
+berada di `format.yaml`. Dengan demikian, dokumen contoh dapat dipindahkan ke
 struktur lain tanpa menulis ulang isi bab.
 
 Validasi awal juga memberi umpan balik lebih cepat. Kesalahan seperti

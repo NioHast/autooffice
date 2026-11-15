@@ -95,14 +95,14 @@ Jangan mencampur aturan visual ke naskah. Repo memisahkan tiga lapis:
 | Lapis | Lokasi | Mengatur | Tidak boleh mengatur |
 | --- | --- | --- | --- |
 | Konten | `document.md`, `references.bib`, `istilah.tsv`, `gambar/` | Teks, sitasi, glosarium tambahan, aset | Margin, font, urutan bab |
-| Struktur | `src/autooffice/docx/data/structures/<id>/structure.yml` | Front matter, urutan bab, TOC, daftar, penomoran | Margin, font, teks naskah |
-| Format | `src/autooffice/docx/data/formats/<id>/format.yml` | Halaman, font, heading, caption, kode, aset visual | Teks naskah, urutan bab |
+| Struktur | `src/autooffice/docx/data/structures/<id>/structure.yaml` | Front matter, urutan bab, TOC, daftar, penomoran | Margin, font, teks naskah |
+| Format | `src/autooffice/docx/data/formats/<id>/format.yaml` | Halaman, font, heading, caption, kode, aset visual | Teks naskah, urutan bab |
 
 Pipeline berada di `src/autooffice/docx/`. Pipeline membaca data paket, bukan menyalin
 aturan format ke setiap dokumen.
 
 `document.md` adalah satu berkas. Tidak ada mode folder bab, tidak ada
-`chapters/*.md`, dan tidak ada `metadata.yml` terpisah. Front matter dan body
+`chapters/*.md`, dan tidak ada `metadata.yaml` terpisah. Front matter dan body
 berada di berkas yang sama.
 
 ## Peta folder minimum
@@ -111,7 +111,7 @@ berada di berkas yang sama.
 | --- | --- |
 | `src/autooffice/cli/main.py` | Entry point perintah `autooffice`. |
 | `src/autooffice/docx/pipeline.py` | Orkestrasi stage, opsi build, output, manifest. |
-| `src/autooffice/docx/config/` | Package pembaca dan validator `format.yml` serta `structure.yml`. |
+| `src/autooffice/docx/config/` | Package pembaca dan validator `format.yaml` serta `structure.yaml`. |
 | `src/autooffice/docx/document.py` | Parser `document.md` dan validasi body. |
 | `src/autooffice/docx/package/` | Model package DOCX dan helper XML. |
 | `src/autooffice/docx/stages/` | Stage kanonik pipeline. |

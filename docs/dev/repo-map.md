@@ -37,7 +37,7 @@ repo.
 |       |-- docx/
 |       |   |-- package/         # model DOCX/OPC dan seluruh mutasi XML
 |       |   |-- stages/          # stage kanonik pipeline DOCX
-|       |   |-- config/          # format.yml, structure.yml, validasi
+|       |   |-- config/          # format.yaml, structure.yaml, validasi
 |       |   |-- markdown/        # parser blok dan heading Markdown
 |       |   |-- adeu/            # bookmark, manifest, source scan, rekonsiliasi
 |       |   |-- terms/           # glosarium dan istilah
@@ -89,7 +89,7 @@ repo.
 | `src/autooffice/docx/command.py` | API publik `build_docx` untuk CLI Markdown. |
 | `src/autooffice/docx/package/` | Model package DOCX, part, relationship, helper XML, field, bookmark, terms. |
 | `src/autooffice/docx/stages/` | Stage kanonik pipeline DOCX. |
-| `src/autooffice/docx/config/` | Skema, model, dan validasi `format.yml` serta `structure.yml`. |
+| `src/autooffice/docx/config/` | Skema, model, dan validasi `format.yaml` serta `structure.yaml`. |
 | `src/autooffice/docx/document.py` | Parse `document.md`, validasi front matter dan body. |
 | `src/autooffice/docx/paths.py` | Lokasi data paket dan validasi path relatif. |
 | `src/autooffice/docx/errors.py` | Hierarki error DOCX dan pemetaan exit code. |
@@ -120,17 +120,17 @@ pengguna. Jangan menaruh output build di sana.
 docx/data/
 |-- formats/
 |   `-- undip-msi/
-|       |-- format.yml
+|       |-- format.yaml
 |       |-- citation.csl
 |       |-- logo.jpg
 |       `-- reference.docx
 |-- structures/
-|   |-- assignment/structure.yml
+|   |-- assignment/structure.yaml
 |   |-- proposal/
-|   |   |-- structure.yml
+|   |   |-- structure.yaml
 |   |   `-- templates/approval.md
 |   `-- thesis/
-|       |-- structure.yml
+|       |-- structure.yaml
 |       `-- templates/
 |           |-- approval.md
 |           `-- statement.md

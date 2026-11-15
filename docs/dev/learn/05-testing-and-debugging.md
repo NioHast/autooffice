@@ -157,8 +157,8 @@ Isi workspace antara lain:
 | --- | --- |
 | `mermaid.md` | Body setelah blok Mermaid diganti gambar. |
 | `front_matter.md` | Markdown final untuk Pandoc. |
-| `reference.docx` | Reference turunan dari `format.yml`. |
-| `pandoc-metadata.yml` | Metadata yang dikirim ke Pandoc. |
+| `reference.docx` | Reference turunan dari `format.yaml`. |
+| `pandoc-metadata.yaml` | Metadata yang dikirim ke Pandoc. |
 | `<report_name>.docx` | DOCX antara hasil Pandoc. |
 
 Jika build gagal sebelum save, workspace dengan `--keep-intermediate` membantu melihat

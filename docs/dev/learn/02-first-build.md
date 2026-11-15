@@ -121,7 +121,7 @@ Front matter saja tidak cukup. Heading 1 di body harus cocok dengan daftar
 Heading 1 ditulis tanpa nomor. Pipeline yang menambahkan nomor sesuai
 `structure.numbering`. Jika urutan atau ejaan heading tidak cocok, `check`
 gagal dengan `CFG-BODY-ORDER`. Untuk contoh thesis, body harus memuat lima
-bab yang dideklarasikan `src/autooffice/docx/data/structures/thesis/structure.yml`.
+bab yang dideklarasikan `src/autooffice/docx/data/structures/thesis/structure.yaml`.
 
 ## Langkah build DOCX
 
@@ -155,7 +155,7 @@ Secara ringkas:
 
 1. front matter, format, struktur, aset, dan caption divalidasi;
 2. Mermaid dirender bila ada;
-3. `reference.docx` turunan dibuat dari `format.yml`;
+3. `reference.docx` turunan dibuat dari `format.yaml`;
 4. front matter Markdown dimaterialisasi: sampul, template legal, abstrak,
    dan penomoran heading;
 5. Pandoc mengubah Markdown menjadi DOCX;

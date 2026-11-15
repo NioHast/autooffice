@@ -13,7 +13,7 @@ nama satu flag, lokasi kode, dan dokumentasi.
 ## Invarian parity baseline DOCX
 
 1. Satu `document.md` tetap menjadi satu-satunya sumber dokumen.
-2. Front matter, format `format.yml`, dan struktur `structure.yml`
+2. Front matter, format `format.yaml`, dan struktur `structure.yaml`
    dipertahankan tanpa perubahan arti.
 3. Pandoc dan `--citeproc` tetap dipakai. Urutan stage tidak berubah.
 4. Hanya ada satu `DocumentPackage.load()` dan satu `DocumentPackage.save()`

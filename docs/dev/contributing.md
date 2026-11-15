@@ -47,7 +47,7 @@ tersebut.
 
 - Urutan stage didefinisikan di `autooffice/docx/pipeline.py`. Mengubah urutan
   berarti memperbarui kontrak dan tes.
-- Key `format.yml` dan `structure.yml` memakai skema tertutup. Key baru harus
+- Key `format.yaml` dan `structure.yaml` memakai skema tertutup. Key baru harus
   memiliki konsumen nyata dan tes positif/negatif.
 - Jangan menambah key yang tidak dibaca kode.
 - Template struktur harus tetap valid dan tidak keluar dari direktori template.

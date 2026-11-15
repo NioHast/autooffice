@@ -77,7 +77,7 @@ Gunakan daftar berikut sebagai saringan, bukan kewajiban. Satu perilaku cukup
 diuji di level paling murah yang masih meyakinkan.
 
 - **Kontrak publik dan perilaku yang dilihat pengguna.** Contohnya flag CLI,
-  kode error domain, struktur DOCX yang dipakai pengguna, schema `format.yml`,
+  kode error domain, struktur DOCX yang dipakai pengguna, schema `format.yaml`,
   dan isi manifest. Test di sini melindungi janji, bukan cara mencapainya.
 - **Regresi yang pernah terjadi.** Bug yang sudah pernah lolos perlu test yang
   mereproduksi kondisi awalnya. Test regresi yang baik gagal pada kode lama dan

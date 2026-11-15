@@ -59,7 +59,7 @@ Jangan memulai dari DOCX hasil build. Mulai dari sumber dan kontrak.
 ## Aturan yang tidak boleh dilanggar
 
 - Satu concern, satu sumber kebenaran.
-- Skema `format.yml`, `structure.yml`, dan front matter bersifat tertutup.
+- Skema `format.yaml`, `structure.yaml`, dan front matter bersifat tertutup.
   Key baru harus punya konsumen nyata dan tes.
 - Stage tidak memanggil `DocumentPackage.load` atau `save` untuk package
   target.
@@ -103,10 +103,10 @@ Cara memeriksa:
 - DOCX muncul di `examples/assignment-single/out/<report_name>.docx`;
 - jika `report_name` berubah, nama DOCX ikut berubah;
 - manifest baru berada di `.laporan/manifest.json`;
-- tidak ada perubahan pada `format.yml` atau `structure.yml`.
+- tidak ada perubahan pada `format.yaml` atau `structure.yaml`.
 
 Jika perubahan menambah bab, ubah juga `body` di
-`src/autooffice/docx/data/structures/<id>/structure.yml`. Jangan hanya menambah
+`src/autooffice/docx/data/structures/<id>/structure.yaml`. Jangan hanya menambah
 Heading 1 di `document.md`; `check` akan menolak dengan `CFG-BODY-ORDER`.
 
 ## Resep 2: mengubah format atau struktur
@@ -116,8 +116,8 @@ penomoran.
 
 Berkas yang disentuh:
 
-- `src/autooffice/docx/data/formats/<id>/format.yml` untuk nilai visual;
-- `src/autooffice/docx/data/structures/<id>/structure.yml` untuk urutan, TOC, daftar,
+- `src/autooffice/docx/data/formats/<id>/format.yaml` untuk nilai visual;
+- `src/autooffice/docx/data/structures/<id>/structure.yaml` untuk urutan, TOC, daftar,
   dan penomoran;
 - aset format seperti `reference.docx`, `logo.jpg`, atau `citation.csl` bila
   path berubah.
@@ -148,8 +148,8 @@ Cara memeriksa:
 - tidak ada key yang hanya disimpan tetapi tidak dibaca kode;
 - jika mengubah perilaku output, jalankan tes konfigurasi dan golden terkait.
 
-Jangan menambah key `toc` di front matter dokumen. TOC milik `structure.yml`.
-Jangan menambah margin ke `document.md`. Margin milik `format.yml`.
+Jangan menambah key `toc` di front matter dokumen. TOC milik `structure.yaml`.
+Jangan menambah margin ke `document.md`. Margin milik `format.yaml`.
 
 ## Resep 3: mengubah helper DOCX atau stage
 
@@ -315,8 +315,8 @@ registry resminya `Adeu GitHub`, `Adeu PyPI`, `Adeu MCP server npm`,
 | --- | --- |
 | Nama output salah atau tidak muncul | `metadata.report_name`, `paths.output_directory` |
 | Front matter ditolak | `document.py`, `metadata.py`, `config/` |
-| Margin atau font salah | `data/formats/<id>/format.yml`, `docx/styles.py` |
-| Urutan bab salah | `data/structures/<id>/structure.yml`, `document.py` |
+| Margin atau font salah | `data/formats/<id>/format.yaml`, `docx/styles.py` |
+| Urutan bab salah | `data/structures/<id>/structure.yaml`, `document.py` |
 | Caption tabel/gambar gagal | `stages/validate.py`, `stages/captions.py` |
 | TOC kosong | `stages/toc.py`, field manual Ctrl+A/F9, `structure.toc` |
 | Nomor halaman salah | `stages/page_numbers.py`, `docx/sections.py` |

@@ -6,7 +6,7 @@ Stage ini menyiapkan bagian Markdown yang harus final sebelum Pandoc:
 - template legal ``approval``/``statement`` dari ``structure.front_matter``;
 - ``preface``, ``abstract_id``, ``abstract_en``, dan kata kunci;
 - penomoran Heading 1/2/3 pada body;
-- page break dan section break front matter dengan margin dari ``format.yml``.
+- page break dan section break front matter dengan margin dari ``format.yaml``.
 
 Output berupa Markdown yang siap dikonsumsi Pandoc. Body hanya dibaca dari
 artifact ``mermaid.markdown`` milik stage mermaid; tidak ada fallback ke
@@ -184,7 +184,7 @@ def render_template(
 
 
 def _section_break(format: Format) -> str:
-    """Section break penutup sampul dengan ukuran/margin dari format.yml."""
+    """Section break penutup sampul dengan ukuran/margin dari format.yaml."""
 
     page = format.page
     raw_size = str(page.size).upper()

@@ -32,7 +32,7 @@ bila baru mengenal repo, lalu pilih salah satu pintu berikut:
 | [dev/architecture.md](dev/architecture.md) | Lapisan konten, struktur, format, pipeline DOCX/deck, dan invariant. |
 | [dev/pipeline/README.md](dev/pipeline/README.md) | Urutan stage, opsi build, output, artefak, dan error. |
 | [dev/docx/README.md](dev/docx/README.md) | Model package DOCX, modul internal, field, bookmark, dan istilah. |
-| [dev/formats.md](dev/formats.md) | Skema `format.yml`, `structure.yml`, dan struktur yang tersedia. |
+| [dev/formats.md](dev/formats.md) | Skema `format.yaml`, `structure.yaml`, dan struktur yang tersedia. |
 | [dev/docx/terms.md](dev/docx/terms.md) | Glosarium, penanda istilah, stage `terms`, dan verifikasi. |
 | [dev/adeu-integration.md](dev/adeu-integration.md) | Adeu (MCP DOCX↔LLM): bookmark `pNNNN`, manifest, source scan, dan modul rekonsiliasi internal. |
 | [dev/packaging.md](dev/packaging.md) | Entry point, package data, dan pemakaian repo-local. |

@@ -8,8 +8,8 @@ skema tertutup. Kontrak DOCX ada di
 ## Daftar isi
 
 - [Lokasi](#lokasi)
-- [`format.yml`](#formatyml)
-- [`structure.yml`](#structureyml)
+- [`format.yaml`](#formatyaml)
+- [`structure.yaml`](#structureyaml)
 - [Struktur yang tersedia](#struktur-yang-tersedia)
 - [Front matter `document.md`](#front-matter-documentmd)
 - [Validasi](#validasi)
@@ -21,27 +21,27 @@ skema tertutup. Kontrak DOCX ada di
 src/autooffice/docx/data/
 |-- formats/
 |   `-- undip-msi/
-|       |-- format.yml
+|       |-- format.yaml
 |       |-- citation.csl
 |       |-- logo.jpg
 |       `-- reference.docx
 |-- structures/
-|   |-- assignment/structure.yml
+|   |-- assignment/structure.yaml
 |   |-- proposal/
-|   |   |-- structure.yml
+|   |   |-- structure.yaml
 |   |   `-- templates/approval.md
 |   `-- thesis/
-|       |-- structure.yml
+|       |-- structure.yaml
 |       `-- templates/
 |           |-- approval.md
 |           `-- statement.md
 `-- glossary/istilah.tsv
 ```
 
-ID adalah nama direktori. `format` di `format.yml` dan `structure.yml` harus
+ID adalah nama direktori. `format` di `format.yaml` dan `structure.yaml` harus
 sama dengan nama direktori.
 
-## `format.yml`
+## `format.yaml`
 
 Top-level key:
 
@@ -81,7 +81,7 @@ Nilai final:
 - Sitasi memakai `citation.csl` dan `references.bib`.
 - Aset memakai `logo.jpg` dan `reference.docx`.
 
-## `structure.yml`
+## `structure.yaml`
 
 Top-level key:
 
@@ -175,7 +175,7 @@ field `SEQ`.
 | `logo_width` | `4.88cm` | Lebar logo; hanya dipakai jika `assets.logo` ada. |
 | `title_split` | `true` | Pecah judul menjadi baris seimbang. |
 
-`cover` hanya berada di `structure.yml`, bukan `format.yml`.
+`cover` hanya berada di `structure.yaml`, bukan `format.yaml`.
 
 ## Struktur yang tersedia
 

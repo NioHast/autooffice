@@ -1,4 +1,4 @@
-"""Tes unit untuk loader ``format.yml`` dan ``structure.yml``."""
+"""Tes unit untuk loader ``format.yaml`` dan ``structure.yaml``."""
 
 import re
 import shutil
@@ -61,15 +61,15 @@ def _set_empty_format_value(tmp_path: Path, key: str) -> Path:
     """Salin format lalu isi satu key teks dengan string kosong eksplisit."""
 
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
     yaml = YAML()
-    data = yaml.load(format_yml)
+    data = yaml.load(format_yaml)
     node = data
     *parents, child = key.split(".")
     for part in parents:
         node = node[part]
     node[child] = ""
-    with format_yml.open("w", encoding="utf-8", newline="\n") as handle:
+    with format_yaml.open("w", encoding="utf-8", newline="\n") as handle:
         yaml.dump(data, handle)
     return data_root
 
@@ -77,7 +77,7 @@ def _set_empty_format_value(tmp_path: Path, key: str) -> Path:
 def _write_structure(root: Path, name: str, text: str) -> Path:
     directory = root / "structures" / name
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / "structure.yml"
+    path = directory / "structure.yaml"
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
@@ -209,9 +209,9 @@ def test_all_builtin_structures_load() -> None:
 
 def test_unknown_format_key_rejected(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    format_yml.write_text(
-        format_yml.read_text(encoding="utf-8") + "\nbogus_key: 1\n",
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    format_yaml.write_text(
+        format_yaml.read_text(encoding="utf-8") + "\nbogus_key: 1\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -223,9 +223,9 @@ def test_unknown_format_key_rejected(tmp_path: Path) -> None:
 
 def test_legacy_format_key_rejected(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    format_yml.write_text(
-        format_yml.read_text(encoding="utf-8") + "\npresets: []\n",
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    format_yaml.write_text(
+        format_yaml.read_text(encoding="utf-8") + "\npresets: []\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -238,9 +238,9 @@ def test_legacy_format_key_rejected(tmp_path: Path) -> None:
 
 def test_abstract_unknown_key_rejected(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
-    format_yml.write_text(
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
+    format_yaml.write_text(
         text.replace(
             "  alignment: both\n\nheadings:",
             "  alignment: both\n  bogus: 1\n\nheadings:",
@@ -257,8 +257,8 @@ def test_abstract_unknown_key_rejected(tmp_path: Path) -> None:
 
 def test_abstract_defaults_inherit_body_when_omitted(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
     without_abstract = re.sub(
         r"^abstract:\n(?:[ \t].*\n|\n)*",
         "",
@@ -267,7 +267,7 @@ def test_abstract_defaults_inherit_body_when_omitted(tmp_path: Path) -> None:
         flags=re.MULTILINE,
     )
     assert "abstract:" not in without_abstract
-    format_yml.write_text(without_abstract, encoding="utf-8", newline="\n")
+    format_yaml.write_text(without_abstract, encoding="utf-8", newline="\n")
 
     format_ = load_format("undip-msi", root=data_root)
     body = format_.font.body
@@ -281,10 +281,10 @@ def test_abstract_defaults_inherit_body_when_omitted(tmp_path: Path) -> None:
 
 def test_missing_margin_rejected(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
     text = re.sub(r"^\s*top:\s*4cm\s*$\n", "", text, count=1, flags=re.MULTILINE)
-    format_yml.write_text(text, encoding="utf-8", newline="\n")
+    format_yaml.write_text(text, encoding="utf-8", newline="\n")
 
     with pytest.raises(ConfigError) as error:
         load_format("undip-msi", root=data_root)
@@ -303,9 +303,9 @@ def test_format_id_must_match_directory(tmp_path: Path) -> None:
 
 def test_format_assets_reject_logo_width(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
-    format_yml.write_text(
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
+    format_yaml.write_text(
         text.replace(
             "  reference_docx: reference.docx\n",
             "  reference_docx: reference.docx\n  logo_width: 4.88cm\n",
@@ -322,9 +322,9 @@ def test_format_assets_reject_logo_width(tmp_path: Path) -> None:
 
 def test_format_assets_reject_cover(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
-    format_yml.write_text(
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
+    format_yaml.write_text(
         text.replace(
             "  reference_docx: reference.docx\n",
             "  reference_docx: reference.docx\n  cover:\n    show_lecturer: true\n",
@@ -360,9 +360,9 @@ def test_reference_docx_unreadable_raises_config_error(
 
 def test_figures_legacy_alignment_rejected(tmp_path: Path) -> None:
     data_root = _copy_format(tmp_path)
-    format_yml = data_root / "formats" / "undip-msi" / "format.yml"
-    text = format_yml.read_text(encoding="utf-8")
-    format_yml.write_text(
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
+    format_yaml.write_text(
         text.replace("  caption_alignment: center\n", "  alignment: center\n"),
         encoding="utf-8",
         newline="\n",

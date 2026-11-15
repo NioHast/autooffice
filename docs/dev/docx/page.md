@@ -26,5 +26,5 @@ URL resminya ada di [registry referensi](../references.md).
 
 - [sections.md](sections.md) untuk pemakaian ukuran dan margin.
 - [package.md](package.md) untuk part `word/document.xml`.
-- [../formats.md](../formats.md) untuk `page` di `format.yml`.
+- [../formats.md](../formats.md) untuk `page` di `format.yaml`.
 - [../pipeline/stages.md](../pipeline/stages.md) untuk stage `sections`.

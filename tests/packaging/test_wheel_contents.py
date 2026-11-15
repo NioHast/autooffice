@@ -63,11 +63,11 @@ _PACKAGE_DATA_FILES = (
     "autooffice/design/data/themes.yaml",
     "autooffice/design/data/tokens.yaml",
     "autooffice/docx/data/formats/undip-msi/citation.csl",
-    "autooffice/docx/data/formats/undip-msi/format.yml",
+    "autooffice/docx/data/formats/undip-msi/format.yaml",
     "autooffice/docx/data/formats/undip-msi/logo.jpg",
     "autooffice/docx/data/formats/undip-msi/reference.docx",
     "autooffice/docx/data/glossary/istilah.tsv",
-    "autooffice/docx/data/structures/assignment/structure.yml",
+    "autooffice/docx/data/structures/assignment/structure.yaml",
 )
 
 

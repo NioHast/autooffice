@@ -49,7 +49,7 @@ PANDOC_INSTALL_HINT = (
     "Pasang Pandoc dari https://pandoc.org/installing.html, lalu pastikan "
     "`pandoc` ada di PATH atau berikan path pandoc secara eksplisit."
 )
-METADATA_FILENAME = "pandoc-metadata.yml"
+METADATA_FILENAME = "pandoc-metadata.yaml"
 DEFAULT_BIBLIOGRAPHY_HEADING = "DAFTAR PUSTAKA"
 
 
@@ -299,7 +299,7 @@ def resolve_bibliography(document: object, format_spec: object) -> Path | None:
     """Resolve ``document.bibliography`` atau default ``format.citation``.
 
     Path relatif dicari relatif terhadap direktori ``document.md`` lebih dulu,
-    lalu direktori ``format.yml`` (asset package). Nilai yang dinyatakan tetapi
+    lalu direktori ``format.yaml`` (asset package). Nilai yang dinyatakan tetapi
     tidak ditemukan adalah error, bukan warning: tanpa itu sitasi akan menjadi
     teks mentah di DOCX.
     """
@@ -337,7 +337,7 @@ def _resolve_csl(format_spec: object) -> Path:
     raw = getattr(citation, "csl", None)
     if raw is None:
         raise PandocError(
-            "CSL format tidak tersedia; periksa citation.csl pada format.yml.",
+            "CSL format tidak tersedia; periksa citation.csl pada format.yaml.",
             code="PANDOC-CSL",
             key="citation.csl",
         )
@@ -347,7 +347,7 @@ def _resolve_csl(format_spec: object) -> Path:
         path = format_path.parent / path
     if not path.is_file():
         raise PandocError(
-            f"CSL tidak ditemukan: {path}; periksa citation.csl pada format.yml.",
+            f"CSL tidak ditemukan: {path}; periksa citation.csl pada format.yaml.",
             code="PANDOC-CSL",
             path=path,
             key="citation.csl",

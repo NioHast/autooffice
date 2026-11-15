@@ -158,7 +158,7 @@ def test_build_command_without_lua_and_toc_pandoc(tmp_path: Path) -> None:
         reference_docx=tmp_path / "reference.docx",
         bibliography=tmp_path / "references.bib",
         csl=tmp_path / "citation.csl",
-        metadata_file=tmp_path / "metadata.yml",
+        metadata_file=tmp_path / "metadata.yaml",
         resource_paths=(tmp_path / "gambar", tmp_path / "workspace"),
     )
 
@@ -170,7 +170,7 @@ def test_build_command_without_lua_and_toc_pandoc(tmp_path: Path) -> None:
     assert f"--reference-doc={tmp_path / 'reference.docx'}" in command
     assert f"--bibliography={tmp_path / 'references.bib'}" in command
     assert f"--csl={tmp_path / 'citation.csl'}" in command
-    assert f"--metadata-file={tmp_path / 'metadata.yml'}" in command
+    assert f"--metadata-file={tmp_path / 'metadata.yaml'}" in command
     assert any(item.startswith("--resource-path=") for item in command)
     assert command[-2:] == ["-o", str(tmp_path / "output.docx")]
 
@@ -223,7 +223,7 @@ def test_metadata_front_matter_does_not_send_title_block(
 
 
 def test_write_metadata_file_deterministic(tmp_path: Path) -> None:
-    path = tmp_path / "metadata.yml"
+    path = tmp_path / "metadata.yaml"
     metadata = {"lang": "id-ID", "reference-section-title": "DAFTAR PUSTAKA"}
 
     write_metadata_file(path, metadata)
@@ -355,12 +355,12 @@ def test_resolve_bibliography_from_document_and_format(
     format_dir = tmp_path / "format"
     format_dir.mkdir()
     (format_dir / "references.bib").write_text("", encoding="utf-8")
-    (format_dir / "format.yml").write_text("format: test\n", encoding="utf-8")
+    (format_dir / "format.yaml").write_text("format: test\n", encoding="utf-8")
     other_project = tmp_path / "other"
     other_project.mkdir()
     other_document = _document(other_project, bibliography=None)
     other_format = SimpleNamespace(
-        path=format_dir / "format.yml",
+        path=format_dir / "format.yaml",
         citation=SimpleNamespace(bibliography="references.bib", csl=Path("x.csl")),
     )
     assert (
@@ -374,7 +374,7 @@ def test_resolve_bibliography_from_document_and_format(
     missing_project.mkdir()
     missing_document = _document(missing_project, bibliography=None)
     only_format = SimpleNamespace(
-        path=format_dir / "format.yml",
+        path=format_dir / "format.yaml",
         citation=SimpleNamespace(bibliography="tidak-ada.bib", csl=Path("x.csl")),
     )
     assert resolve_bibliography(missing_document, only_format) is None
@@ -440,7 +440,7 @@ def test_stage_runs_fake_pandoc_and_produces_docx(
     assert f"--reference-doc={reference}" in args
     assert f"--bibliography={(tmp_path / 'project' / 'references.bib').resolve()}" in args
     assert f"--csl={format_spec.citation.csl}" in args
-    assert f"--metadata-file={ctx.workspace.path('pandoc-metadata.yml')}" in args
+    assert f"--metadata-file={ctx.workspace.path('pandoc-metadata.yaml')}" in args
     command_output = Path(args[args.index("-o") + 1])
     assert command_output.parent == ctx.workspace.root
     assert command_output.name.endswith(".docx")
@@ -452,7 +452,7 @@ def test_stage_runs_fake_pandoc_and_produces_docx(
 
     # Metadata file tidak memuat title/author sehingga tidak ada title block
     # ganda di samping sampul yang sudah dirender front_matter.
-    metadata_file = ctx.workspace.path("pandoc-metadata.yml")
+    metadata_file = ctx.workspace.path("pandoc-metadata.yaml")
     metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
     assert metadata["lang"] == "id-ID"
     assert "title" not in metadata

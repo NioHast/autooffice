@@ -38,18 +38,18 @@ Tujuan tugas ini adalah menghasilkan contoh laporan yang dibangun dari struktur 
 
 ## Lapisan Format
 
-Format menyimpan aturan visual yang tidak bergantung pada isi, misalnya margin, tipografi, dan gaya caption. Pada contoh ini format `undip-msi` dibaca dari `src/autooffice/docx/data/formats/undip-msi/format.yml`; berkas itu juga menunjuk CSL `citation.csl`. Path bibliografi ditulis di front matter `document.md`, sedangkan nilai visual tetap berada di `format.yml`.
+Format menyimpan aturan visual yang tidak bergantung pada isi, misalnya margin, tipografi, dan gaya caption. Pada contoh ini format `undip-msi` dibaca dari `src/autooffice/docx/data/formats/undip-msi/format.yaml`; berkas itu juga menunjuk CSL `citation.csl`. Path bibliografi ditulis di front matter `document.md`, sedangkan nilai visual tetap berada di `format.yaml`.
 
 ## Lapisan Struktur
 
-Struktur menentukan urutan bagian dan aturan penomoran. Struktur `assignment` dibaca dari `src/autooffice/docx/data/structures/assignment/structure.yml` dan memakai penomoran Arab bertitik dengan tiga bab:
+Struktur menentukan urutan bagian dan aturan penomoran. Struktur `assignment` dibaca dari `src/autooffice/docx/data/structures/assignment/structure.yaml` dan memakai penomoran Arab bertitik dengan tiga bab:
 
 : Peran berkas dalam pipeline satu berkas
 
 | Lapisan | Berkas | Peran |
 | --- | --- | --- |
-| Format | `src/autooffice/docx/data/formats/undip-msi/format.yml` | Margin, tipografi, caption, dan `citation.csl` |
-| Struktur | `src/autooffice/docx/data/structures/assignment/structure.yml` | Urutan bab, TOC, dan penomoran |
+| Format | `src/autooffice/docx/data/formats/undip-msi/format.yaml` | Margin, tipografi, caption, dan `citation.csl` |
+| Struktur | `src/autooffice/docx/data/structures/assignment/structure.yaml` | Urutan bab, TOC, dan penomoran |
 | Konten | `document.md` | Front matter, naskah, tabel, gambar, dan sitasi |
 | Aset | `references.bib`, `gambar/` | Entri BibTeX dan gambar lokal |
 

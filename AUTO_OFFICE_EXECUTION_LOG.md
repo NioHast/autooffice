@@ -773,3 +773,27 @@ Log ini mencatat masalah yang muncul saat eksekusi plan, resolusi yang diambil, 
   - `uv run python tools/quality/check_docs.py` setelah entri ini: Broken 0.
   - Release GitHub `v1.0.0` memuat aset arsip: `autooffice-v1.0.0.bundle` 4,3 MB, `AUTO_OFFICE_EXECUTION_LOG.md`, `history-map.md`, `agent-rules.md`, `lessons.jsonl`, `eval-cases.md`, dan `SHA256SUMS`; mirror privat ada di `NioHast/autooffice-history`.
 - File yang berubah: `AGENTS.md`, `README.md`, `docs/**`, `archive/**`, `tests/**`, `tools/**`.
+
+## 2026-11-15 - Seragamkan ekstensi YAML
+
+- Masalah: repo mencampur `.yml` dan `.yaml` untuk format yang sama sehingga pencarian, dokumentasi, dan tooling tidak konsisten.
+- Resolusi:
+  - Empat berkas data di-rename dengan `git mv` ke `.yaml`: `src/autooffice/docx/data/formats/undip-msi/format.yml` menjadi `format.yaml`, dan `src/autooffice/docx/data/structures/{assignment,proposal,thesis}/structure.yml` menjadi `structure.yaml`.
+  - Referensi kode diperbarui di `src/autooffice/docx/config/**` dan `src/autooffice/docx/stages/**`, termasuk path yang dibaca `load_format`/`load_structure`, label error, dan docstring.
+  - Nama intermediate `pandoc-metadata.yml` menjadi `pandoc-metadata.yaml` di `stages/pandoc.py` dan seluruh test yang membuat atau mengukurnya.
+  - Test, fixture, contoh, `AGENTS.md`, `docs/user/**`, `docs/dev/**`, `docs/contracts/**`, `docs/README.md`, dan README data diperbarui. ADR `docs/dev/decisions/**` serta arsip historis dibiarkan karena catatan lampau.
+  - Contoh ekstensi asing pada test target CLI memakai `.json`, bukan `.yml`, agar tidak ada contoh `.yml` aktif yang tersisa.
+- Catatan/verifikasi: `git ls-files '*.yml'` kosong; gate 14 langkah PASS (`3252 passed, 9 deselected`, coverage global 90,68%, 8 modul kritis 100%); docs 112 dokumen, 806 tautan, 29 TOC, 0 broken; test-quality 0; no-legacy 0; removed-features 0; python-style 0; identifiers/source-style 0; ruff, mypy, import-linter, dan lock lulus.
+- File yang berubah:
+  - `AUTO_OFFICE_EXECUTION_LOG.md`, `AGENTS.md`, `docs/README.md`, `docs/contracts/docx.md`
+  - `docs/dev/architecture.md`, `docs/dev/contributing.md`, `docs/dev/formats.md`, `docs/dev/glossary.md`
+  - `docs/dev/repo-map.md`, `docs/dev/test-quality.md`, `docs/dev/docx/page.md`, `docs/dev/docx/styles.md`
+  - `docs/dev/pipeline/stages.md`, `docs/dev/learn/00-start-here.md`, `docs/dev/learn/01-mental-model.md`, `docs/dev/learn/02-first-build.md`
+  - `docs/dev/learn/03-pipeline-stages.md`, `docs/dev/learn/05-testing-and-debugging.md`, `docs/dev/learn/06-change-recipes.md`, `docs/user/document-format.md`
+  - `docs/user/single-file.md`, `examples/README.md`, `examples/assignment-single/document.md`, `examples/proposal-single/document.md`
+  - `examples/thesis-single/document.md`, `src/autooffice/docx/config/__init__.py`, `src/autooffice/docx/config/common.py`, `src/autooffice/docx/config/format.py`
+  - `src/autooffice/docx/config/structure.py`, `src/autooffice/docx/data/README.md`, `src/autooffice/docx/data/formats/undip-msi/format.yaml`, `src/autooffice/docx/data/structures/assignment/structure.yaml`
+  - `src/autooffice/docx/data/structures/proposal/structure.yaml`, `src/autooffice/docx/data/structures/thesis/structure.yaml`, `src/autooffice/docx/package/tables.py`, `src/autooffice/docx/stages/front_matter.py`
+  - `src/autooffice/docx/stages/pandoc.py`, `src/autooffice/docx/stages/sections.py`, `src/autooffice/docx/stages/style_reference.py`, `tests/cli/test_targets.py`
+  - `tests/docx/test_docx_config.py`, `tests/docx/test_front_matter.py`, `tests/docx/test_pandoc_stage.py`, `tests/packaging/test_autooffice_package.py`
+  - `tests/packaging/test_wheel_contents.py`

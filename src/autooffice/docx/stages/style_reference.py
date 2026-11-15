@@ -1,4 +1,4 @@
-"""Stage ``style_reference``: derived ``reference.docx`` dari ``format.yml``.
+"""Stage ``style_reference``: derived ``reference.docx`` dari ``format.yaml``.
 
 Sumber kebenaran nilai visual adalah :class:`autooffice.docx.config.Format`. Stage ini
 tidak pernah menulis ke ``assets.reference_docx``; derived reference selalu
@@ -400,7 +400,7 @@ def style_specs_for_format(
     *,
     format: Format | None = None,
 ) -> dict[str, StyleSpec]:
-    """Bangun seluruh :class:`StyleSpec` dari ``format.yml``."""
+    """Bangun seluruh :class:`StyleSpec` dari ``format.yaml``."""
 
     format_spec = _resolve_format_arg(format_spec, format)
     specs: dict[str, StyleSpec] = {}
@@ -570,7 +570,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from ..config import load_format
 
-    parser = argparse.ArgumentParser(description="Hasilkan derived reference.docx dari format.yml.")
+    parser = argparse.ArgumentParser(
+        description="Hasilkan derived reference.docx dari format.yaml."
+    )
     parser.add_argument("--format", required=True, help="ID format")
     parser.add_argument("--out", required=True, help="path derived reference")
     parser.add_argument(

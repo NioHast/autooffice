@@ -70,7 +70,7 @@ def test_default_check_targets_cover_all_valid_targets() -> None:
     assert default_check_targets(InputKind.DECK) == ("pptx", "slides")
 
 
-@pytest.mark.parametrize("name", ["document.txt", "document.yml", "document"])
+@pytest.mark.parametrize("name", ["document.txt", "document.json", "document"])
 def test_detect_input_kind_rejects_unknown_suffix(name: str) -> None:
     with pytest.raises(CliError, match=r"\.md atau \.yaml"):
         detect_input_kind(Path(name))
