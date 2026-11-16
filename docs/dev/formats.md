@@ -1,7 +1,7 @@
 # Format dan Struktur
 
-Format mengatur rupa dokumen. Struktur mengatur urutan bagian, front matter,
-penomoran, dan daftar. Keduanya adalah data paket di `src/autooffice/docx/data/` dengan
+Format mengatur rupa dokumen. Struktur mengatur urutan bab, penomoran, flag
+TOC, dan daftar. Keduanya adalah data paket di `src/autooffice/docx/data/` dengan
 skema tertutup. Kontrak DOCX ada di
 [contracts/docx.md](../contracts/docx.md).
 
@@ -27,14 +27,8 @@ src/autooffice/docx/data/
 |       `-- reference.docx
 |-- structures/
 |   |-- assignment/structure.yaml
-|   |-- proposal/
-|   |   |-- structure.yaml
-|   |   `-- templates/approval.md
-|   `-- thesis/
-|       |-- structure.yaml
-|       `-- templates/
-|           |-- approval.md
-|           `-- statement.md
+|   |-- proposal/structure.yaml
+|   `-- thesis/structure.yaml
 `-- glossary/istilah.tsv
 ```
 
@@ -100,50 +94,28 @@ Nilai final:
 
 ## `structure.yaml`
 
+Front matter tidak lagi didaftarkan di `structure.yaml`. Sampul, lembar
+pengesahan, pernyataan, kata pengantar, abstrak, dan kata kunci ditulis
+langsung di `document.md`; lihat [Front matter `document.md`](#front-matter-documentmd).
+
 Top-level key:
 
 | Key | Isi |
 | --- | --- |
 | `format` | Format default untuk struktur ini. |
-| `front_matter` | Daftar berurutan bagian sebelum body. |
+| `toc` | Tulis field TOC native bila `true`. |
+| `lists` | `figures`/`tables`: tulis daftar tabel/gambar bila `true`. |
 | `body` | Daftar bab logis. |
 | `back_matter` | Daftar bagian setelah body. |
 | `numbering` | Format nomor Heading 1/2/3. |
-| `cover` | Tampilan sampul. |
 
-Key lain adalah error, termasuk `toc` dan `lists`. `front_matter` minimal
-memuat `cover`. `body` minimal satu entri.
+Key lain adalah error, termasuk `front_matter` dan `cover` yang sudah dihapus.
+`body` minimal satu entri.
 
-### `front_matter`
-
-Setiap entri memiliki `id`, `source`, dan `template` bila diperlukan.
-
-| ID | Source | Isi |
-| --- | --- | --- |
-| `cover` | `generated` | Sampul dari metadata, cover, dan logo. |
-| `approval` | `template` | Lembar pengesahan dari `templates/approval.md`. |
-| `statement` | `template` | Pernyataan dari `templates/statement.md`. |
-| `preface` | `document` | Kata pengantar dari front matter `preface`. |
-| `abstract_id` | `document` | Abstrak dari `abstract_id`. |
-| `abstract_en` | `document` | Abstract dari `abstract_en`. |
-| `toc` | `generated` | Field TOC native. |
-| `list_of_tables` | `generated` | Field `TOC \c "Tabel"`. |
-| `list_of_figures` | `generated` | Field `TOC \c "Gambar"`. |
-
-Field turunan:
-
-- `structure.toc` bernilai `true` bila `front_matter` memuat `toc`.
-- `structure.lists.tables` bernilai `true` bila `front_matter` memuat
-  `list_of_tables`.
-- `structure.lists.figures` bernilai `true` bila `front_matter` memuat
-  `list_of_figures`.
-- Jika `list_of_tables` atau `list_of_figures` ada, daftar memakai field
-  `TOC \c` dan caption memakai field `SEQ`.
-- `preface`, `abstract_id`, dan `abstract_en` mewajibkan key yang sama di
-  `document.md`.
-
-Template hanya boleh memakai placeholder `{{ key }}` yang dikenal. Placeholder
-tidak dikenal adalah error.
+`toc` dan `lists` adalah flag tampilan, bukan penanda urutan. Field TOC selalu
+diletakkan sebelum Heading 1 bernomor pertama oleh stage `toc`. Daftar ditulis
+oleh stage `lists` dengan urutan tetap: daftar tabel lalu daftar gambar.
+Daftar memakai field `TOC \c` dan caption memakai field `SEQ` bila aktif.
 
 ### `body`
 
@@ -180,59 +152,110 @@ setelah bab terakhir. Jika `bibliography` ada, berkas `.bib` wajib ada.
 `sub_dot` dan `subsub_dot` mengatur titik akhir nomor subbab. Nomor bab selalu
 mengikuti `numbering.body`.
 
-### `cover`
-
-| Key | Default | Isi |
-| --- | --- | --- |
-| `show_lecturer` | `true` | Tampilkan dosen di sampul. |
-| `logo_width` | `4.88cm` | Lebar logo; hanya dipakai jika `assets.logo` ada. |
-| `title_split` | `true` | Pecah judul menjadi baris seimbang. |
-
-`cover` hanya berada di `structure.yaml`, bukan `format.yaml`.
-
 ## Struktur yang tersedia
 
 ### `assignment`
 
-- Front matter: `cover`.
+- Front matter: ditulis di `document.md` (sampul saja pada contoh).
 - Body: Pendahuluan, Pembahasan, Penutup.
 - Back matter: bibliography.
-- TOC dan daftar tabel/gambar tidak aktif.
+- `toc: false`; daftar tabel/gambar tidak aktif.
 - Numbering: `ARABIC_DOTTED`.
-- Cover: dosen tidak tampil, logo 4,7 cm.
 
 ### `proposal`
 
-- Front matter: cover, approval, toc.
+- Front matter: ditulis di `document.md` (sampul dan halaman persetujuan).
 - Body: Pendahuluan, Tinjauan Pustaka, Metode Penelitian, Jadwal Penelitian.
 - Back matter: bibliography.
-- TOC aktif; daftar tabel/gambar tidak aktif.
+- `toc: true`; daftar tabel/gambar tidak aktif.
 - Numbering: `ARABIC_DOTTED`.
-- Cover: dosen tidak tampil, logo 4,7 cm.
 
 ### `thesis`
 
-- Front matter: cover, approval, statement, preface, abstract_id, abstract_en,
-  toc, list_of_tables, list_of_figures.
+- Front matter: ditulis di `document.md` (sampul, lembar pengesahan,
+  pernyataan, kata pengantar, abstrak Indonesia/Inggris, kata kunci).
 - Body: Pendahuluan, Tinjauan Pustaka, Metodologi, Hasil dan Pembahasan,
   Penutup.
 - Back matter: bibliography, appendices.
-- TOC aktif; daftar tabel dan gambar aktif.
+- `toc: true`; daftar tabel dan gambar aktif.
 - Numbering: `BAB_ROMAN`.
-- Cover: dosen tampil, logo 4,88 cm.
 
 ## Front matter `document.md`
 
-Kunci wajib: `title`, `author`, `structure`, `format`. Kunci opsional mencakup
-identitas, abstrak, kata pengantar, kata kunci, `bibliography`, `report_name`,
-dan `lang`. Daftar lengkap ada di
-[docs/user/document-format.md](../user/document-format.md) dan
-[kontrak DOCX](../contracts/docx.md).
+Blok YAML di awal berkas hanya memuat metadata dokumen. Kunci yang tetap
+divalidasi adalah `title`, `author`, dan `nim` bila ada. `report_name`,
+`structure`, dan `format` tetap wajib karena menentukan nama keluaran dan
+konfigurasi build. Kunci identitas dan abstrak lama (`subtitle`, `lecturer`,
+`lecturer_label`, `course`, `institution`, `faculty`, `year`, `date`,
+`preface`, `abstract_id`, `abstract_en`, `keywords`, `keywords_en`) diterima
+sebagai metadata opsional, tetapi tidak lagi dirender menjadi Markdown.
+
+Isi visual front matter ditulis langsung sebagai Markdown setelah blok YAML:
+
+````markdown
+::: {custom-style="CoverTitle"}
+JUDUL LAPORAN\
+SUBJUDUL LAPORAN
+:::
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.88cm}
+:::
+
+\
+
+<!-- section-break -->
+
+# LEMBAR PENGESAHAN {-}
+
+**Judul:** Judul Laporan
+
+November 2026
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# ABSTRAK {-}
+
+::: {custom-style="AbstractBody"}
+Isi abstrak.
+:::
+
+::: {custom-style="AbstractKeywords"}
+**Kata Kunci:** [Markdown, Pandoc]{custom-style="AbstractKeywordText"}
+:::
+````
+
+Aturan front matter Markdown:
+
+| Bagian | Bentuk |
+| --- | --- |
+| Sampul | `custom-style` `CoverTitle`, `CoverSubtitle`, `CoverCourse`, `CoverLecturer`, `CoverLine`, `CoverName`, `CoverInstitution`, dan `CoverImage`. |
+| Logo sampul | `![](logo.jpg){width=...cm}`; path dicari di direktori dokumen lalu direktori format. Alt text boleh kosong karena logo dekoratif. |
+| Jarak vertikal sampul | baris `\` (hard line break), bukan `spacer()` atau paragraf kosong. |
+| Section break penutup sampul | marker `<!-- section-break -->` pada baris sendiri. |
+| Halaman baru | blok raw OpenXML berisi `w:br w:type="page"`. |
+| Lembar pengesahan/pernyataan | Heading 1 `{-}` diikuti paragraf atau tabel biasa. |
+| Kata pengantar/abstrak | Heading 1 `{-}` diikuti paragraf. |
+| Abstrak Inggris | div `::: {custom-style="AbstractBodyEn" lang="en-US"}`. |
+| Kata kunci | div `::: {custom-style="AbstractKeywords"}` dan span `[teks]{custom-style="AbstractKeywordText"}`. |
+
+Stage `front_matter` mengganti setiap baris `<!-- section-break -->` dengan raw
+OpenXML `w:sectPr`; ukuran halaman, margin, jarak header/footer, dan gutter
+berasal dari `format.yaml`. Stage yang sama tetap menyiapkan Heading 1 body
+(uppercase dan `w:br` untuk `BAB_ROMAN`) serta menandai `# Lampiran` sebagai
+unnumbered.
+
+Heading sebelum Heading 1 bab pertama adalah front matter dan wajib memakai
+`{-}` (atau `.unnumbered`). Heading body tetap mengikuti urutan `body` dan
+tidak boleh ditulis bernomor. Marker `<!-- toc -->` belum dipakai pada fase
+ini; TOC tetap disisipkan oleh stage `toc` sebelum Heading 1 bernomor pertama.
 
 Kunci lama seperti `preset`, `daftar_gambar`, `daftar_tabel`, `approval`,
 `statement`, `references`, `csl`, `reference-doc`, `template`, dan `cover`
-ditolak dengan pesan migrasi. `toc` diterima hanya bila nilainya sama dengan
-`structure.toc`, tetapi menghasilkan peringatan.
+ditolak dengan pesan migrasi. Kunci `toc` di front matter dokumen juga ditolak
+sebagai kunci tidak dikenal (`CFG-UNKNOWN-KEY`).
 
 ## Validasi
 
@@ -240,11 +263,10 @@ ditolak dengan pesan migrasi. `toc` diterima hanya bila nilainya sama dengan
 
 - front matter dan tipe YAML;
 - keberadaan format dan struktur;
-- template yang dirujuk;
 - aset gambar, bibliografi, dan glosarium;
-- urutan Heading 1 terhadap `body`;
+- urutan Heading 1 terhadap `body` (heading front matter wajib `{-}`);
 - lampiran terhadap `back_matter`;
-- caption Markdown.
+- caption Markdown pada body, bukan pada front matter.
 
 Error menyebut path dan key. `check` mengembalikan exit code 1 untuk semua
 error konfigurasi.

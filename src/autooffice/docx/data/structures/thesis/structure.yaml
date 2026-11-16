@@ -2,16 +2,11 @@
 # Penomoran: BAB Romawi, subbab bertitik.
 format: undip-msi
 
-front_matter:
-  - {id: cover, source: generated}
-  - {id: approval, source: template, template: approval.md}
-  - {id: statement, source: template, template: statement.md}
-  - {id: preface, source: document}
-  - {id: abstract_id, source: document}
-  - {id: abstract_en, source: document}
-  - {id: toc, source: generated}
-  - {id: list_of_tables, source: generated}
-  - {id: list_of_figures, source: generated}
+toc: true
+
+lists:
+  figures: true
+  tables: true
 
 body:
   - {id: pendahuluan, title: "Pendahuluan"}
@@ -28,8 +23,3 @@ numbering:
   body: BAB_ROMAN
   sub_dot: true
   subsub_dot: true
-
-# Nilai cover tesis: dosen tampil, logo 4,88 cm.
-cover:
-  show_lecturer: true
-  logo_width: 4.88cm

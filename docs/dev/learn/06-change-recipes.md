@@ -111,14 +111,14 @@ Heading 1 di `document.md`; `check` akan menolak dengan `CFG-BODY-ORDER`.
 
 ## Resep 2: mengubah format atau struktur
 
-Contoh perubahan: margin, font, ukuran caption, urutan front matter, atau
+Contoh perubahan: margin, font, ukuran caption, urutan bab, flag TOC, atau
 penomoran.
 
 Berkas yang disentuh:
 
 - `src/autooffice/docx/data/formats/<id>/format.yaml` untuk nilai visual;
-- `src/autooffice/docx/data/structures/<id>/structure.yaml` untuk urutan, TOC, daftar,
-  dan penomoran;
+- `src/autooffice/docx/data/structures/<id>/structure.yaml` untuk urutan bab,
+  flag TOC, daftar, dan penomoran;
 - aset format seperti `reference.docx`, `logo.jpg`, atau `citation.csl` bila
   path berubah.
 
@@ -144,13 +144,14 @@ Cara memeriksa:
 
 - check tidak menghasilkan `CFG-UNKNOWN-KEY`;
 - nilai baru terlihat di DOCX, misalnya margin atau caption;
-- TOC dan daftar berasal dari `front_matter`; `structure.toc` dan
-  `structure.lists` adalah nilai turunannya;
+- TOC dan daftar dikendalikan `structure.toc` dan `structure.lists`;
 - tidak ada key yang hanya disimpan tetapi tidak dibaca kode;
 - jika mengubah perilaku output, jalankan tes konfigurasi dan golden terkait.
 
 Jangan menambah key `toc` di front matter dokumen. TOC milik `structure.yaml`.
-Jangan menambah margin ke `document.md`. Margin milik `format.yaml`.
+Jangan menambah margin ke `document.md`. Margin milik `format.yaml`. Isi
+sampul dan halaman pendahulu adalah pengecualian: semuanya ditulis di
+`document.md`, bukan di `structure.yaml`.
 
 ## Resep 3: mengubah helper DOCX atau stage
 

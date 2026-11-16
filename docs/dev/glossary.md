@@ -18,7 +18,7 @@ italic.
 | Artefak | Nilai yang dihasilkan satu stage dan diteruskan ke stage lain melalui context; bukan selalu file output. | [pipeline/stages.md](pipeline/stages.md) |
 | c14n | Canonical XML; bentuk ternormalisasi untuk membandingkan `document.xml` dan menghitung hash. | [docx/package.md](docx/package.md) |
 | `DocumentPackage` | Representasi paket DOCX di memori: part, XML terparse, relationship, dan operasi load/save. | [docx/package.md](docx/package.md) |
-| Front matter | Blok YAML di awal `document.md` yang memuat metadata, `format`, dan `structure`. | [formats.md](formats.md) |
+| Front matter | Blok YAML metadata di awal `document.md` ditambah Markdown sampul dan halaman pendahulu sebelum bab pertama. | [formats.md](formats.md) |
 | Format | Data tampilan di `format.yaml`: halaman, font, heading, caption, kode, sitasi. | [formats.md](formats.md) |
 | Golden invariant | Baseline hash atau fingerprint output yang dipakai untuk mendeteksi regresi. | [testing.md](testing.md) |
 | Kontrak | Spesifikasi API atau perilaku yang mengikat implementasi dan tes. | [contracts/](../contracts/) |
@@ -36,5 +36,5 @@ italic.
 | Review file | `.laporan/istilah-baru.txt`; daftar istilah yang perlu diputuskan, bukan output dokumen. | [docx/terms.md](docx/terms.md) |
 | Source scan | Pemetaan paragraf manifest ke berkas dan baris Markdown sumber. | [adeu-integration.md](adeu-integration.md) |
 | Stage | Unit kerja pipeline dengan urutan, input, mutasi, dan hasil yang dideklarasikan. | [pipeline/stages.md](pipeline/stages.md) |
-| Structure | Data urutan front matter, body, back matter, penomoran, TOC, dan daftar. | [formats.md](formats.md) |
+| Structure | Data urutan body, back matter, penomoran, flag TOC, dan daftar. | [formats.md](formats.md) |
 | Workspace | Direktori kerja sementara `.laporan-build/` atau `.autooffice-build/` untuk artefak antara. | [pipeline/artifacts.md](pipeline/artifacts.md) |

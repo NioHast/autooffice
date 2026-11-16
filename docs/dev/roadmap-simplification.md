@@ -1,6 +1,6 @@
 # Roadmap Penyederhanaan DOCX
 
-- Status: rencana, belum dikerjakan
+- Status: sebagian dikerjakan (Fase 3b selesai)
 - Tanggal: 2026-11-16
 - Rujukan: [ADR 0018](../decisions/0018-retire-styles-and-disable-highlighting.md),
   [ADR 0015](../decisions/0015-native-heading-numbering.md),
@@ -106,10 +106,35 @@ dan `assets.logo`. Key konfigurasi yang menjadi redundan dihapus.
 
 ### 3b — Front matter di `document.md`
 
-Front matter yang sekarang dibangkitkan Python ditulis di `document.md`.
-Sampul memakai baris `\` untuk jarak vertikal sebagai pengganti `spacer()`.
-`front_matter.py`, placeholder template, dan raw OpenXML untuk jarak ikut
-menyusut.
+**Status: selesai.** Front matter yang sebelumnya dibangkitkan Python kini
+ditulis di `document.md`. Sampul memakai baris `\` untuk jarak vertikal sebagai
+pengganti `spacer()`. Stage `front_matter` hanya membaca artifact PlantUML,
+mengganti marker `<!-- section-break -->` dengan raw `w:sectPr`, menyiapkan
+heading body, lalu menulis `front_matter.md`.
+
+Yang dihapus:
+
+- parsing `front_matter` dan `cover` di `structure.yaml` beserta model
+  `FrontMatterItem`/`CoverOverrides`;
+- template `approval.md`/`statement.md` dan placeholder `{{ key }}`;
+- `_render_cover`, `_render_abstract`, `_render_template`, `_div`,
+  `_styled_span`, `spacer`, dan `_render_item`.
+
+Yang menggantikan:
+
+- `toc` dan `lists` kembali menjadi flag eksplisit di `structure.yaml`;
+- `<!-- section-break -->` menjadi satu-satunya marker front matter;
+- blok raw OpenXML `w:br w:type="page"` tetap dipakai untuk halaman baru;
+- logo sampul ditulis `![](logo.jpg){width=...cm}` dan dicari di direktori
+  format oleh `--resource-path`.
+
+Acceptance fase ini: tesis 21 halaman dengan 13 `w:sectPr`; proposal 9 halaman
+dengan 7 `w:sectPr`; assignment 8 halaman dengan 5 `w:sectPr`; pola `numPr`
+`TTTTTFFFFFTT`, `TFFFFT`, dan `FFFT`; heading+caption 36/14/15; dua build
+tesis menghasilkan sha256 identik. Perbedaan `word/document.xml` terhadap
+baseline v4.0.0 hanya pada `rId`, `descr`, lima paragraf jarak sampul
+(`spacer()` → `\`), dan style `AbstractBodyEn`/`AbstractKeywordText` yang sudah
+ada sebelum fase ini.
 
 ### 3c — `figure_numbering` dan pembubaran `format.yaml`
 
@@ -231,9 +256,9 @@ Setiap fase harus lulus gate yang sama sebelum dianggap selesai:
    ditulis setelah tag. Pilihannya: biarkan tag di commit rilis dan jadikan
    ADR catatan pasca-rilis, atau pindahkan tag ke commit yang memuat ADR
    (perlu force-push tag dan pengumuman ulang). Belum diputuskan.
-2. **`spacer()` diganti `\`.** Satu `spacer()` sekarang menulis 640 twip.
-   Baris `\` menghasilkan jarak sekitar 720 twip, selisih 80 twip atau
-   0,14 cm. Perlu diputuskan apakah selisih itu diterima atau `spacer()`
-   dipertahankan untuk jarak yang presisi.
+2. **`spacer()` diganti `\`.** Sudah diputuskan pada Fase 3b: baris `\`
+   dipakai. Satu `spacer()` lama menulis 640 twip; baris `\` menghasilkan
+   sekitar 720 twip, selisih 80 twip atau 0,14 cm. Jumlah halaman ketiga
+   contoh tidak berubah (21/9/8), sehingga selisih itu diterima.
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

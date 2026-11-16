@@ -72,7 +72,7 @@ package yang sama.
 | 10 | `validate` | `stages/validate.py` | - | Caption tabel dan alt text gambar di Markdown. |
 | 20 | `plantuml` | `stages/plantuml.py` | workspace | Render blok PlantUML menjadi PNG dan tulis `plantuml.md`. |
 | 30 | `style_reference` | `stages/style_reference.py` | workspace, cache | Hasilkan `reference.docx` turunan dari `format.yaml`. |
-| 35 | `front_matter` | `stages/front_matter.py` | workspace | Sampul, template, abstrak, penomoran heading, Markdown final. |
+| 35 | `front_matter` | `stages/front_matter.py` | workspace | Ganti `<!-- section-break -->` dengan raw `w:sectPr`, penomoran heading, Markdown final. |
 | 40 | `pandoc` | `stages/pandoc.py` | package | Markdown final menjadi DOCX awal. |
 | 50 | `sections` | `stages/sections.py` | `word/document.xml` | Section break, margin, ukuran halaman, override `numId=0`, verifikasi numbering. |
 | 60 | `code` | `stages/code.py` | `word/document.xml` | Blok kode menjadi tabel 1x1. |
@@ -90,7 +90,8 @@ Beberapa stage tidak selalu berjalan:
 
 - `terms` hanya aktif dengan `--terms`;
 - `toc` dilewati jika `structure.toc` bernilai `false`;
-- `lists` dilewati jika tidak ada daftar tabel/gambar di struktur.
+- `lists` dilewati jika `structure.lists.tables` dan `structure.lists.figures`
+  bernilai `false`.
 
 Stage `plantuml` menemukan engine lewat `AUTOOFFICE_PLANTUML` (jar atau
 executable) dan memakai `AUTOOFFICE_JAVA` bila diberikan. Render memakai
@@ -114,7 +115,8 @@ Guard penting:
 
 Alasannya:
 
-- Reference dan front matter harus siap sebelum Pandoc membaca Markdown.
+- Reference dan Markdown front matter harus siap sebelum Pandoc membaca
+  Markdown.
 - Section dan nomor bab harus stabil sebelum caption dan tabel kode diolah.
 - Tabel kode harus berbentuk tabel 1x1 sebelum captions agar tidak dianggap
   tabel data.

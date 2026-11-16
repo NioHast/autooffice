@@ -161,8 +161,8 @@ Secara ringkas:
 1. front matter, format, struktur, aset, dan caption divalidasi;
 2. PlantUML dirender bila ada;
 3. `reference.docx` turunan dibuat dari `format.yaml`;
-4. front matter Markdown dimaterialisasi: sampul, template legal, abstrak,
-   dan penomoran heading;
+4. Markdown dimaterialisasi: marker section break diganti raw `w:sectPr` dan
+   heading body disiapkan untuk numbering native;
 5. Pandoc mengubah Markdown menjadi DOCX;
 6. stage Python menambahkan section, caption, persamaan, numbering, field
    TOC, nomor halaman, dan daftar tabel/gambar;

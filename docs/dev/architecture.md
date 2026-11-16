@@ -10,7 +10,7 @@ layout, dan theme adalah data paket yang dibaca saat runtime.
 | Lapisan | Lokasi | Tanggung jawab | Tidak boleh berisi |
 | --- | --- | --- | --- |
 | Konten DOCX | `document.md`, `references.bib`, `istilah.tsv`, `gambar/` | Teks, sitasi, glosarium tambahan, dan aset | Aturan margin, urutan bab, field Word |
-| Struktur DOCX | `src/autooffice/docx/data/structures/<id>/structure.yaml` | Urutan front matter, body, back matter, penomoran, TOC, daftar, cover | Nilai margin, font, CSL |
+| Struktur DOCX | `src/autooffice/docx/data/structures/<id>/structure.yaml` | Urutan body, back matter, penomoran, TOC, dan daftar | Nilai margin, font, CSL |
 | Format DOCX | `src/autooffice/docx/data/formats/<id>/format.yaml` | Halaman, font, heading, caption, kode, sitasi, aset visual | Teks naskah, urutan bab |
 | Pipeline DOCX | `src/autooffice/docx/` | Validasi, orkestrasi stage, mutasi DOCX, output, manifest | Teks naskah, salinan aturan format |
 | Konten deck | `deck.yaml`, `transcripts.md`, `assets/`, `diagrams/` | Meta, slide, block, aset, transkrip | Token warna, layout preset, kode renderer |
@@ -28,7 +28,7 @@ document.md
   +-- validate             front matter, aset, caption Markdown
   +-- plantuml             blok PlantUML menjadi PNG di workspace
   +-- style_reference      reference.docx turunan dari format.yaml
-  +-- front_matter         sampul, template, abstrak, finalisasi heading Markdown
+  +-- front_matter         ganti marker section break, finalisasi heading Markdown
   +-- pandoc               Markdown menjadi DOCX
   |
   +-- package DOCX di memori

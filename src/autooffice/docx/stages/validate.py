@@ -323,13 +323,25 @@ def _body_line_offset(path: Path) -> int:
 def validate_body(document: object) -> None:
     """Validasi caption pada body ``Document``; lempar ``ValidationError``.
 
+    Front matter yang ditulis langsung di ``document.md`` tidak diperiksa:
+    sampul boleh memakai gambar dekoratif tanpa alt text dan halaman
+    pengesahan boleh memakai tabel tata letak tanpa caption. Pemeriksaan
+    dimulai dari Heading 1 bab pertama (``document.body_start``).
+
     Dipakai bersama oleh stage ``validate`` dan ``autooffice check`` agar aturan
     caption tidak berbeda antara perintah check dan build.
     """
 
     path = Path(getattr(document, "path", Path("<document>")))
-    body = getattr(document, "body", "") or ""
-    issues = check_text(body, path=path, line_offset=_body_line_offset(path))
+    text = getattr(document, "body", "") or ""
+    lines = text.splitlines(keepends=True)
+    start = max(0, min(int(getattr(document, "body_start", 0) or 0), len(lines)))
+    body = "".join(lines[start:])
+    issues = check_text(
+        body,
+        path=path,
+        line_offset=_body_line_offset(path) + start,
+    )
     if not issues:
         return
     details = "\n".join(f"- {issue.render()}" for issue in issues)
