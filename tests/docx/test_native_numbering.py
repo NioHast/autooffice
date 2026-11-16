@@ -166,7 +166,7 @@ def test_custom_toc_heading_style_gets_numid_zero(
     )
 
 
-def test_bab_roman_path_uses_nothing_suffix_and_heading_break(
+def test_roman_chapter_path_uses_nothing_suffix_and_heading_break(
     tmp_path: Path,
     format_spec: Format,
 ) -> None:

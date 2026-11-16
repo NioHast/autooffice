@@ -6,6 +6,15 @@
   [ADR 0015](../decisions/0015-native-heading-numbering.md),
   [format dan struktur](formats.md), dan [style DOCX](docx/styles.md)
 
+## Daftar isi
+
+- [Konteks](#konteks)
+- [Fase](#fase)
+- [Rincian fase](#rincian-fase)
+- [Yang tetap di Python](#yang-tetap-di-python)
+- [Gate per fase](#gate-per-fase)
+- [Keputusan terbuka](#keputusan-terbuka)
+
 ## Konteks
 
 Rilis 4.0.0 sudah menghapus dua sumber drift yang jelas: style yang tidak
@@ -22,25 +31,31 @@ kode Python yang terlibat, bukan target ukuran seluruh repo.
 
 | Fase | Isi | Prasyarat | Perkiraan |
 | --- | --- | --- | --- |
-| 2a | Bake style ke reference (sedang berjalan di branch lain). | — | -630 LOC |
+| 2a | Bake style ke reference; lima style sudah dibekukan, 35 sisanya masuk 3d. | — | -630 LOC |
 | 2a-b | Hapus mode penomoran caption `document`; hanya `chapter`. | 2a | -60…-80 LOC |
 | 2b | Header/footer/margin dari reference; `page_numbers` menyusut; **memperbaiki bug footer Romawi front matter**. | 2a | -228 LOC |
 | 3a | Konvensi nama file (`references.bib`, `citation.csl`, `logo.jpg`). | 2b | -150 LOC |
 | 3b | Front matter pindah ke `document.md`; cover memakai `\` sebagai pengganti `spacer()`. | 2b | -607 LOC |
-| 3c | `format.yaml` dibubarkan tanpa sisa; tidak perlu key `figure_numbering` di front matter. | 3b | -1.400 LOC |
-| 4 | `terms`, `blank_lines`, `equations` menjadi filter JSON. | 3c | -1.019 LOC |
+| 3c | `format.yaml` dibubarkan tanpa sisa; tidak perlu key `figure_numbering` di front matter. | 3a, 3b | -1.400 LOC |
+| 3d | Hapus derived reference: bake 35 style tersisa + numbering + geometri, lalu hapus stage `style_reference`. | 3a, 3c | -3.000 LOC |
+| 4 | `terms`, `blank_lines`, `equations` menjadi filter JSON. | 3d | -1.019 LOC |
 
-Jumlah indikatif seluruh fase: sekitar **4.094–4.114 LOC**. Angka per fase
+Jumlah indikatif seluruh fase: sekitar **7.094–7.114 LOC**. Angka per fase
 adalah perkiraan dan tidak boleh dipakai sebagai janji rilis.
+
+Urutan ini mengikat: konvensi nama file (3a) dan pembubaran `format.yaml` (3c)
+tetap menjadi anteseden 3d; penghapusan derived reference adalah langkah
+terakhir sebelum filter pada Fase 4.
 
 ## Rincian fase
 
 ### 2a — Bake style ke reference
 
-Seluruh style yang saat ini dibangkitkan `style_reference.py` dipindahkan ke
-`reference.docx` sumber. Build tidak lagi menulis ulang `word/styles.xml` dari
-`format.yaml`; stage dan spec style runtime menyusut. Fase ini sedang berjalan
-di branch lain dan belum menjadi bagian dari rilis ini.
+Style yang dibangkitkan `style_reference.py` dipindahkan ke `reference.docx`
+sumber secara bertahap. Lima style sudah dibekukan: `AbstractBody`,
+`AbstractKeywords`, `IstilahAsing`, `IstilahReview`, dan `TableofFigures`.
+Build tidak lagi menulis ulang kelima style itu; stage memverifikasinya. Sisa
+35 style, numbering, dan geometri masuk Fase 3d.
 
 ### 2a-b — Hapus mode penomoran caption `document`
 
@@ -103,6 +118,31 @@ di `format.yaml`. Sisa `format.yaml` dibagikan ke reference dan front matter
 sampai file itu tidak lagi diperlukan. Parser format, model konfigurasi, dan
 validasi key ikut menyusut.
 
+**Prasyarat:** 3a selesai. Konvensi nama file menghapus key aset dan sitasi
+yang redundan sebelum sisa konfigurasi dibagikan ke reference dan front matter.
+
+### 3d — Hapus derived reference
+
+Sisa 35 style, numbering heading, dan geometri halaman dibekukan ke
+`reference.docx`. Setelah base memuat seluruh tampilan, stage `style_reference`
+dan derived reference dihapus; Pandoc memakai base reference langsung. Fase ini
+adalah langkah terakhir sebelum filter dan memperkirakan **-3.000 LOC**.
+
+Pemilik mengedit `reference.docx` melalui agent dan menyimpan backup biner di
+luar repo. Karena itu tidak ada lagi penulisan style dari `format.yaml` saat
+build. Verifikasi minimal yang dipertahankan ada di
+[ADR 0019](../decisions/0019-reference-docx-as-single-visual-source.md): style
+wajib ada di reference, setiap penanda `<!-- toc -->` menghasilkan field TOC,
+dan front matter diakhiri section break.
+
+**Prasyarat:** 3a dan 3c selesai. Konvensi nama file menghapus key aset dari
+`format.yaml`, dan 3c membubarkan sisa konfigurasi sehingga reference menjadi
+satu-satunya sumber tampilan.
+
+**Acceptance:** output tesis, proposal, dan assignment identik setelah derived
+reference dihapus; tiga verifikasi minimal lulus; stage `style_reference` tidak
+lagi ada di urutan stage.
+
 ### 4 — `terms`, `blank_lines`, dan `equations` sebagai filter JSON
 
 Tiga stage Python diganti filter yang bekerja pada AST JSON Pandoc. Walker
@@ -116,8 +156,9 @@ di Python karena filter dan `reference.docx` tidak dapat menggantikannya:
 
 - **`package/` (9.505 LOC).** `DocumentPackage`, part, relationship, style,
   numbering, section, field, bookmark, dan tabel adalah operasi tingkat paket
-  DOCX. Filter hanya melihat AST Markdown; `reference.docx` hanya menyediakan
-  definisi style. Keduanya tidak dapat membuat atau memperbarui part seperti
+  DOCX. Filter hanya melihat AST Markdown; `reference.docx` menyediakan style,
+  numbering, dan geometri halaman. Keduanya tidak dapat membuat atau
+  memperbarui part seperti
   `word/numbering.xml`, `word/header*.xml`, `word/footnotes.xml`, atau
   `.laporan/manifest.json`.
 - **Pipeline.** Urutan stage, satu `load`/`save`, workspace, artefak antara,
