@@ -64,7 +64,9 @@ Top-level key:
 Blok `abstract` mengatur font dan spasi isi abstrak serta kata kunci.
 `abstract.english_italic` (boolean) menentukan apakah style `AbstractBodyEn`
 untuk abstrak Inggris membawa `w:i`/`w:iCs`; bahasa paragrafnya tetap
-`en-US`.
+`en-US`. Style itu dibekukan di `reference.docx` sumber, jadi nilainya
+diverifikasi saat build: mengubahnya berarti mengubah `word/styles.xml`
+sumber juga.
 
 Blok kode selalu monokrom. Pandoc dijalankan dengan
 `--syntax-highlighting=none`, sehingga tidak menulis token `KeywordTok`,

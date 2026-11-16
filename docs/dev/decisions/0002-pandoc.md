@@ -47,4 +47,6 @@ dari `AbstractBody` dan membawa `w:i`, `w:iCs`, serta `w:lang en-US`. Teks kata
 kunci memakai style karakter `AbstractKeywordText`. Pipeline tidak lagi
 membungkus abstrak dengan `*...*`; pembungkus itu akan menjadi formatting
 langsung yang tidak dapat dibedakan dari italic manual. Daftar pustaka tetap
-memperoleh italic dari CSL dan tidak berubah.
+memperoleh italic dari CSL dan tidak berubah. Kedua style dibekukan di
+`reference.docx` sumber dan hanya diverifikasi; `abstract.english_italic`
+menjadi bagian kontrak yang dicek, bukan ditulis ulang saat build.
