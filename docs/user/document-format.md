@@ -186,8 +186,9 @@ Gambar hasil render ditulis ke `gambar/plantuml-<hash>.png`. Rincian ada di
 
 ## Blok kode
 
-Blok kode berpagar menjadi tabel 1x1 dengan border penuh. Gunakan bahasa
-pemrograman pada pembuka fence bila perlu.
+Blok kode berpagar menjadi tabel 1x1 dengan border penuh dan selalu tampil
+monokrom; tag bahasa tidak mengaktifkan warna. Gunakan bahasa pemrograman pada
+pembuka fence bila perlu.
 
 ````markdown
 ```python

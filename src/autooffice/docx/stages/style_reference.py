@@ -11,7 +11,6 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..config import Format
-from ..config.highlight import PANDOC_HIGHLIGHT_STYLES
 from ..package import DocumentPackage
 from ..package.native_numbering import (
     NumberingSpec,
@@ -57,11 +56,6 @@ _CODE_STYLE_TYPES: Mapping[str, str] = {
     "HTMLCode": "character",
     "HTMLPreformatted": "paragraph",
 }
-
-# Style karakter token syntax highlighting yang ditulis Pandoc saat blok kode
-# memakai highlighting. Daftar ini diukur dari Pandoc 3.13: tanpa deklarasi di
-# reference turunan, Pandoc mengimpor seluruh style token ini sendiri sehingga
-# `word/styles.xml` tidak lagi ditentukan oleh `format.yaml`.
 
 _COVER_STYLES: tuple[str, ...] = (
     "CoverTitle",
@@ -280,39 +274,6 @@ def _code_spec(style_id: str, format_spec: Format) -> StyleSpec:
     )
 
 
-def _highlight_specs(format_spec: Format) -> dict[str, StyleSpec]:
-    """Style karakter token syntax highlighting dari ``format_spec.code``.
-
-    Semua style token Pandoc selalu dideklarasikan agar Pandoc tidak pernah
-    mengimpornya. Properti berasal dari ``code.highlight``; token tanpa entri
-    mewarisi ``VerbatimChar`` sehingga tetap memakai font/warna kode format.
-    """
-
-    configured = format_spec.code.highlight
-    specs: dict[str, StyleSpec] = {}
-    for style_id in PANDOC_HIGHLIGHT_STYLES:
-        token = configured.get(style_id)
-        rpr: dict[str, object] = {}
-        if token is not None:
-            if token.bold:
-                rpr["b"] = True
-                rpr["bCs"] = True
-            if token.italic:
-                rpr["i"] = True
-                rpr["iCs"] = True
-            if token.color is not None:
-                rpr["color"] = {"val": token.color}
-        specs[style_id] = StyleSpec(
-            style_id=style_id,
-            style_type="character",
-            based_on="VerbatimChar",
-            rpr=rpr,
-            name=style_id,
-            custom=True,
-        )
-    return specs
-
-
 def _hyperlink_spec() -> StyleSpec:
     return StyleSpec(
         style_id="Hyperlink",
@@ -465,7 +426,6 @@ def style_specs_for_format(
     )
     for style_id in _CODE_STYLE_TYPES:
         specs[style_id] = _code_spec(style_id, format_spec)
-    specs.update(_highlight_specs(format_spec))
     specs["Hyperlink"] = _hyperlink_spec()
     specs["Bibliography"] = _bibliography_spec(format_spec)
     specs["Figure"] = _figure_spec(format_spec)
@@ -674,7 +634,6 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "DEFAULT_REFERENCE_NAME",
-    "PANDOC_HIGHLIGHT_STYLES",
     "TERM_STYLES",
     "StyleReferenceStage",
     "build_reference_docx",

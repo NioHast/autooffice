@@ -158,22 +158,6 @@ class CodeTable:
 
 
 @dataclass(frozen=True)
-class CodeHighlightToken:
-    """Properti satu style token syntax highlighting Pandoc.
-
-    ``style_id`` adalah ``w:styleId`` yang ditulis Pandoc (mis.
-    ``KeywordTok``). Nilai ``color`` ``None`` berarti mewarisi warna
-    ``VerbatimChar``; ``bold``/``italic`` ``False`` berarti tidak menimpa
-    properti turunan.
-    """
-
-    style_id: str
-    color: str | None = None
-    bold: bool = False
-    italic: bool = False
-
-
-@dataclass(frozen=True)
 class CodeFormat:
     style: str
     font: CodeFont
@@ -185,7 +169,6 @@ class CodeFormat:
     border: CodeBorder
     table: CodeTable
     detect_styles: tuple[str, ...]
-    highlight: Mapping[str, CodeHighlightToken] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

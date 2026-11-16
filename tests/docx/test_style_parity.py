@@ -2,9 +2,12 @@
 
 Fixture ``tests/fixtures/docx/kitchen-sink`` memancing blok dan properti yang
 ditulis Pandoc untuk dokumen produksi: heading 1-6, paragraf, daftar rapat dan
-renggang, blockquote, blok kode ber-highlight dan tanpa bahasa, kode sebaris,
+renggang, blockquote, blok kode berbahasa dan tanpa bahasa, kode sebaris,
 tabel dan caption, gambar dan caption, footnote, definition list, sitasi,
 garis horizontal, serta format inline.
+
+Highlighting dimatikan lewat ``--syntax-highlighting=none``. Blok kode wajib
+monokrom: Pandoc tidak boleh memakai atau mengimpor style token ``*Tok``.
 
 Tes menjalankan Pandoc lewat :func:`build_pandoc_command` milik stage
 ``pandoc`` supaya flag yang diuji identik dengan produksi, lalu membandingkan
@@ -40,7 +43,6 @@ from autooffice.docx.stages.pandoc import (
     write_metadata_file,
 )
 from autooffice.docx.stages.style_reference import (
-    PANDOC_HIGHLIGHT_STYLES,
     build_reference_docx,
     style_specs_for_format,
 )
@@ -52,8 +54,7 @@ FORMAT_ID = "undip-msi"
 
 # Style yang harus benar-benar dipakai fixture agar gate tidak lolos karena
 # fixture kehilangan konstruksi. Daftar ini adalah style yang ditulis Pandoc
-# untuk konstruksi di atas; style lain yang sah (mis. token highlighting lain)
-# tidak dipaksakan.
+# untuk konstruksi di atas; style lain yang sah tidak dipaksakan.
 REQUIRED_USED_STYLES = frozenset(
     {
         "Bibliography",
@@ -74,7 +75,6 @@ REQUIRED_USED_STYLES = frozenset(
         "Heading6",
         "Hyperlink",
         "ImageCaption",
-        "KeywordTok",
         "SourceCode",
         "Table",
         "TableCaption",
@@ -193,38 +193,46 @@ def parity_build(
     return reference, output
 
 
-def test_reference_declares_all_pandoc_highlight_styles(
+def test_reference_has_no_highlight_token_styles(
     tmp_path: Path,
     format_spec: Format,
 ) -> None:
     reference = tmp_path / "reference.docx"
     build_reference_docx(Path(format_spec.assets.reference_docx), reference, format_spec)
 
-    styles = _styles(reference)
-    missing = sorted(set(PANDOC_HIGHLIGHT_STYLES) - set(styles))
-    assert missing == [], f"style token Pandoc belum dideklarasikan: {missing}"
-
-    for style_id in PANDOC_HIGHLIGHT_STYLES:
-        style = styles[style_id]
-        assert style.get(f"{W}type") == "character", style_id
-        based_on = style.find(f"{W}basedOn")
-        assert based_on is not None, style_id
-        assert based_on.get(f"{W}val") == "VerbatimChar", style_id
-
-    keyword = styles["KeywordTok"]
-    rpr = keyword.find(f"{W}rPr")
-    assert rpr is not None
-    color = rpr.find(f"{W}color")
-    assert color is not None
-    assert color.get(f"{W}val") == "007020"
-    assert rpr.find(f"{W}b") is not None
+    token_styles = sorted(style_id for style_id in _styles(reference) if style_id.endswith("Tok"))
+    assert token_styles == [], (
+        "reference turunan masih mendeklarasikan style token highlight: "
+        f"{token_styles}. Blok kode monokrom tidak membutuhkannya."
+    )
 
 
-def test_style_specs_cover_every_highlight_style(format_spec: Format) -> None:
+def test_style_specs_have_no_highlight_token_styles(format_spec: Format) -> None:
     specs = style_specs_for_format(format_spec)
 
-    missing = sorted(set(PANDOC_HIGHLIGHT_STYLES) - set(specs))
-    assert missing == [], f"style_specs_for_format belum memuat: {missing}"
+    token_styles = sorted(style_id for style_id in specs if style_id.endswith("Tok"))
+    assert token_styles == [], (
+        f"style_specs_for_format masih memuat token highlight: {token_styles}"
+    )
+
+
+def test_pandoc_does_not_emit_highlight_token_styles(
+    parity_build: tuple[Path, Path],
+) -> None:
+    _reference, output = parity_build
+
+    source = (FIXTURE / "document.md").read_text(encoding="utf-8")
+    assert "```python" in source, (
+        "fixture harus memuat blok kode berbahasa agar gate token highlight bermakna"
+    )
+
+    used = sorted(style_id for style_id in _used_style_ids(output) if style_id.endswith("Tok"))
+    assert used == [], (
+        "Pandoc memakai style token highlight walau --syntax-highlighting=none: "
+        f"{used}. Blok kode wajib monokrom."
+    )
+    declared = sorted(style_id for style_id in _style_ids(output) if style_id.endswith("Tok"))
+    assert declared == [], f"Pandoc mengimpor style token highlight: {declared}"
 
 
 def test_pandoc_imports_no_style_outside_reference(

@@ -56,17 +56,20 @@ Top-level key:
 | `toc_heading` | Style judul daftar isi. |
 | `captions` | Label, separator, font, dan keep-next caption gambar/tabel. |
 | `figures` | Perataan caption/gambar, numbering, spacing. |
-| `code` | Font, border, shading, tabel kode, style deteksi, warna token highlight. |
+| `code` | Font, border, shading, tabel kode, dan style deteksi. |
 | `bibliography_style` | Judul dan format daftar pustaka. |
 | `citation` | `csl`, `bibliography`, dan `locale`. |
 | `assets` | `logo` dan `reference_docx`. |
 
 Blok `abstract` mengatur font dan spasi isi abstrak serta kata kunci.
 
-Blok `code.highlight` memetakan `styleId` token Pandoc (mis. `KeywordTok`) ke
-`bold`, `italic`, dan `color`. Semua style token tetap dideklarasikan oleh
-`style_reference`; entri hanya mengatur propertinya. Token tanpa entri
-mewarisi font dan warna `code.font`.
+Blok kode selalu monokrom. Pandoc dijalankan dengan
+`--syntax-highlighting=none`, sehingga tidak menulis token `KeywordTok`,
+`StringTok`, atau style token lain. `format.yaml` tidak punya key
+`code.highlight`; `code.font`, `code.border`, dan `code.table` tetap mengatur
+tampilan tabel kode. Bila kelak blok kode ingin berwarna, aktifkan kembali
+flag highlighting dan tambahkan deklarasi 31 style token ke `reference.docx`
+turunan.
 
 Semua dimensi memakai satuan `cm`, `mm`, `in`, `pt`, atau `twip`. Semua warna
 memakai enam digit heksadesimal. Key `presets`, `preset`, dan `margin_preset`

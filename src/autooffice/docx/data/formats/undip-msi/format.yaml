@@ -167,42 +167,6 @@ code:
   table:
     width: 100%
     cell_margin: 108twip
-  # Style karakter token syntax highlighting (styleId Pandoc). Semua style
-  # token selalu dideklarasikan oleh style_reference; entri di bawah memberi
-  # warna/bold/italic agar tampilan kode sama dengan sebelumnya. Tanpa entri,
-  # token mewarisi font dan warna `code.font`.
-  highlight:
-    AlertTok: {bold: true, color: "FF0000"}
-    AnnotationTok: {bold: true, italic: true, color: "60A0B0"}
-    AttributeTok: {color: "7D9029"}
-    BaseNTok: {color: "40A070"}
-    BuiltInTok: {color: "008000"}
-    CharTok: {color: "4070A0"}
-    CommentTok: {italic: true, color: "60A0B0"}
-    CommentVarTok: {bold: true, italic: true, color: "60A0B0"}
-    ConstantTok: {color: "880000"}
-    ControlFlowTok: {bold: true, color: "007020"}
-    DataTypeTok: {color: "902000"}
-    DecValTok: {color: "40A070"}
-    DocumentationTok: {italic: true, color: "BA2121"}
-    ErrorTok: {bold: true, color: "FF0000"}
-    ExtensionTok: {}
-    FloatTok: {color: "40A070"}
-    FunctionTok: {color: "06287E"}
-    ImportTok: {bold: true, color: "008000"}
-    InformationTok: {bold: true, italic: true, color: "60A0B0"}
-    KeywordTok: {bold: true, color: "007020"}
-    NormalTok: {}
-    OperatorTok: {color: "666666"}
-    OtherTok: {color: "007020"}
-    PreprocessorTok: {color: "BC7A00"}
-    RegionMarkerTok: {}
-    SpecialCharTok: {color: "4070A0"}
-    SpecialStringTok: {color: "BB6688"}
-    StringTok: {color: "4070A0"}
-    VariableTok: {color: "19177C"}
-    VerbatimStringTok: {color: "4070A0"}
-    WarningTok: {bold: true, italic: true, color: "60A0B0"}
 
 # Gaya daftar pustaka. Path file .bib ada di citation.bibliography.
 bibliography_style:

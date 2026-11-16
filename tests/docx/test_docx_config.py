@@ -26,7 +26,6 @@ _EXPECTED_CONFIG_EXPORTS = frozenset(
         "CodeBorder",
         "CodeFont",
         "CodeFormat",
-        "CodeHighlightToken",
         "CodeTable",
         "CoverOverrides",
         "FigureStyle",
@@ -102,7 +101,7 @@ def _minimal_structure(extra: str = "") -> str:
 
 
 def test_config_public_api_complete() -> None:
-    assert len(config.__all__) == 33
+    assert len(config.__all__) == 32
     missing = _EXPECTED_CONFIG_EXPORTS.difference(config.__all__)
     assert not missing, f"nama publik hilang: {sorted(missing)}"
 
@@ -129,9 +128,6 @@ def test_load_builtin_format() -> None:
     assert format_.figures.space_after == 0
     assert format_.figures.first_line_indent == 0
     assert format_.code.alignment == "left"
-    assert format_.code.highlight["KeywordTok"].color == "007020"
-    assert format_.code.highlight["KeywordTok"].bold is True
-    assert format_.code.highlight["NormalTok"].bold is False
     assert format_.toc_heading.heading_style == "TOCHeading"
     assert format_.toc_heading.font_family == "Times New Roman"
     assert format_.toc_heading.color == "000000"
@@ -482,80 +478,3 @@ def test_structure_body_unique(tmp_path: Path) -> None:
     with pytest.raises(ConfigError) as error:
         load_structure("contoh", root=data_root)
     assert error.value.code == "CFG-DUPLICATE"
-
-
-# ---------------------------------------------------------------------------
-# code.highlight
-# ---------------------------------------------------------------------------
-
-
-def test_code_highlight_omitted_defaults_empty(tmp_path: Path) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    without_highlight = re.sub(
-        r"^  highlight:\n(?:    .*\n)*",
-        "",
-        text,
-        count=1,
-        flags=re.MULTILINE,
-    )
-    assert "highlight:" not in without_highlight
-    format_yaml.write_text(without_highlight, encoding="utf-8", newline="\n")
-
-    format_ = load_format("undip-msi", root=data_root)
-    assert format_.code.highlight == {}
-
-
-def test_code_highlight_rejects_unknown_property(tmp_path: Path) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    format_yaml.write_text(
-        text.replace(
-            '    KeywordTok: {bold: true, color: "007020"}\n',
-            '    KeywordTok: {bold: true, color: "007020", bogus: true}\n',
-        ),
-        encoding="utf-8",
-        newline="\n",
-    )
-
-    with pytest.raises(ConfigError) as error:
-        load_format("undip-msi", root=data_root)
-
-    assert error.value.code == "CFG-UNKNOWN-KEY"
-    assert error.value.key == "code.highlight.KeywordTok.bogus"
-
-
-def test_code_highlight_rejects_non_token_style_id(tmp_path: Path) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    format_yaml.write_text(
-        text.replace("    KeywordTok: {bold: true", "    keyword: {bold: true"),
-        encoding="utf-8",
-        newline="\n",
-    )
-
-    with pytest.raises(ConfigError) as error:
-        load_format("undip-msi", root=data_root)
-
-    assert error.value.code == "CFG-TYPE"
-    assert error.value.key == "code.highlight.keyword"
-
-
-def test_code_highlight_rejects_unknown_token_typo(tmp_path: Path) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    format_yaml.write_text(
-        text.replace("    KeywordTok: {bold: true", "    KeyworkTok: {bold: true"),
-        encoding="utf-8",
-        newline="\n",
-    )
-
-    with pytest.raises(ConfigError) as error:
-        load_format("undip-msi", root=data_root)
-
-    assert error.value.code == "CFG-TYPE"
-    assert error.value.key == "code.highlight.KeyworkTok"

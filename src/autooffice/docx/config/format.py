@@ -33,7 +33,6 @@ from .common import (
     _text_list,
     load_yaml_mapping,
 )
-from .highlight import PANDOC_HIGHLIGHT_STYLES
 from .models import (
     AbstractStyle,
     AssetsFormat,
@@ -46,7 +45,6 @@ from .models import (
     CodeBorder,
     CodeFont,
     CodeFormat,
-    CodeHighlightToken,
     CodeTable,
     FigureStyle,
     FontFormat,
@@ -176,10 +174,8 @@ _CODE_KEYS = frozenset(
         "border",
         "table",
         "detect_styles",
-        "highlight",
     }
 )
-_HIGHLIGHT_TOKEN_KEYS = frozenset({"bold", "italic", "color"})
 _CODE_FONT_KEYS = frozenset({"family", "size", "color"})
 _CODE_BORDER_KEYS = frozenset({"style", "width", "color"})
 _CODE_TABLE_KEYS = frozenset({"width", "cell_margin"})
@@ -829,46 +825,6 @@ def _parse_figures(
     )
 
 
-def _parse_highlight(
-    data: Mapping[str, Any] | None,
-    *,
-    path: Path,
-) -> Mapping[str, CodeHighlightToken]:
-    """Bangun peta style token syntax highlighting dari ``code.highlight``.
-
-    Key adalah ``w:styleId`` token Pandoc (mis. ``KeywordTok``). Hanya
-    ``bold``, ``italic``, dan ``color`` yang didukung; key lain adalah error.
-    Nilai kosong menghasilkan peta kosong sehingga style token tetap dibuat
-    dari nilai ``code`` yang ada.
-    """
-
-    if data is None:
-        return MappingProxyType({})
-    raw = _expect_mapping(data, path=path, key="code.highlight")
-    tokens: dict[str, CodeHighlightToken] = {}
-    for raw_key, value in raw.items():
-        style_id = str(raw_key)
-        key = f"code.highlight.{style_id}"
-        if style_id not in PANDOC_HIGHLIGHT_STYLES:
-            raise _err(
-                f"'code.highlight' key '{style_id}' bukan styleId token Pandoc "
-                "yang didukung (mis. KeywordTok)",
-                code="CFG-TYPE",
-                path=path,
-                key=key,
-            )
-        entry = _expect_mapping(value, path=path, key=key)
-        _check_unknown(entry, _HIGHLIGHT_TOKEN_KEYS, path=path, key=key)
-        color = entry.get("color")
-        tokens[style_id] = CodeHighlightToken(
-            style_id=style_id,
-            color=(_color(color, path=path, key=f"{key}.color") if color is not None else None),
-            bold=_boolean(entry.get("bold"), path=path, key=f"{key}.bold", default=False),
-            italic=_boolean(entry.get("italic"), path=path, key=f"{key}.italic", default=False),
-        )
-    return MappingProxyType(tokens)
-
-
 def _parse_code(
     data: Mapping[str, Any] | None,
     *,
@@ -989,7 +945,6 @@ def _parse_code(
             key="code.detect_styles",
             default=_DEFAULT_DETECT_STYLES,
         ),
-        highlight=_parse_highlight(raw.get("highlight"), path=path),
     )
 
 
