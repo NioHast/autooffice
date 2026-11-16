@@ -7,11 +7,11 @@ daftar tersebut tidak kosong.
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from weakref import WeakKeyDictionary
 
-from autooffice.deck.layout.custom import plan_custom_slide_with_findings
-from autooffice.deck.layout.grid import Grid, RowItem, place_row
+from autooffice.deck.layout.custom import CUSTOM_VERTICAL_ALIGN, plan_custom_slide_with_findings
+from autooffice.deck.layout.grid import Grid, RowItem, RowPlacement, place_row
 from autooffice.deck.layout.measure import (
     BlockMeasurement,
     measure_block,
@@ -25,6 +25,8 @@ from autooffice.deck.layout.spec import (
     LayoutSpec,
     PlacedBlock,
     SlideLayout,
+    is_header_row,
+    vertical_alignment_shifts,
 )
 from autooffice.deck.model.deck_ir import BlockIR, DeckIR, KeyManifest, SlideIR
 from autooffice.design.theme import Theme
@@ -193,6 +195,7 @@ def _plan_custom_slide(
             keys,
             leaf=leaf,
         ),
+        vertical_align=CUSTOM_VERTICAL_ALIGN,
     )
     findings = tuple(
         OverflowFinding(
@@ -222,6 +225,8 @@ def _plan_slide(
     key_map = _key_map(keys)
     boxes: list[PlacedBlock] = []
     findings: list[OverflowFinding] = []
+    row_placements: list[RowPlacement] = []
+    row_headers: list[bool] = []
     top_emu = active_grid.content_top_emu
     present_rows = tuple(
         tuple(assignments_by_slot[slot_id] for slot_id in row if slot_id in assignments_by_slot)
@@ -258,7 +263,8 @@ def _plan_slide(
                 )
             )
         placement = place_row(active_grid, items, top_emu=top_emu)
-        boxes.extend(placement.boxes)
+        row_placements.append(placement)
+        row_headers.append(_header_row(present))
         height_findings: set[str] = set()
         for box in placement.boxes:
             block = blocks_by_id[box.block_id]
@@ -310,6 +316,17 @@ def _plan_slide(
                 )
         top_emu = placement.bottom_emu + active_grid.row_gap_emu
 
+    shifts = vertical_alignment_shifts(
+        tuple(placement.bottom_emu for placement in row_placements),
+        tuple(row_headers),
+        content_bottom_emu=active_grid.content_bottom_emu,
+        vertical_align=spec.vertical_align,
+    )
+    for placement, shift in zip(row_placements, shifts, strict=True):
+        boxes.extend(
+            replace(box, top_emu=box.top_emu + shift) if shift else box for box in placement.boxes
+        )
+
     overflow_keys = _finding_keys(findings)
     return (
         SlideLayout(
@@ -319,6 +336,11 @@ def _plan_slide(
         ),
         tuple(findings),
     )
+
+
+def _header_row(row: Sequence[SlotAssignment]) -> bool:
+    """True bila klasifikasi role slot menjadikan row ini header."""
+    return is_header_row(tuple(assignment.slot.role for assignment in row))
 
 
 def _reserved_row_height(
@@ -424,11 +446,11 @@ def _leaf_candidates(block: BlockIR) -> tuple[str, ...]:
         "text": ("text", "heading"),
         "bullets": ("item1.text",),
         "quote": ("text", "attribution"),
-        "metric": ("value", "label", "caption"),
+        "metric": ("value", "label"),
         "code": ("code",),
-        "table": ("caption", "r1.c1", "h1"),
-        "chart": ("title", "caption"),
+        "table": ("r1.c1", "h1"),
+        "chart": ("title",),
     }
     if block.block_type in {"image", "diagram"}:
-        return ("caption",) if block.fields.get("caption") else ()
+        return ()
     return candidates.get(block.block_type, ("text",))

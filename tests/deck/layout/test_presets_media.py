@@ -188,10 +188,6 @@ def test_presets_use_only_known_block_types(case: PresetCase) -> None:
         assert "callout" not in slot.block_types
 
 
-def test_all_remaining_presets_accept_source() -> None:
-    assert all(case.layout.accepts_source for case in CASES)
-
-
 def test_registry_discovers_all_seven_presets() -> None:
     discovered = {layout.layout_id: layout for layout in discover_layouts()}
     names = layout_names()

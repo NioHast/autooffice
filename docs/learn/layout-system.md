@@ -5,9 +5,22 @@ authoring. Kontrak normatifnya ada di
 [spesifikasi layout](../contracts/layout-spec.md), dengan amandemen
 [ADR 0007](../decisions/0007-slot-span.md),
 [ADR 0008](../decisions/0008-min-one-of.md),
-[ADR 0009](../decisions/0009-explicit-custom-rows.md), dan
-[ADR 0012](../decisions/0012-chart-kind-preset.md). Cara memilih layout saat
-menulis YAML ada di [deck-authoring.md](../user/deck-authoring.md).
+[ADR 0009](../decisions/0009-explicit-custom-rows.md),
+[ADR 0012](../decisions/0012-chart-kind-preset.md), dan
+[ADR 0016](../decisions/0016-visual-system-alignment.md). Cara memilih layout
+saat menulis YAML ada di [deck-authoring.md](../user/deck-authoring.md).
+
+## Daftar Isi
+
+- [Kanvas dan grid](#kanvas-dan-grid)
+- [Preset dan custom](#preset-dan-custom)
+- [Komposisi vertikal](#komposisi-vertikal)
+- [Kind chart pada slot](#kind-chart-pada-slot)
+- [Span slot dan span block](#span-slot-dan-span-block)
+- [min_one_of](#min_one_of)
+- [Tinggi dan overflow](#tinggi-dan-overflow)
+- [Tanpa absolute positioning](#tanpa-absolute-positioning)
+- [Invariant](#invariant)
 
 ## Kanvas dan grid
 
@@ -39,6 +52,23 @@ tipe block harus diterima slot, dan `role` block `text` harus sama dengan role
 slot. Slot opsional yang tidak hadir tidak memakan kolom dan tidak membagi
 ulang span slot lain. Custom tidak memakai `SlotSpec`, `required`, role slot,
 atau `min_one_of`.
+
+## Komposisi vertikal
+
+Semua preset bawaan memakai `LayoutSpec.vertical_align = "center"`. Row header
+pembuka dipin di atas, lalu row konten bergeser setengah slack ke tengah.
+Klasifikasi header dilakukan per slot: minimal satu role `title`, `lead`,
+`kicker`, `label`, atau `display`, dan slot lain hanya `caption` pendamping.
+Bila seluruh row adalah header, seluruh stack ditengahkan. Bila stack sudah
+overflow, tidak ada pergeseran.
+
+Layout `custom` memakai `center` saat deck dibangun, tetapi klasifikasi header
+mengandalkan `role` block. Teks tanpa `role` adalah body; judul custom yang
+harus dipin wajib menulis `role: title`. Detail dan migration note ada di
+[panduan authoring](../user/deck-authoring.md#komposisi-vertikal).
+
+Keputusan kontrak dan nilai token ada di
+[ADR 0016](../decisions/0016-visual-system-alignment.md).
 
 ## Kind chart pada slot
 

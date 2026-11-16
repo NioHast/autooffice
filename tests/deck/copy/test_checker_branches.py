@@ -89,7 +89,6 @@ def _deck(
                 order=0,
                 blocks=tuple(blocks),
                 notes=notes,
-                source=None,
             ),
         ),
         keys=KeyManifest(bindings=tuple(bindings)),

@@ -2,6 +2,8 @@
 
 from autooffice.deck.layout.spec import LayoutSpec, SlotSpec
 
+# Chart 16:9 tidak memenuhi seluruh tinggi area konten, jadi row konten ikut
+# ditengahkan seperti preset lain.
 LAYOUT = LayoutSpec(
     layout_id="donut",
     slots=(
@@ -41,5 +43,5 @@ LAYOUT = LayoutSpec(
         ),
     ),
     rows=(("title",), ("lead",), ("chart1", "legend"), ("note",)),
-    accepts_source=True,
+    vertical_align="center",
 )

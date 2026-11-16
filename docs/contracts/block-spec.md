@@ -5,7 +5,7 @@ wajib dan opsionalnya, serta aturan render native untuk table dan chart. Block
 adalah unit konten terkecil; block tidak memiliki geometri, style inline, atau
 teks yang diciptakan renderer.
 
-Status: F0 contract, version 1
+Status: F0 contract, version 1; diamendemen [ADR 0017](../decisions/0017-remove-caption-and-source.md).
 Sumber: AUTO_OFFICE_PLAN.md bagian 4.7, 4.8, dan 4.14.
 
 ## Bentuk data
@@ -26,8 +26,8 @@ class BlockSpec:
 TABLE_SPEC = BlockSpec(
     block_type="table",
     required=("columns", "rows"),
-    optional=("caption", "emphasis_column"),
-    key_leaves=("caption", "hN", "rN.cM"),
+    optional=("emphasis_column",),
+    key_leaves=("hN", "rN.cM"),
     allowed_in_preset=True,
 )
 
@@ -50,17 +50,19 @@ preset.
 | --- | --- | --- | --- | --- |
 | `text` | `text` | `heading`, `role` | `.text`, `.heading` | ya |
 | `bullets` | `items` | `ordered` | `.itemN.text` | ya |
-| `image` | `path`, `alt` | `caption`, `fit` | `.caption` | ya |
-| `table` | `columns`, `rows` | `caption`, `emphasis_column` | `.caption`, `.hN`, `.rN.cM` | ya |
-| `chart` | `kind`, `title`, `alt`, `categories`, `series` | `orientation`, `unit`, `caption` | `.title`, `.catN`, `.seriesN.name`, `.seriesN.valueN`, `.caption` | ya |
+| `image` | `path`, `alt` | `fit` | tidak ada | ya |
+| `table` | `columns`, `rows` | `emphasis_column` | `.hN`, `.rN.cM` | ya |
+| `chart` | `kind`, `title`, `alt`, `categories`, `series` | `orientation`, `unit` | `.title`, `.catN`, `.seriesN.name`, `.seriesN.valueN` | ya |
 | `code` | `code` | `language`, `filename`, `line_numbers` | `.code`, `.filename` | ya |
 | `quote` | `text` | `attribution` | `.text`, `.attribution` | ya |
-| `diagram` | `source`, `alt` | `caption` | `.caption` | ya |
+| `diagram` | `source`, `alt` | tidak ada | tidak ada | ya |
 | `divider` | tidak ada | tidak ada | tidak ada | tidak |
 | `spacer` | tidak ada | `size` | tidak ada | tidak |
-| `metric` | `label`, `value` | `caption`, `status` | `.label`, `.value`, `.caption` | ya |
+| `metric` | `label`, `value` | `status` | `.label`, `.value` | ya |
 
-Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
+Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator. Field
+`caption` pada `image`, `table`, `chart`, `diagram`, dan `metric` sudah
+dihapus (ADR 0017) dan ditolak dengan pesan eksplisit.
 
 ## Aturan per tipe
 
@@ -69,7 +71,8 @@ Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
 - `bullets`: minimal satu item; setiap item satu paragraf inline Markdown;
   `ordered` boolean dengan default `false`.
 - `image`: path relatif, format `.png`, `.jpg`, `.jpeg`, atau `.webp`; `alt`
-  wajib non-kosong dan bukan key; `fit` hanya `contain` atau `cover`.
+  wajib non-kosong dan bukan key; `fit` hanya `contain` atau `cover`. Keterangan
+  gambar ditulis sebagai block `text` terpisah dengan `role: caption`.
 - `table`: jumlah sel setiap baris sama dengan jumlah kolom; tanpa merged cell,
   nested table, rowspan, atau colspan; `emphasis_column` 1-based dan hanya
   valid untuk layout `comparison`.
@@ -78,7 +81,8 @@ Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
 - `code`: literal plain text, tidak diparse sebagai Markdown; nomor baris
   adalah chrome; code tidak boleh di-shrink.
 - `quote`: `text` inline Markdown; `attribution` satu baris.
-- `diagram`: satu file `.puml` per block, dirender oleh PlantUML menjadi gambar.
+- `diagram`: `source` adalah path file `.puml`, dirender oleh PlantUML menjadi
+  gambar; `source` di sini bukan catatan sumber slide.
 - `divider`: ketebalan dan warna dari token, tanpa field teks.
 - `spacer`: `size` hanya `sm`, `md`, atau `lg`; bukan tinggi absolut.
 - `metric`: `status` hanya `neutral`, `success`, `warning`, atau `danger`.
@@ -99,7 +103,8 @@ Tidak ada block `callout`. Tipe di luar tabel ini ditolak validator.
 - Chart tidak boleh menjadi gambar.
 - `divider` dan `spacer` tidak punya key, bukan konten teks, dan
   `allowed_in_preset` bernilai false.
-- `source` dan `notes` adalah field slide, bukan block.
+- `notes` adalah field slide, bukan block. `source` pada block `diagram` adalah
+  path file `.puml`; field slide `source` sudah dihapus (ADR 0017).
 - Renderer tidak menciptakan teks, label, atau angka untuk block.
 
 ## Acceptance

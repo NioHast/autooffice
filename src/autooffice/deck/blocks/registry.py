@@ -24,22 +24,22 @@ BLOCK_SPECS: tuple[BlockSpec, ...] = (
     BlockSpec(
         block_type="image",
         required=("path", "alt"),
-        optional=("caption", "fit"),
-        key_leaves=("caption",),
+        optional=("fit",),
+        key_leaves=(),
         allowed_in_preset=True,
     ),
     BlockSpec(
         block_type="table",
         required=("columns", "rows"),
-        optional=("caption", "emphasis_column"),
-        key_leaves=("caption", "hN", "rN.cM"),
+        optional=("emphasis_column",),
+        key_leaves=("hN", "rN.cM"),
         allowed_in_preset=True,
     ),
     BlockSpec(
         block_type="chart",
         required=("kind", "title", "alt", "categories", "series"),
-        optional=("orientation", "unit", "caption"),
-        key_leaves=("title", "catN", "seriesN.name", "seriesN.valueN", "caption"),
+        optional=("orientation", "unit"),
+        key_leaves=("title", "catN", "seriesN.name", "seriesN.valueN"),
         allowed_in_preset=True,
     ),
     BlockSpec(
@@ -59,8 +59,8 @@ BLOCK_SPECS: tuple[BlockSpec, ...] = (
     BlockSpec(
         block_type="diagram",
         required=("source", "alt"),
-        optional=("caption",),
-        key_leaves=("caption",),
+        optional=(),
+        key_leaves=(),
         allowed_in_preset=True,
     ),
     BlockSpec(
@@ -80,8 +80,8 @@ BLOCK_SPECS: tuple[BlockSpec, ...] = (
     BlockSpec(
         block_type="metric",
         required=("label", "value"),
-        optional=("caption", "status"),
-        key_leaves=("label", "value", "caption"),
+        optional=("status",),
+        key_leaves=("label", "value"),
         allowed_in_preset=True,
     ),
 )

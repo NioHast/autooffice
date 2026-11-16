@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.shapes.base import BaseShape
 from pptx.slide import Slide
 from pptx.util import Emu
 
-from autooffice.deck.layout.measure import measure_text
 from autooffice.deck.media.plantuml import (
     PlantUmlError,
     render_plantuml,
@@ -22,9 +22,10 @@ from .shapes import (
     PptxRenderError,
     field_optional_text,
     field_text,
+    rgb,
+    set_chrome_shape,
     set_namespace_marker,
 )
-from .textbox import add_caption
 
 CACHE_DIR = Path("cache") / "plantuml"
 
@@ -38,7 +39,7 @@ def render_diagram_block(
     slide_id: str,
     workspace: Path,
 ) -> tuple[BaseShape, ...]:
-    """Render satu block diagram dan kembalikan picture serta caption-nya.
+    """Render satu block diagram dan kembalikan picture-nya.
 
     Diagram selalu menjadi gambar PNG hasil ``plantuml``; tidak ada fallback teks
     atau shape. Bila render gagal, error dari modul media diteruskan sebagai
@@ -46,8 +47,6 @@ def render_diagram_block(
     """
     relative_source = field_text(block.fields, "source", block_id=block.block_id)
     alt = field_optional_text(block.fields, "alt")
-    caption = field_optional_text(block.fields, "caption")
-    media_box, caption_box = _media_boxes(box, caption, theme)
     cache_dir = workspace / CACHE_DIR
     output = cache_dir / f"{slide_id}.{block.block_id}.png"
     try:
@@ -59,13 +58,14 @@ def render_diagram_block(
         ) from error
 
     image_width, image_height = image_size(png)
-    left, top, width, height = contain_geometry(image_width, image_height, media_box)
+    geometry = contain_geometry(image_width, image_height, box)
+    frame = _add_diagram_frame(slide, geometry, theme, namespace=f"{slide_id}.{block.block_id}")
     picture = slide.shapes.add_picture(
         str(png),
-        left=Emu(left),
-        top=Emu(top),
-        width=Emu(width),
-        height=Emu(height),
+        left=Emu(geometry[0]),
+        top=Emu(geometry[1]),
+        width=Emu(geometry[2]),
+        height=Emu(geometry[3]),
     )
     set_namespace_marker(
         picture,
@@ -73,42 +73,31 @@ def render_diagram_block(
         f"{slide_id}.{block.block_id}",
         description=alt,
     )
-    shapes: list[BaseShape] = [picture]
-    if caption and caption_box is not None:
-        shapes.append(
-            add_caption(
-                slide,
-                caption_box,
-                key=f"{slide_id}.{block.block_id}.caption",
-                text=caption,
-                theme=theme,
-            )
-        )
-    return tuple(shapes)
+    return (frame, picture)
 
 
-def _media_boxes(box: Box, caption: str, theme: Theme) -> tuple[Box, Box | None]:
-    if not caption:
-        return box, None
-    caption_height = measure_text(
-        caption,
-        available_width_emu=box.width,
-        theme=theme,
-        font_size_pt=theme.typography.body_pt,
-        weight=400,
-    ).height_emu
-    gap = theme.spacing.sm_emu
-    media_height = box.height - caption_height - gap
-    if media_height <= 0:
-        raise PptxRenderError("Kotak diagram tidak menyisakan ruang media setelah caption.")
-    media = Box(left=box.left, top=box.top, width=box.width, height=media_height)
-    caption_box = Box(
-        left=box.left,
-        top=box.top + media_height + gap,
-        width=box.width,
-        height=caption_height,
+def _add_diagram_frame(
+    slide: Slide,
+    geometry: tuple[int, int, int, int],
+    theme: Theme,
+    *,
+    namespace: str,
+) -> BaseShape:
+    """Gambar hairline di tepi geometry picture supaya diagram putih tetap terlihat."""
+    left, top, width, height = geometry
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Emu(left),
+        Emu(top),
+        Emu(width),
+        Emu(height),
     )
-    return media, caption_box
+    shape.fill.background()
+    shape.line.color.rgb = rgb(theme.colors.border)
+    shape.line.width = Emu(theme.spacing.divider_emu)
+    shape.shadow.inherit = False
+    set_chrome_shape(shape, f"diagram-frame:{namespace}")
+    return shape
 
 
 __all__ = ["CACHE_DIR", "render_diagram_block"]

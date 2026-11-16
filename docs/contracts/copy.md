@@ -27,8 +27,8 @@ yang tidak bisa diperiksa secara mekanis tetap menjadi checklist editorial di
 1. Copy checker berjalan sebelum layout. Input: Deck IR, Transcript IR, dan
    `copy.yaml`. Output: daftar diagnostic. Rule memeriksa teks tampil, bukan
    Markdown mentah: label link dipertahankan; tujuan link, autolink, URL
-   telanjang, penanda daftar, emphasis, dan backtick dibuang. `source.text`
-   diperiksa sebagai prosa.
+   telanjang, penanda daftar, emphasis, dan backtick dibuang. Catatan sumber
+   slide tidak lagi ada (ADR 0017), jadi tidak ada jalur prosa khusus untuknya.
 2. Checker deterministik dan tidak bergantung pada waktu, urutan dictionary,
    locale, atau network.
 3. Target default: `slides: true`, `notes: true`, `transcript: true`. Bila
@@ -96,8 +96,6 @@ Semua rule memeriksa hasil `render_visible_text`, bukan Markdown mentah.
   emphasis (`*`, `_`, `~`), dan backtick kode dibuang. Underscore di dalam
   kata dipertahankan.
 - Peta offset menjaga nomor baris diagnostic tetap menunjuk teks asal.
-- `source.text` diperiksa sebagai prosa biasa; ia bukan title dan bukan teks
-  display, sehingga `title_case` dan `paired_clause_label` tidak berlaku.
 
 ## Detail heuristik
 
@@ -203,7 +201,7 @@ allow:
 
 | Invarian | Bukti |
 | --- | --- |
-| Teks tampil dan `source.text` | `tests/deck/copy/test_copy_correctness.py`. |
+| Teks tampil | `tests/deck/copy/test_copy_correctness.py`. |
 | Rule positif, negatif, batas | `tests/deck/copy/test_rules.py`; bagian 12.13. |
 | Merge config, severity, dan path | `tests/deck/copy/test_copy_config.py`; `test_copy_correctness.py`. |
 | Rule pack bilingual | `tests/deck/copy/test_language.py`. |

@@ -1,4 +1,4 @@
-"""Tes cabang edge tabel native: validasi, caption, dan border berulang."""
+"""Tes cabang edge tabel native: validasi, border berulang, dan angka."""
 
 from dataclasses import replace
 from types import SimpleNamespace
@@ -74,7 +74,7 @@ def test_render_table_block_rejects_row_width_mismatch(theme) -> None:
         _render(block, Box(left=0, top=0, width=4_000_000, height=2_000_000), theme)
 
 
-def test_render_table_block_without_caption_returns_only_frame(theme) -> None:
+def test_render_table_block_returns_only_frame(theme) -> None:
     block = BlockIR(
         "t1",
         "table",
@@ -87,21 +87,6 @@ def test_render_table_block_without_caption_returns_only_frame(theme) -> None:
 
     assert len(shapes) == 1
     assert shapes[0].has_table is True
-
-
-def test_render_table_block_rejects_caption_without_room(theme) -> None:
-    block = BlockIR(
-        "t1",
-        "table",
-        None,
-        None,
-        {"columns": ("A",), "rows": (("1",),), "caption": "Caption panjang"},
-    )
-    padding = theme.spacing.card_padding_emu
-    box = Box(left=0, top=0, width=4_000_000, height=padding * 2 + 1)
-
-    with pytest.raises(PptxRenderError, match="tidak memiliki ruang untuk tabel"):
-        _render(block, box, theme)
 
 
 def test_render_table_block_removes_default_table_style(theme) -> None:
@@ -120,7 +105,7 @@ def test_render_table_block_removes_default_table_style(theme) -> None:
     assert element.find(".//" + qn("a:tableStyleId")) is None
 
 
-def test_render_table_block_writes_one_border_per_cell_side(theme) -> None:
+def test_render_table_block_writes_no_internal_grid(theme) -> None:
     block = BlockIR(
         "t1",
         "table",
@@ -130,10 +115,15 @@ def test_render_table_block_writes_one_border_per_cell_side(theme) -> None:
     )
 
     shapes = _render(block, Box(left=0, top=0, width=4_000_000, height=2_000_000), theme)
-    tc_pr = shapes[0].table.cell(0, 0)._tc.get_or_add_tcPr()
+    header_tc_pr = shapes[0].table.cell(0, 0)._tc.get_or_add_tcPr()
+    body_tc_pr = shapes[0].table.cell(1, 0)._tc.get_or_add_tcPr()
 
-    for tag in ("a:lnL", "a:lnR", "a:lnT", "a:lnB"):
-        assert len(tc_pr.findall(qn(tag))) == 1
+    for tc_pr in (header_tc_pr, body_tc_pr):
+        assert len(tc_pr.findall(qn("a:lnB"))) == 1
+        assert tc_pr.find(qn("a:lnL")) is None
+        assert tc_pr.find(qn("a:lnR")) is None
+    assert len(header_tc_pr.findall(qn("a:lnT"))) == 1
+    assert body_tc_pr.find(qn("a:lnT")) is None
 
 
 def test_looks_numeric_returns_false_for_empty_candidate() -> None:

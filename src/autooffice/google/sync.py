@@ -623,7 +623,7 @@ def _binding_text(binding: KeyBinding) -> str:
 
 
 def normalize_text_value(key: str, value: str) -> str:
-    """Normalisasi pulled/source text sesuai kelas key."""
+    """Normalisasi pulled text sesuai kelas key."""
     if key.endswith(".notes") or key.endswith(".code"):
         return normalize_preserve_newlines(value)
     return " ".join(value.split())
@@ -632,10 +632,6 @@ def normalize_text_value(key: str, value: str) -> str:
 def _change_kind(binding: KeyBinding) -> str:
     if _TABLE_CELL_KEY.fullmatch(binding.key):
         return "tableCell"
-    if binding.kind == "notes":
-        return "text"
-    if binding.kind == "source":
-        return "text"
     return "text"
 
 

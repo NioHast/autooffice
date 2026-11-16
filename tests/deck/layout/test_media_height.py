@@ -28,11 +28,8 @@ def _media_plan(
     block_id: str,
     block_type: str,
     title: str = "Judul",
-    caption: str | None = None,
 ) -> LayoutPlan:
     fields: dict[str, object] = {"path": f"assets/{block_id}.png"}
-    if caption is not None:
-        fields["caption"] = caption
     slide = slide_factory(
         (
             block_factory("title", "text", fields={"text": title}, role="title"),
@@ -97,37 +94,12 @@ def test_media_below_minimum_height_reports_block_scoped_key(
         layout=image_full.LAYOUT,
         block_id="image1",
         block_type="image",
-        title="\n".join(["baris"] * 11),
+        title="\n".join(["baris"] * 12),
     )
     _, image_box = plan.slides[0].boxes
 
     assert image_box.height_emu == theme.spacing.md_emu
     assert plan.slides[0].overflow_keys == ("s01.image1",)
-
-
-def test_media_caption_that_cannot_fit_reports_caption_key(
-    block_factory: Callable[..., BlockIR],
-    slide_factory: Callable[..., SlideIR],
-    deck_factory: Callable[..., DeckIR],
-    theme: Theme,
-    grid: Grid,
-) -> None:
-    plan = _media_plan(
-        block_factory,
-        slide_factory,
-        deck_factory,
-        theme,
-        layout=image_full.LAYOUT,
-        block_id="image1",
-        block_type="image",
-        title="\n".join(["baris"] * 10),
-        caption="Baris pertama\nBaris kedua",
-    )
-    _, image_box = plan.slides[0].boxes
-    remaining_height = grid.content_bottom_emu - image_box.top_emu
-
-    assert image_box.height_emu > remaining_height
-    assert plan.slides[0].overflow_keys == ("s01.image1.caption",)
 
 
 def test_image_full_reserves_subtitle_and_credit_before_capping_media(

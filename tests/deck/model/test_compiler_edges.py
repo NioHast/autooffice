@@ -13,7 +13,6 @@ from autooffice.deck.model import (
     DeckMeta,
     DeckSchemaError,
     SlideDefinition,
-    SourceDefinition,
     compile_deck,
     compile_deck_file,
     compile_file,
@@ -41,13 +40,11 @@ def _slide(
     slide_id: str = "s01",
     layout: str = "content",
     notes: str | None = None,
-    source: SourceDefinition | None = None,
 ) -> SlideDefinition:
     return SlideDefinition(
         slide_id=slide_id,
         layout=layout,
         notes=notes,
-        source=source,
         blocks=blocks,
         rows=(),
     )
@@ -85,13 +82,12 @@ def test_compile_file_alias_matches_compile_deck_file(fixture_dir: Path) -> None
     assert compile_file(path).keys == compile_deck_file(path).keys
 
 
-def test_compile_keeps_table_caption_and_emphasis_column() -> None:
+def test_compile_keeps_emphasis_column() -> None:
     block = _block(
         "table",
         {
             "columns": ("Lane", "Status"),
             "rows": (("Model", "Selesai"),),
-            "caption": "**Status** lane",
             "emphasis_column": 2,
         },
         block_id="table1",
@@ -99,7 +95,6 @@ def test_compile_keeps_table_caption_and_emphasis_column() -> None:
 
     compiled = compile_deck(_definition(_slide(block))).slides[0].blocks[0]
 
-    assert compiled.fields["caption"] == "Status lane"
     assert compiled.fields["emphasis_column"] == 2
 
 
@@ -141,25 +136,11 @@ def test_compile_omits_optional_fields_when_absent() -> None:
     compiled = {block.block_id: block for block in slides[0].blocks}
 
     assert "heading" not in compiled["text1"].fields
-    assert "caption" not in compiled["table1"].fields
     assert "emphasis_column" not in compiled["table1"].fields
     assert "orientation" not in compiled["chart1"].fields
     assert "unit" not in compiled["chart1"].fields
-    assert "caption" not in compiled["chart1"].fields
     assert "filename" not in compiled["code1"].fields
     assert "attribution" not in compiled["quote1"].fields
-    assert "caption" not in compiled["image1"].fields
-    assert "caption" not in compiled["diagram1"].fields
-    assert "caption" not in compiled["metric1"].fields
-
-
-def test_compile_source_without_url_keeps_text_only() -> None:
-    slide = _slide(source=SourceDefinition(text="Sumber internal"))
-
-    compiled = compile_deck(_definition(slide)).slides[0]
-
-    assert dict(compiled.source or {}) == {"text": "Sumber internal"}
-    assert compiled.notes is None
 
 
 def _public_deck_yaml(block_type: str, fields: dict[str, object]) -> str:

@@ -31,6 +31,7 @@ from autooffice.deck.render.protocol import (
     RenderResult,
 )
 from autooffice.design.theme import (
+    CardTokens,
     ChartPalette,
     CodeTokens,
     GridTokens,
@@ -45,28 +46,28 @@ from autooffice.design.theme import (
 EXPECTED_BLOCK_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], bool]] = {
     "text": (("text",), ("heading", "role"), ("text", "heading"), True),
     "bullets": (("items",), ("ordered",), ("itemN.text",), True),
-    "image": (("path", "alt"), ("caption", "fit"), ("caption",), True),
+    "image": (("path", "alt"), ("fit",), (), True),
     "table": (
         ("columns", "rows"),
-        ("caption", "emphasis_column"),
-        ("caption", "hN", "rN.cM"),
+        ("emphasis_column",),
+        ("hN", "rN.cM"),
         True,
     ),
     "chart": (
         ("kind", "title", "alt", "categories", "series"),
-        ("orientation", "unit", "caption"),
-        ("title", "catN", "seriesN.name", "seriesN.valueN", "caption"),
+        ("orientation", "unit"),
+        ("title", "catN", "seriesN.name", "seriesN.valueN"),
         True,
     ),
     "code": (("code",), ("language", "filename", "line_numbers"), ("code", "filename"), True),
     "quote": (("text",), ("attribution",), ("text", "attribution"), True),
-    "diagram": (("source", "alt"), ("caption",), ("caption",), True),
+    "diagram": (("source", "alt"), (), (), True),
     "divider": ((), (), (), False),
     "spacer": ((), ("size",), (), False),
     "metric": (
         ("label", "value"),
-        ("caption", "status"),
-        ("label", "value", "caption"),
+        ("status",),
+        ("label", "value"),
         True,
     ),
 }
@@ -105,7 +106,6 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
             "order": int,
             "blocks": tuple[BlockIR, ...],
             "notes": str | None,
-            "source": Mapping[str, str] | None,
             "rows": tuple[tuple[str, ...], ...],
         },
     ),
@@ -146,8 +146,8 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
             "layout_id": str,
             "slots": tuple[SlotSpec, ...],
             "rows": tuple[tuple[str, ...], ...],
-            "accepts_source": bool,
             "min_one_of": tuple[tuple[str, ...], ...],
+            "vertical_align": Literal["top", "center"],
         },
     ),
     (
@@ -202,11 +202,18 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
         {
             "family": str,
             "weights": tuple[int, int, int, int],
+            "display_pt": float,
+            "cover_title_pt": float,
             "title_pt": float,
+            "lead_pt": float,
             "body_pt": float,
+            "metric_pt": float,
+            "caption_pt": float,
+            "label_pt": float,
             "minimum_pt": float,
             "line_height": float,
             "tracking_em": float,
+            "kicker_tracking_em": float,
         },
     ),
     (
@@ -242,6 +249,14 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
         },
     ),
     (
+        CardTokens,
+        {
+            "fill": str,
+            "padding_emu": int,
+            "radius_emu": int,
+        },
+    ),
+    (
         ShadowTokens,
         {
             "card": str,
@@ -254,6 +269,7 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
         {
             "family": str,
             "size_pt": float,
+            "filename_pt": float,
             "line_height": float,
         },
     ),
@@ -268,6 +284,7 @@ EXACT_FIELDS: tuple[tuple[type, dict[str, object]], ...] = (
             "grid": GridTokens,
             "spacing": SpacingTokens,
             "radius": RadiusTokens,
+            "card": CardTokens,
             "shadow": ShadowTokens,
             "code": CodeTokens,
         },
@@ -339,7 +356,6 @@ def _slide() -> SlideIR:
         order=0,
         blocks=(_block(),),
         notes="Catatan pembicara.",
-        source={"text": "Sumber internal", "url": "https://example.com/sumber"},
     )
 
 
@@ -377,7 +393,6 @@ def _layout_spec() -> LayoutSpec:
         layout_id="cover",
         slots=(_slot_spec(),),
         rows=(("title",),),
-        accepts_source=True,
     )
 
 
@@ -440,11 +455,18 @@ def _typography() -> Typography:
     return Typography(
         family="Arial",
         weights=(400, 600, 700, 800),
+        display_pt=44.0,
+        cover_title_pt=43.5,
         title_pt=30.0,
+        lead_pt=18.0,
         body_pt=16.5,
+        metric_pt=42.0,
+        caption_pt=12.5,
+        label_pt=14.0,
         minimum_pt=10.0,
         line_height=1.2,
         tracking_em=-0.01,
+        kicker_tracking_em=0.08,
     )
 
 
@@ -480,6 +502,14 @@ def _radius_tokens() -> RadiusTokens:
     )
 
 
+def _card_tokens() -> CardTokens:
+    return CardTokens(
+        fill="#E5E7EB",
+        padding_emu=228600,
+        radius_emu=91440,
+    )
+
+
 def _shadow_tokens() -> ShadowTokens:
     return ShadowTokens(
         card="0 1 2 0 rgba(17, 24, 39, 0.08)",
@@ -491,7 +521,8 @@ def _shadow_tokens() -> ShadowTokens:
 def _code_tokens() -> CodeTokens:
     return CodeTokens(
         family="ui-monospace, 'Cascadia Mono', Consolas, monospace",
-        size_pt=10.5,
+        size_pt=12.0,
+        filename_pt=12.5,
         line_height=1.35,
     )
 
@@ -506,6 +537,7 @@ def _theme() -> Theme:
         grid=_grid_tokens(),
         spacing=_spacing_tokens(),
         radius=_radius_tokens(),
+        card=_card_tokens(),
         shadow=_shadow_tokens(),
         code=_code_tokens(),
     )
@@ -624,13 +656,6 @@ def test_block_fields_are_read_only() -> None:
         block.fields["text"] = "Berubah"
 
 
-def test_slide_source_is_read_only() -> None:
-    source = _slide().source
-    assert source is not None
-    with pytest.raises(TypeError):
-        source["text"] = "Berubah"
-
-
 def test_theme_status_is_read_only() -> None:
     colors = _theme_colors()
     with pytest.raises(TypeError):
@@ -641,30 +666,6 @@ def test_render_target_metadata_is_read_only() -> None:
     result = _result()
     with pytest.raises(TypeError):
         result.target_metadata["slide_count"] = "2"
-
-
-def test_slide_source_requires_text() -> None:
-    with pytest.raises(ValueError, match="text"):
-        SlideIR(
-            slide_id="s01",
-            layout="cover",
-            order=0,
-            blocks=(),
-            notes=None,
-            source={"url": "https://example.com"},
-        )
-
-
-def test_slide_source_rejects_unknown_fields() -> None:
-    with pytest.raises(ValueError, match="url"):
-        SlideIR(
-            slide_id="s01",
-            layout="cover",
-            order=0,
-            blocks=(),
-            notes=None,
-            source={"text": "Sumber", "url": "https://example.com", "credit": "Tim"},
-        )
 
 
 def test_slide_rows_are_empty_by_default() -> None:
@@ -681,7 +682,6 @@ def test_custom_slide_rows_must_cover_every_block() -> None:
             order=0,
             blocks=(_block(), body),
             notes=None,
-            source=None,
             rows=(("title",),),
         )
 
@@ -694,7 +694,6 @@ def test_slide_rows_reject_unknown_block_id() -> None:
             order=0,
             blocks=(_block(),),
             notes=None,
-            source=None,
             rows=(("ghost",),),
         )
 
@@ -707,7 +706,6 @@ def test_slide_rows_reject_duplicate_block_id() -> None:
             order=0,
             blocks=(_block(),),
             notes=None,
-            source=None,
             rows=(("title",), ("title",)),
         )
 
@@ -720,7 +718,6 @@ def test_preset_slide_rows_may_omit_blocks() -> None:
         order=0,
         blocks=(_block(), body),
         notes=None,
-        source=None,
         rows=(("title",),),
     )
 
@@ -774,7 +771,6 @@ def test_deck_slide_order_matches_index() -> None:
         order=1,
         blocks=(),
         notes=None,
-        source=None,
     )
     deck = DeckIR(
         schema="autooffice.deck/v1",
@@ -795,7 +791,6 @@ def test_deck_rejects_slide_order_not_matching_index() -> None:
         order=0,
         blocks=(),
         notes=None,
-        source=None,
     )
 
     with pytest.raises(ValueError, match=r"s02.*order 0.*1"):
@@ -835,5 +830,13 @@ def test_theme_exposes_extended_tokens() -> None:
     assert theme.shadow.overlay == "0 8 24 0 rgba(17, 24, 39, 0.16)"
     assert theme.shadow.none == "none"
     assert theme.code.family == "ui-monospace, 'Cascadia Mono', Consolas, monospace"
-    assert theme.code.size_pt == 10.5
+    assert theme.code.size_pt == 12.0
+    assert theme.code.filename_pt == 12.5
     assert theme.code.line_height == 1.35
+    assert theme.typography.display_pt == 44.0
+    assert theme.typography.cover_title_pt == 43.5
+    assert theme.typography.lead_pt == 18.0
+    assert theme.typography.metric_pt == 42.0
+    assert theme.typography.caption_pt == 12.5
+    assert theme.typography.label_pt == 14.0
+    assert theme.typography.kicker_tracking_em == 0.08

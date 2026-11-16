@@ -101,7 +101,6 @@ def _visibility_deck() -> DeckIR:
         {
             "columns": ("A", "B"),
             "rows": (("1", "2"),),
-            "caption": "Tabel data",
         },
     )
     chart = BlockIR(
@@ -115,7 +114,6 @@ def _visibility_deck() -> DeckIR:
             "alt": "Grafik garis adopsi naik",
             "categories": ("Q1", "Q2"),
             "series": (ChartSeries("2025", (1, 2)), ChartSeries("2026", (3, 4))),
-            "caption": "Target internal",
         },
     )
     bindings = [
@@ -127,16 +125,9 @@ def _visibility_deck() -> DeckIR:
                 block_id="table1",
                 leaf=leaf,
             )
-            for leaf in ("h1", "h2", "r1.c1", "r1.c2", "caption")
+            for leaf in ("h1", "h2", "r1.c1", "r1.c2")
         ),
         _binding("s01.notes", slide_id="s01", block_id=None, leaf="notes", kind="notes"),
-        _binding(
-            "s01.source.text",
-            slide_id="s01",
-            block_id=None,
-            leaf="source.text",
-            kind="source",
-        ),
         *(
             _binding(
                 f"s02.chart1.{leaf}",
@@ -155,7 +146,6 @@ def _visibility_deck() -> DeckIR:
                 "series2.name",
                 "series2.value1",
                 "series2.value2",
-                "caption",
             )
         ),
     ]
@@ -170,9 +160,8 @@ def _visibility_deck() -> DeckIR:
                 0,
                 (text, table),
                 "Catatan pembicara.",
-                {"text": "Sumber: data internal", "url": "https://example.com/data"},
             ),
-            SlideIR("s02", "line", 1, (chart,), None, None),
+            SlideIR("s02", "line", 1, (chart,), None),
         ),
         keys=KeyManifest(tuple(bindings)),
     )
@@ -502,8 +491,7 @@ def test_every_manifest_key_is_backed_by_visible_pptx_element(
         "s01.title.text",
         "s01.table1.h1",
         "s01.notes",
-        "s01.source.text",
-        "s02.chart1.caption",
+        "s02.chart1.title",
     } <= scan.visible
 
 

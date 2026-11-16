@@ -20,9 +20,7 @@ from autooffice.deck.copy import (
 from autooffice.deck.copy.prose import render_visible_text
 from autooffice.deck.model.deck_ir import (
     DeckIR,
-    KeyBinding,
     KeyManifest,
-    SlideIR,
 )
 from autooffice.deck.transcript import TranscriptError, TranscriptIR, parse_transcript
 
@@ -31,37 +29,6 @@ VALID_TITLE = "Peta Tiga Bagian"
 
 def _rules(diagnostics: Sequence[Diagnostic]) -> set[str]:
     return {diagnostic.rule for diagnostic in diagnostics}
-
-
-def _deck_with_source(make_deck: Callable[..., DeckIR], source_text: str) -> DeckIR:
-    deck = make_deck(slides=[{"id": "s01", "title": VALID_TITLE}])
-    slide = deck.slides[0]
-    slide_with_source = SlideIR(
-        slide_id=slide.slide_id,
-        layout=slide.layout,
-        order=slide.order,
-        blocks=slide.blocks,
-        notes=slide.notes,
-        source={"text": source_text},
-    )
-    source_binding = KeyBinding(
-        key="s01.source.text",
-        slide_id="s01",
-        block_id=None,
-        leaf="source.text",
-        kind="source",
-        sync=True,
-        yaml_path=("slides", 0, "source", "text"),
-        value=source_text,
-        plain_text=source_text,
-    )
-    return DeckIR(
-        schema=deck.schema,
-        meta=deck.meta,
-        theme_name=deck.theme_name,
-        slides=(slide_with_source,),
-        keys=KeyManifest(bindings=(*deck.keys.bindings, source_binding)),
-    )
 
 
 def _write_copy_config(path: Path) -> None:
@@ -521,26 +488,6 @@ allow:
     transcript = make_transcript([{"slide_id": "s99", "title": "Lain", "id": "Ini krusial."}])
 
     assert check_copy(deck, transcript, config=config) == ()
-
-
-def test_source_text_is_checked_as_prose(
-    make_deck: Callable[..., DeckIR],
-) -> None:
-    deck = _deck_with_source(make_deck, "Sumber: ini krusial")
-
-    diagnostics = check_copy(deck)
-
-    assert any(
-        item.key == "s01.source.text" and item.rule == "banned_phrases" for item in diagnostics
-    )
-
-
-def test_source_text_is_not_treated_as_title(make_deck: Callable[..., DeckIR]) -> None:
-    deck = _deck_with_source(make_deck, "peta tiga bagian")
-
-    diagnostics = check_copy(deck)
-
-    assert all(item.rule != "title_case" for item in diagnostics)
 
 
 @pytest.mark.parametrize(

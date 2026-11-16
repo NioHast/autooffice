@@ -1,7 +1,4 @@
-"""Preset layout ``image-grid``: tiga gambar dalam grid dengan caption.
-
-Caption setiap gambar adalah field block ``image``, bukan slot terpisah.
-"""
+"""Preset layout ``image-grid``: tiga gambar dalam grid."""
 
 from autooffice.deck.layout.spec import LayoutSpec, SlotSpec
 
@@ -46,5 +43,5 @@ LAYOUT = LayoutSpec(
         ("lead",),
         ("image1", "image2", "image3"),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

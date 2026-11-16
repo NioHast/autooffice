@@ -47,24 +47,19 @@ def render_plantuml(
     *,
     theme: Theme,
     cache_dir: Path,
-) -> Path:
-    ...
+) -> Path: ...
 
 
-def resolve_plantuml_source(deck_root: Path, relative_path: str) -> Path:
-    ...
+def resolve_plantuml_source(deck_root: Path, relative_path: str) -> Path: ...
 
 
-def find_plantuml() -> Path | None:
-    ...
+def find_plantuml() -> Path | None: ...
 
 
-def find_java() -> Path | None:
-    ...
+def find_java() -> Path | None: ...
 
 
-def plantuml_version(executable: Path) -> str:
-    ...
+def plantuml_version(executable: Path) -> str: ...
 ```
 
 - `render_plantuml` merender satu berkas `.puml` dan mengembalikan path `out`.
@@ -304,7 +299,8 @@ PNG dan sidecar ditulis melalui berkas sementara, `flush`, `fsync`, lalu
 
 ## Integrasi deck
 
-- Block `diagram` memiliki field wajib `source` dan `alt`; `caption` opsional.
+- Block `diagram` memiliki field wajib `source` dan `alt`. Field `caption`
+  dihapus oleh ADR 0017.
 - `source` menunjuk satu berkas `.puml`; PlantUML tidak ditulis inline di YAML.
 - `check` memvalidasi schema, path, ekstensi, dan alt tanpa merender.
 - Renderer memanggil PlantUML hanya saat menemukan block `diagram` yang belum
@@ -313,9 +309,9 @@ PNG dan sidecar ditulis melalui berkas sementara, `flush`, `fsync`, lalu
   contain dan rasio aspek dipertahankan.
 - Alt manusia ditulis ke `descr`; namespace block
   `autooffice:diagram:<slide>.<block>` ditulis ke `name` dan `title`.
-- Caption dirender sebagai text box berkey `<slide>.<block>.caption`.
-- Coverage memeriksa alt manusia dan key caption. Kegagalan render atau
-  coverage membatalkan artefak final.
+- Coverage memeriksa alt manusia. Keterangan diagram ditulis sebagai block
+  `text` terpisah dengan `role: caption`. Kegagalan render atau coverage
+  membatalkan artefak final.
 - Diagram di Google Slides tetap berupa gambar, bukan node native.
 
 ## Acceptance
@@ -339,7 +335,7 @@ PNG dan sidecar ditulis melalui berkas sementara, `flush`, `fsync`, lalu
 | Cache persisten DOCX dipakai ulang tanpa engine dan bertahan setelah workspace dibersihkan. | `tests/docx/test_plantuml_docx.py` |
 | Cache persisten DOCX ditolak bila direktori atau entrinya symlink. | `tests/docx/test_plantuml_docx.py` |
 | Syntax error DOCX memakai `PLANTUML-SYNTAX` dan tidak menulis PNG. | `tests/docx/test_plantuml_docx.py` |
-| Diagram masuk PPTX sebagai picture dengan alt dan caption. | `tests/deck/render/pptx/test_diagram.py` |
+| Diagram masuk PPTX sebagai picture dengan alt. | `tests/deck/render/pptx/test_diagram.py` |
 | Tidak ada fallback teks atau shape. | `tests/deck/render/pptx/test_diagram.py` |
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

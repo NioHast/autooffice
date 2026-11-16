@@ -39,5 +39,5 @@ LAYOUT = LayoutSpec(
         ("code1",),
         ("note",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

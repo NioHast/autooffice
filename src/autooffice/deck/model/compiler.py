@@ -69,18 +69,12 @@ def _compile_slide(slide: SlideDefinition, *, order: int) -> SlideIR:
     else:
         blocks = tuple(_compile_block(block) for block in slide.blocks)
         rows = ()
-    source: dict[str, str] | None = None
-    if slide.source is not None:
-        source = {"text": slide.source.text}
-        if slide.source.url is not None:
-            source["url"] = slide.source.url
     return SlideIR(
         slide_id=slide.slide_id,
         layout=slide.layout,
         order=order,
         blocks=blocks,
         notes=slide.notes,
-        source=source,
         rows=rows,
     )
 
@@ -113,8 +107,6 @@ def _compile_fields(block: BlockDefinition) -> dict[str, object]:
             "alt": _field_str(source, "alt"),
             "fit": _field_str(source, "fit"),
         }
-        if "caption" in source:
-            fields["caption"] = _inline_text(_field_str(source, "caption"))
         return fields
     if block_type == "table":
         columns = tuple(_inline_text(column) for column in _field_str_tuple(source, "columns"))
@@ -122,8 +114,6 @@ def _compile_fields(block: BlockDefinition) -> dict[str, object]:
             tuple(_inline_text(cell) for cell in row) for row in _field_str_rows(source, "rows")
         )
         fields = {"columns": columns, "rows": rows}
-        if "caption" in source:
-            fields["caption"] = _inline_text(_field_str(source, "caption"))
         if "emphasis_column" in source:
             fields["emphasis_column"] = _field_int(source, "emphasis_column")
         return fields
@@ -139,8 +129,6 @@ def _compile_fields(block: BlockDefinition) -> dict[str, object]:
             fields["orientation"] = _field_str(source, "orientation")
         if "unit" in source:
             fields["unit"] = _field_str(source, "unit")
-        if "caption" in source:
-            fields["caption"] = _inline_text(_field_str(source, "caption"))
         return fields
     if block_type == "code":
         fields = {
@@ -161,8 +149,6 @@ def _compile_fields(block: BlockDefinition) -> dict[str, object]:
             "source": _field_str(source, "source"),
             "alt": _field_str(source, "alt"),
         }
-        if "caption" in source:
-            fields["caption"] = _inline_text(_field_str(source, "caption"))
         return fields
     if block_type == "divider":
         return {}
@@ -174,8 +160,6 @@ def _compile_fields(block: BlockDefinition) -> dict[str, object]:
             "value": _inline_text(_field_str(source, "value")),
             "status": _field_str(source, "status"),
         }
-        if "caption" in source:
-            fields["caption"] = _inline_text(_field_str(source, "caption"))
         return fields
     raise DeckSchemaError(
         f"Block '{block.block_id}' memiliki type '{block_type}' yang tidak dikenal.",

@@ -5,8 +5,7 @@ DOCX, atau CLI. Keluaran berupa tuple ``Diagnostic`` yang stabil dan siap
 dipakai build gate.
 
 Teks diperiksa sebagai teks tampil: label link dipertahankan, sedangkan tujuan
-link, URL, penanda daftar, emphasis, dan backtick kode dilucuti. ``source.text``
-diperlakukan sebagai prosa biasa, tetapi bukan title atau teks display.
+link, URL, penanda daftar, emphasis, dan backtick kode dilucuti.
 """
 
 from collections.abc import Iterable, Mapping
@@ -42,7 +41,7 @@ from .rules.patterns import (
 from .rules.sentence_length import check_sentence_length
 from .rules.title_case import check_title_case
 
-_TEXT_KINDS = frozenset({"text", "media_text"})
+_TEXT_KINDS = frozenset({"text"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,18 +154,6 @@ def _deck_entries(
                     )
             slide_blocks = blocks.get(slide.slide_id, {})
             for binding in bindings.get(slide.slide_id, ()):
-                if binding.kind == "source":
-                    if binding.plain_text.strip():
-                        entries.append(
-                            _ProseEntry(
-                                key=binding.key,
-                                text=binding.plain_text,
-                                language=language,
-                                file=deck_file,
-                                line=None,
-                            )
-                        )
-                    continue
                 entry = _block_entry(
                     binding,
                     slide_blocks,

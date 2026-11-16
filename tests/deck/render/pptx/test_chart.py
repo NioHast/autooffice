@@ -15,12 +15,10 @@ from pptx.oxml.ns import qn
 from pptx.shapes.base import BaseShape
 from pptx.shapes.graphfrm import GraphicFrame
 
-from autooffice.deck.layout.measure import measure_text
 from autooffice.deck.model.deck_ir import KeyManifest
 from autooffice.deck.render.pptx import PptxRenderer
-from autooffice.deck.render.pptx import chart as chart_renderer
 from autooffice.deck.render.pptx.coverage import CoverageError
-from autooffice.deck.render.pptx.shapes import CHART_MARKER, key_from_shape
+from autooffice.deck.render.pptx.shapes import CHART_MARKER
 from autooffice.deck.render.pptx.xml import (
     content_hash,
     forbidden_node_paths,
@@ -30,7 +28,6 @@ from autooffice.deck.render.protocol import OutputTarget, RenderRequest
 
 KEY_EXTENSION = "{urn:autooffice:key}key"
 CHART_NAME = "autooffice:chart:s01.chart1"
-CAPTION_NAME = "autooffice:key:s01.chart1.caption"
 FIXED_CORE_TIMESTAMP = "2000-01-01T00:00:00Z"
 FIXED_ZIP_TIMESTAMP = (2000, 1, 1, 0, 0, 0)
 DCTERMS_NS = "http://purl.org/dc/terms/"
@@ -51,11 +48,6 @@ def _render(case, theme, *, target: OutputTarget):
 def _chart_shape(result) -> BaseShape:
     presentation = Presentation(str(result.artifact_path))
     return next(shape for shape in presentation.slides[0].shapes if shape.name == CHART_NAME)
-
-
-def _shape_named(result, name: str) -> BaseShape:
-    presentation = Presentation(str(result.artifact_path))
-    return next(shape for shape in presentation.slides[0].shapes if shape.name == name)
 
 
 def _keys(shape: BaseShape) -> tuple[str, ...]:
@@ -127,29 +119,6 @@ def test_native_chart_data_categories_and_series_match_block(chart_case, theme) 
     assert node.get("descr") == "Grafik garis adopsi naik setiap kuartal"
 
 
-@pytest.mark.parametrize("target", [OutputTarget.PPTX, OutputTarget.SLIDES])
-def test_chart_caption_is_keyed_box_below_reduced_chart(chart_case, theme, target) -> None:
-    result = _render(chart_case, theme, target=target)
-    chart_shape = _chart_shape(result)
-    caption_shape = _shape_named(result, CAPTION_NAME)
-    placed = chart_case.layout.slides[0].boxes[0]
-    caption_height = measure_text(
-        "Target internal",
-        available_width_emu=placed.width_emu,
-        theme=theme,
-        font_size_pt=theme.typography.body_pt,
-        weight=400,
-    ).height_emu
-
-    assert caption_shape.name == CAPTION_NAME
-    assert caption_shape.text_frame.text == "Target internal"
-    assert caption_shape.top == chart_shape.top + chart_shape.height + theme.spacing.sm_emu
-    assert caption_shape.height == caption_height
-    assert chart_shape.height == placed.height_emu - caption_height - theme.spacing.sm_emu
-    assert chart_shape.height < placed.height_emu
-    assert result.coverage.ok is True
-
-
 def test_slides_target_renders_placeholder_without_chart_part(chart_case, theme) -> None:
     result = _render(chart_case, theme, target=OutputTarget.SLIDES)
     presentation = Presentation(str(result.artifact_path))
@@ -170,7 +139,7 @@ def test_slides_target_renders_placeholder_without_chart_part(chart_case, theme)
 
 
 @pytest.mark.parametrize("target", [OutputTarget.PPTX, OutputTarget.SLIDES])
-def test_chart_coverage_includes_caption_and_data_keys(chart_case, theme, target) -> None:
+def test_chart_coverage_includes_data_keys(chart_case, theme, target) -> None:
     result = _render(chart_case, theme, target=target)
     chart_keys = set(_keys(_chart_shape(result)))
     expected = {
@@ -186,30 +155,14 @@ def test_chart_coverage_includes_caption_and_data_keys(chart_case, theme, target
     }
 
     assert chart_keys == expected
-    assert key_from_shape(_shape_named(result, CAPTION_NAME)) == "s01.chart1.caption"
     assert result.coverage.ok is True
 
 
-@pytest.mark.parametrize("target", [OutputTarget.PPTX, OutputTarget.SLIDES])
-def test_chart_coverage_fails_when_caption_shape_is_missing(
-    chart_case,
-    theme,
-    monkeypatch: pytest.MonkeyPatch,
-    target,
-) -> None:
-    monkeypatch.setattr(chart_renderer, "add_caption", lambda *args, **kwargs: None)
-
-    with pytest.raises(CoverageError) as error:
-        _render(chart_case, theme, target=target)
-
-    assert error.value.report.missing_keys == ("s01.chart1.caption",)
-
-
-def test_chart_coverage_fails_when_caption_and_data_bindings_are_missing(
+def test_chart_coverage_fails_when_data_bindings_are_missing(
     chart_case,
     theme,
 ) -> None:
-    dropped = {"caption", "series1.value1"}
+    dropped = {"series1.value1"}
     bindings = tuple(
         binding for binding in chart_case.deck.keys.bindings if binding.leaf not in dropped
     )
@@ -219,25 +172,7 @@ def test_chart_coverage_fails_when_caption_and_data_bindings_are_missing(
     with pytest.raises(CoverageError) as error:
         _render(case, theme, target=OutputTarget.PPTX)
 
-    assert "s01.chart1.caption" in error.value.report.unkeyed_visible
     assert "s01.chart1.series1.value1" in error.value.report.unkeyed_visible
-
-
-def test_chart_coverage_fails_when_block_caption_is_missing(chart_case, theme) -> None:
-    slide = chart_case.deck.slides[0]
-    block = slide.blocks[0]
-    fields = dict(block.fields)
-    del fields["caption"]
-    deck = replace(
-        chart_case.deck,
-        slides=(replace(slide, blocks=(replace(block, fields=fields),)),),
-    )
-    case = replace(chart_case, deck=deck)
-
-    with pytest.raises(CoverageError) as error:
-        _render(case, theme, target=OutputTarget.PPTX)
-
-    assert error.value.report.missing_keys == ("s01.chart1.caption",)
 
 
 @pytest.mark.parametrize(

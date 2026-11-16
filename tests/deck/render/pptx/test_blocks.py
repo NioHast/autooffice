@@ -56,7 +56,7 @@ def _case() -> tuple[DeckIR, LayoutPlan]:
             "metric",
             None,
             None,
-            {"label": "Coverage", "value": "100%", "caption": "Gate final"},
+            {"label": "Coverage", "value": "100%"},
         ),
         BlockIR(
             "snippet",
@@ -80,7 +80,6 @@ def _case() -> tuple[DeckIR, LayoutPlan]:
         _binding("s01.q1.attribution", "q1", "attribution"),
         _binding("s01.kpi1.label", "kpi1", "label"),
         _binding("s01.kpi1.value", "kpi1", "value"),
-        _binding("s01.kpi1.caption", "kpi1", "caption"),
         _binding("s01.snippet.filename", "snippet", "filename"),
         _binding("s01.snippet.code", "snippet", "code"),
     )
@@ -88,7 +87,7 @@ def _case() -> tuple[DeckIR, LayoutPlan]:
         schema="autooffice.deck/v1",
         meta={"title": "Block Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "custom", 0, blocks, None, None),),
+        slides=(SlideIR("s01", "custom", 0, blocks, None),),
         keys=KeyManifest(bindings),
     )
     layout = LayoutPlan(
@@ -132,7 +131,6 @@ def test_text_heading_quote_metric_and_code_shapes(workspace) -> None:
     assert shapes["autooffice:key:s01.q1.attribution"].text_frame.text == "Tim AutoOffice"
     assert shapes["autooffice:key:s01.kpi1.value"].text_frame.text == "100%"
     assert shapes["autooffice:key:s01.kpi1.label"].text_frame.text == "Coverage"
-    assert shapes["autooffice:key:s01.kpi1.caption"].text_frame.text == "Gate final"
     assert shapes["autooffice:key:s01.snippet.filename"].text_frame.text == "keys.py"
     code_shape = shapes["autooffice:key:s01.snippet.code"]
     assert "def key():" in code_shape.text_frame.text

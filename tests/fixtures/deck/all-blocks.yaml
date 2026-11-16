@@ -21,9 +21,6 @@ slides:
     layout: custom
     notes: |
       Slide custom dengan seluruh block type.
-    source:
-      text: "Sumber: fixture internal"
-      url: "http://example.com/source"
     rows:
       - blocks:
           - id: title
@@ -43,7 +40,6 @@ slides:
             type: image
             path: "assets/hero.png"
             alt: "Ilustrasi arsitektur AutoOffice"
-            caption: "Arsitektur, 2026"
             span: 6
       - blocks:
           - id: table1
@@ -52,7 +48,6 @@ slides:
             rows:
               - ["Model", "Selesai"]
               - ["Render", "Berjalan"]
-            caption: "Status lane"
             span: 12
       - blocks:
           - id: chart1
@@ -67,7 +62,6 @@ slides:
               - name: "2026"
                 values: [20, 29, 41, 52]
             unit: "persen"
-            caption: "Target internal"
             span: 12
       - blocks:
           - id: snippet
@@ -90,7 +84,6 @@ slides:
             type: diagram
             source: "diagrams/process.puml"
             alt: "Diagram alur build dari YAML sampai PPTX"
-            caption: "Alur build"
             span: 12
       - blocks:
           - id: line1
@@ -106,6 +99,5 @@ slides:
             type: metric
             label: "Coverage"
             value: "100%"
-            caption: "Gate final"
             status: success
             span: 12

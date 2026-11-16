@@ -1,6 +1,8 @@
 """Tes cabang edge notes slide: kosong, tanpa text frame, dan metadata key."""
 
+from dataclasses import replace
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from _edge_helpers import (
@@ -11,6 +13,7 @@ from _edge_helpers import (
 )
 from pptx import Presentation
 
+import autooffice.deck.render.pptx.notes as notes_module
 from autooffice.deck.render.pptx.notes import notes_key, notes_text, set_notes
 from autooffice.deck.render.pptx.shapes import PptxRenderError
 
@@ -111,3 +114,21 @@ def test_set_notes_uses_exact_point_line_spacing(theme) -> None:
     for paragraph in text_frame.paragraphs:
         assert has_percentage_line_spacing(paragraph) is False
         assert line_spacing_points(paragraph) == expected_points
+
+
+def test_set_notes_uses_body_weight_from_theme(theme, monkeypatch: pytest.MonkeyPatch) -> None:
+    custom = replace(
+        theme,
+        typography=replace(theme.typography, weights=(500, 600, 700, 800)),
+    )
+    captured: list[int] = []
+
+    def fake_apply_run_style(_run: object, **kwargs: object) -> None:
+        captured.append(cast("int", kwargs["weight"]))
+
+    monkeypatch.setattr(notes_module, "apply_run_style", fake_apply_run_style)
+    slide = new_slide()
+
+    set_notes(slide, "Catatan", slide_id="s01", theme=custom)
+
+    assert captured == [500]

@@ -36,7 +36,7 @@ def _deck(*, keys: tuple[KeyBinding, ...]) -> DeckIR:
         schema="autooffice.deck/v1",
         meta={"title": "Coverage Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (block,), None, None),),
+        slides=(SlideIR("s01", "content", 0, (block,), None),),
         keys=KeyManifest(keys),
     )
 
@@ -146,7 +146,7 @@ def test_notes_text_is_counted_as_key() -> None:
         schema="autooffice.deck/v1",
         meta={"title": "Notes Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (block,), "Catatan", None),),
+        slides=(SlideIR("s01", "content", 0, (block,), "Catatan"),),
         keys=KeyManifest((notes_key, _key("s01.title.text"))),
     )
     shape = presentation.slides[0].shapes.add_textbox(Emu(0), Emu(0), Emu(100), Emu(100))
@@ -215,7 +215,7 @@ def _scale_presentation(
         shapes.append(_fake_keyed_shape(extra_key))
         unkeyed.add(extra_key)
         slides.append(SimpleNamespace(shapes=tuple(shapes), has_notes_slide=False))
-        slide_irs.append(SlideIR(slide_id, "content", index, (), None, None))
+        slide_irs.append(SlideIR(slide_id, "content", index, (), None))
         bindings.extend(_scale_binding(key, slide_id) for key in keys)
     deck = DeckIR(
         schema="autooffice.deck/v1",

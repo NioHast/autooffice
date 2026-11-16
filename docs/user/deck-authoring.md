@@ -17,13 +17,14 @@ normatifnya ada di [skema deck](../contracts/deck-schema.md),
 - [meta, theme, dan defaults](#meta-theme-dan-defaults)
 - [Slide](#slide)
 - [Katalog layout preset](#katalog-layout-preset)
+- [Komposisi vertikal](#komposisi-vertikal)
 - [Custom rows dan span](#custom-rows-dan-span)
 - [Tipe block](#tipe-block)
 - [Chart](#chart)
 - [Tabel](#tabel)
 - [Gambar](#gambar)
 - [Diagram](#diagram)
-- [source dan notes](#source-dan-notes)
+- [notes](#notes)
 - [Aset](#aset)
 - [Transkrip pembicara](#transkrip-pembicara)
 - [Konfigurasi copy checker](#konfigurasi-copy-checker)
@@ -114,7 +115,6 @@ hanya memilih nama; warna dan ukuran hidup di design system. Lihat
 | `layout` | tidak | Nama layout preset atau `custom`; default dari `defaults.layout`. |
 | `blocks` | kondisional | Wajib untuk preset, terlarang untuk `custom`. |
 | `rows` | kondisional | Wajib untuk `custom`, terlarang untuk preset. |
-| `source` | tidak | Object `text` wajib; `url` opsional. |
 | `notes` | tidak | Catatan pembicara, plain text. |
 
 `blocks` dan `rows` saling eksklusif. Layout yang tidak ada di katalog ditolak;
@@ -163,6 +163,38 @@ ditolak saat `autooffice check` atau build dengan `LayoutSpecError` yang
 menyebut slide, block, dan slot. Layout `custom` tidak memakai slot preset,
 sehingga kind chart di sana tidak dibatasi oleh nama layout.
 
+## Komposisi vertikal
+
+Semua preset bawaan memakai `vertical_align: "center"`. Nilai ini bukan field
+YAML author; ia milik `LayoutSpec` preset. Arti `center`:
+
+- Row header pembuka tetap di atas. Row header adalah row yang punya minimal
+  satu slot ber-role `title`, `lead`, `kicker`, `label`, atau `display`;
+  caption boleh menemani header dalam row yang sama.
+- Row konten setelah header bergeser ke tengah sisa ruang. Jika seluruh row
+  adalah header, seperti slide `section`, seluruh stack yang ditengahkan.
+- Jika stack sudah menyentuh batas bawah area konten, tidak ada pergeseran.
+  Overflow tetap dihitung sebelum komposisi dan tidak disembunyikan.
+
+Layout `custom` juga memakai `center` saat deck dibangun dengan
+`plan_deck`. Perbedaannya, custom tidak punya role slot yang memaksa judul
+menjadi header. Teks custom tanpa `role` dianggap body, sehingga judul ikut
+bergeser bersama konten.
+
+```yaml
+- id: title
+  type: text
+  role: title   # wajib agar judul custom dipin di atas
+  text: "Judul Slide"
+  span: 12
+```
+
+Catatan migrasi: deck custom lama tetap valid, tetapi judul yang belum menulis
+`role: title` akan tampil lebih rendah setelah aturan centering aktif.
+Tambahkan `role: title` pada block judul; tidak ada perubahan schema wajib
+selain itu. Dasar keputusan ada di
+[ADR 0016](../decisions/0016-visual-system-alignment.md).
+
 ## Custom rows dan span
 
 `layout: custom` adalah satu-satunya layout yang memakai `rows` author. Setiap
@@ -199,21 +231,23 @@ ada di [Sistem Layout](../learn/layout-system.md).
 
 ## Tipe block
 
-Tepat 11 block type. Tidak ada `callout`.
+Tepat 11 block type. Tidak ada `callout`. Field `caption` pada `image`,
+`table`, `chart`, `diagram`, dan `metric` sudah dihapus (ADR 0017); tulis
+keterangan sebagai block `text` terpisah dengan `role: caption`.
 
 | Type | Field wajib | Field opsional | Key |
 | --- | --- | --- | --- |
 | `text` | `text` | `heading`, `role` | `.text`, `.heading` |
 | `bullets` | `items` | `ordered` | `.itemN.text` |
-| `image` | `path`, `alt` | `caption`, `fit` | `.caption` |
-| `table` | `columns`, `rows` | `caption`, `emphasis_column` | `.caption`, `.hN`, `.rN.cM` |
-| `chart` | `kind`, `title`, `alt`, `categories`, `series` | `orientation`, `unit`, `caption` | `.title`, `.catN`, `.seriesN.name`, `.seriesN.valueN`, `.caption` |
+| `image` | `path`, `alt` | `fit` | tidak ada |
+| `table` | `columns`, `rows` | `emphasis_column` | `.hN`, `.rN.cM` |
+| `chart` | `kind`, `title`, `alt`, `categories`, `series` | `orientation`, `unit` | `.title`, `.catN`, `.seriesN.name`, `.seriesN.valueN` |
 | `code` | `code` | `language`, `filename`, `line_numbers` | `.code`, `.filename` |
 | `quote` | `text` | `attribution` | `.text`, `.attribution` |
-| `diagram` | `source`, `alt` | `caption` | `.caption` |
+| `diagram` | `source`, `alt` | tidak ada | tidak ada |
 | `divider` | tidak ada | tidak ada | tidak ada |
 | `spacer` | tidak ada | `size` (`sm`, `md`, `lg`) | tidak ada |
-| `metric` | `label`, `value` | `caption`, `status` | `.label`, `.value`, `.caption` |
+| `metric` | `label`, `value` | `status` | `.label`, `.value` |
 
 `role` hanya untuk block `text`: `display`, `title`, `lead`, `body`, `caption`,
 `label`, atau `kicker`. `metric.status` hanya `neutral`, `success`, `warning`,
@@ -258,7 +292,6 @@ gambar Markdown, tabel Markdown, HTML, dan em dash atau en dash ditolak.
   rows:
     - ["Onboarding", "Selesai", "100%"]
     - ["Dashboard", "Berjalan", "72%"]
-  caption: "Status modul."
 ```
 
 Jumlah sel setiap baris harus sama dengan jumlah kolom. Tidak ada merged cell,
@@ -277,7 +310,7 @@ editable, bukan gambar. Contoh demo: `s09`, `s10`, dan `s11`.
 ```
 
 Format yang diterima hanya `.png`, `.jpg`, `.jpeg`, dan `.webp`. SVG dan URL
-remote ditolak. `alt` wajib; `caption` adalah key teks, bukan alt. `contain`
+remote ditolak. `alt` wajib dan bukan key. `contain`
 menampilkan gambar utuh tanpa distorsi, sedangkan `cover` memenuhi frame dengan
 crop proporsional, bukan regangan. `image-full` memakai satu block `image`
 besar dengan title serta credit dari slot, bukan koordinat author. Contoh demo:
@@ -290,7 +323,6 @@ besar dengan title serta credit dari slot, bukan koordinat author. Contoh demo:
   type: diagram
   source: "diagrams/01-flowchart.puml"
   alt: "Diagram alur pengajuan cuti"
-  caption: "Gambar 1. Flowchart pengajuan cuti."
 ```
 
 Satu block menunjuk tepat satu berkas `.puml`. Diagram dirender oleh PlantUML
@@ -299,16 +331,13 @@ menjadi PNG; tidak ada node atau edge native di PPTX maupun Google Slides.
 memerlukan PlantUML 1.2026.10 dengan Java 21 dari `AUTOOFFICE_PLANTUML`. Lihat
 juga [Panduan PlantUML](plantuml.md). Contoh demo: `s15` dan `s21`.
 
-## source dan notes
+## notes
 
 ```yaml
 - id: s03
   layout: content
   notes: |
     Tekankan bahwa satu model isi dipakai untuk semua target.
-  source:
-    text: "Sumber: kit komponen internal AutoOffice, 2026"
-    url: "https://example.com/laporan"
   blocks:
     - id: title
       type: text
@@ -320,9 +349,8 @@ juga [Panduan PlantUML](plantuml.md). Contoh demo: `s15` dan `s21`.
         - "Latar netral dan kartu putih."
 ```
 
-`source.text` wajib bila `source` ada dan menjadi key `sNN.source.text`.
-`source.url` opsional, hanya `http` atau `https`, dan tidak menjadi key. Bila
-ada, teks source menjadi hyperlink. Posisi source ditentukan layout.
+Field slide `source` sudah dihapus oleh ADR 0017; deck lama yang masih memakai
+`source:` ditolak dengan pesan field tidak dikenal.
 
 `notes` adalah plain text, boleh multiline, menjadi key `sNN.notes`, dan
 disimpan sebagai speaker notes. Notes tidak tampil di kanvas slide, tetapi ikut

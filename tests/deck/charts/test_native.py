@@ -8,6 +8,7 @@ import pytest
 from pptx import Presentation
 from pptx.enum.chart import XL_CHART_TYPE, XL_MARKER_STYLE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.oxml.ns import qn
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.slide import Slide
 
@@ -20,6 +21,7 @@ from autooffice.deck.charts import (
 )
 from autooffice.deck.model import ChartSeries
 from autooffice.deck.render.pptx.chart import add_native_chart
+from autooffice.design.contrast import contrast_ratio
 from autooffice.design.theme import Theme
 
 _CHART_IDS = ("s01.chart1", "s02.chart1", "s03.chart1", "s04.chart1")
@@ -178,7 +180,133 @@ def test_chart_font_legend_gridlines_and_axis_come_from_theme(
     assert _rgb(chart.value_axis.tick_labels.font.color.rgb) == theme.chart.axis
     title_font = chart.chart_title.text_frame.paragraphs[0].font
     assert title_font.name == theme.typography.family
+    assert title_font.bold is True
+    assert title_font.size is not None
+    assert title_font.size.pt == theme.typography.label_pt
     assert _rgb(title_font.color.rgb) == theme.chart.title
+    assert chart.value_axis.major_gridlines.format.line.width is not None
+    assert chart.value_axis.major_gridlines.format.line.width.pt == 1.0
+
+
+@pytest.mark.parametrize("chart_id", _CHART_IDS)
+def test_bar_line_and_donut_show_data_labels(
+    chart_id: str,
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    frame = _add(slide, chart_specs[chart_id], theme, chart_box)
+    spec = chart_specs[chart_id]
+    if spec.kind == "line":
+        for series in frame.chart.series:
+            assert series.data_labels.show_value is False
+            d_lbls = series.data_labels._element
+            d_lbl = d_lbls.find(qn("c:dLbl"))
+            assert d_lbl is not None
+            assert d_lbl.find(qn("c:showVal")).get("val") == "1"
+            assert series.data_labels.font.size is not None
+            assert series.data_labels.font.size.pt == theme.typography.minimum_pt
+            assert _rgb(series.data_labels.font.color.rgb) == theme.chart.axis
+        return
+    plot = frame.chart.plots[0]
+
+    assert plot.has_data_labels is True
+    assert plot.data_labels.show_value is True
+    assert plot.data_labels.font.size is not None
+    assert plot.data_labels.font.size.pt == theme.typography.minimum_pt
+    expected_color = theme.colors.accent_ink if spec.kind == "donut" else theme.chart.axis
+    assert _rgb(plot.data_labels.font.color.rgb) == expected_color
+
+
+@pytest.mark.parametrize(
+    ("chart_id", "position"),
+    [
+        ("s01.chart1", "outEnd"),
+        ("s02.chart1", "outEnd"),
+    ],
+)
+def test_bar_data_labels_have_explicit_axis_position(
+    chart_id: str,
+    position: str,
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    frame = _add(slide, chart_specs[chart_id], theme, chart_box)
+    d_lbls = frame.chart.plots[0].data_labels._element
+    d_lbl_pos = d_lbls.find(qn("c:dLblPos"))
+
+    assert d_lbl_pos is not None
+    assert d_lbl_pos.get("val") == position
+
+
+def test_line_labels_only_on_last_point(
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    spec = chart_specs["s03.chart1"]
+    frame = _add(slide, spec, theme, chart_box)
+    last_index = len(spec.categories) - 1
+    positions: list[str | None] = []
+
+    for series in frame.chart.series:
+        d_lbls = series.data_labels._element
+        d_lbls_for_point = d_lbls.findall(qn("c:dLbl"))
+        assert len(d_lbls_for_point) == 1
+        d_lbl = d_lbls_for_point[0]
+        assert d_lbl.find(qn("c:idx")).get("val") == str(last_index)
+        assert d_lbl.find(qn("c:showVal")).get("val") == "1"
+        d_lbl_pos = d_lbl.find(qn("c:dLblPos"))
+        assert d_lbl_pos is not None
+        positions.append(d_lbl_pos.get("val"))
+
+    assert positions == ["t", "b"]
+
+
+def test_donut_has_no_dlblpos(
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    frame = _add(slide, chart_specs["s04.chart1"], theme, chart_box)
+    d_lbls = frame.chart.plots[0].data_labels._element
+
+    assert d_lbls.find(qn("c:dLblPos")) is None
+
+
+def test_donut_labels_have_leader_lines(
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    frame = _add(slide, chart_specs["s04.chart1"], theme, chart_box)
+    d_lbls = frame.chart.plots[0].data_labels._element
+    leader_lines = d_lbls.find(qn("c:showLeaderLines"))
+
+    assert leader_lines is not None
+    assert leader_lines.get("val") == "1"
+
+
+def test_donut_label_color_contrasts_with_every_slice(
+    chart_specs: Mapping[str, ChartSpec],
+    theme: Theme,
+    slide: Slide,
+    chart_box: Mapping[str, int],
+) -> None:
+    spec = chart_specs["s04.chart1"]
+    frame = _add(slide, spec, theme, chart_box)
+    label_color = _rgb(frame.chart.plots[0].data_labels.font.color.rgb)
+    slice_colors = theme.chart.series[: len(spec.categories)]
+
+    assert label_color == theme.colors.accent_ink
+    for slice_color in slice_colors:
+        assert contrast_ratio(label_color, slice_color) >= 4.5
 
 
 def test_single_series_bar_and_donut_legend_rules(
@@ -204,6 +332,7 @@ def test_line_markers_and_unit_axis(
     chart = frame.chart
 
     assert all(series.marker.style == XL_MARKER_STYLE.CIRCLE for series in chart.series)
+    assert all(series.marker.size == 6 for series in chart.series)
     assert chart.value_axis.has_title is True
     assert chart.value_axis.axis_title.text_frame.text == "persen"
 

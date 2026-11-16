@@ -154,7 +154,7 @@ def test_quote_overflow_reports_the_attribution(
     assert plan.slides[0].overflow_keys == ("s01.quote1.attribution",)
 
 
-def test_captionless_media_uses_block_scoped_key(
+def test_media_uses_block_scoped_key(
     block_factory: Callable[..., BlockIR],
     slide_factory: Callable[..., SlideIR],
     deck_factory: Callable[..., DeckIR],
@@ -163,7 +163,7 @@ def test_captionless_media_uses_block_scoped_key(
     title = block_factory(
         "title",
         "text",
-        fields={"text": "\n".join(["baris"] * 11)},
+        fields={"text": "\n".join(["baris"] * 12)},
         role="title",
         span=12,
     )

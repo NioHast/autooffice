@@ -79,7 +79,7 @@ def test_webp_is_normalized_and_alt_text_is_written(workspace: Path, theme) -> N
         schema="autooffice.deck/v1",
         meta={"title": "WebP Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (block,), None, None),),
+        slides=(SlideIR("s01", "content", 0, (block,), None),),
         keys=KeyManifest(()),
     )
     layout = LayoutPlan(

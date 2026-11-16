@@ -1,5 +1,9 @@
 @startuml
-title Sequence Login Pengguna
+hide footbox
+skinparam defaultFontSize 20
+skinparam ActorFontSize 22
+skinparam ParticipantFontSize 20
+skinparam MessageFontSize 18
 
 actor "User" as U
 participant "UI" as UI

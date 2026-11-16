@@ -29,7 +29,7 @@ def test_build_pptx_writes_named_output_and_transcript(
     assert outcome.warnings == ()
     assert "deck: Deck Uji Build" in outcome.notes
     assert "slide: 4" in outcome.notes
-    assert "coverage: 24 key, 1 chart, 0 temuan" in outcome.notes
+    assert "coverage: 20 key, 1 chart, 0 temuan" in outcome.notes
     assert not _state_file(deck_path).exists()
     assert not (out / ".autooffice-build" / deck_path.stem).exists()
 
@@ -150,5 +150,5 @@ def test_main_build_deck_pptx_prints_concise_summary(
     assert str(out / "deck.pptx") in captured.out
     assert "deck: Deck Uji Build" in captured.out
     assert "slide: 4" in captured.out
-    assert "coverage: 24 key, 1 chart, 0 temuan" in captured.out
+    assert "coverage: 20 key, 1 chart, 0 temuan" in captured.out
     assert "font-embedding" not in captured.err

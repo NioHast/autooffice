@@ -10,7 +10,6 @@ from pptx.shapes.base import BaseShape
 from pptx.slide import Slide
 from pptx.util import Emu
 
-from autooffice.deck.layout.measure import measure_text
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.design.theme import Theme
 
@@ -22,7 +21,6 @@ from .shapes import (
     field_text,
     set_namespace_marker,
 )
-from .textbox import add_keyed_text, body_style
 
 _IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp"})
 
@@ -158,80 +156,37 @@ def render_image_block(
     fit = field_optional_text(block.fields, "fit") or "contain"
     if fit not in {"contain", "cover"}:
         raise PptxRenderError(f"Block image '{block.block_id}' memiliki fit tidak dikenal: {fit}.")
-    caption = field_optional_text(block.fields, "caption")
-    media_box, caption_box = _media_boxes(box, caption, theme)
     image_width, image_height = image_size(path, slide_id=slide_id, block_id=block.block_id)
-    source = _picture_source(path)
     if fit == "cover":
-        picture = slide.shapes.add_picture(
-            source,
-            left=Emu(media_box.left),
-            top=Emu(media_box.top),
-            width=Emu(media_box.width),
-            height=Emu(media_box.height),
-        )
+        geometry = (box.left, box.top, box.width, box.height)
+    else:
+        geometry = contain_geometry(image_width, image_height, box)
+    source = _picture_source(path)
+    picture = slide.shapes.add_picture(
+        source,
+        left=Emu(geometry[0]),
+        top=Emu(geometry[1]),
+        width=Emu(geometry[2]),
+        height=Emu(geometry[3]),
+    )
+    if fit == "cover":
         left, top, right, bottom = cover_crop(
             image_width,
             image_height,
-            media_box.width,
-            media_box.height,
+            geometry[2],
+            geometry[3],
         )
         picture.crop_left = left
         picture.crop_top = top
         picture.crop_right = right
         picture.crop_bottom = bottom
-    else:
-        left, top, width, height = contain_geometry(image_width, image_height, media_box)
-        picture = slide.shapes.add_picture(
-            source,
-            left=Emu(left),
-            top=Emu(top),
-            width=Emu(width),
-            height=Emu(height),
-        )
     set_namespace_marker(
         picture,
         IMAGE_MARKER,
         f"{slide_id}.{block.block_id}",
         description=alt,
     )
-    shapes: list[BaseShape] = [picture]
-    if caption and caption_box is not None:
-        shapes.append(
-            add_keyed_text(
-                slide,
-                caption_box,
-                key=f"{slide_id}.{block.block_id}.caption",
-                text=caption,
-                style=body_style(theme, weight=400, color=theme.colors.muted),
-                theme=theme,
-            )
-        )
-    return tuple(shapes)
-
-
-def _media_boxes(box: Box, caption: str, theme: Theme) -> tuple[Box, Box | None]:
-    if not caption:
-        return box, None
-    caption_height = measure_text(
-        caption,
-        available_width_emu=box.width,
-        theme=theme,
-        font_size_pt=theme.typography.body_pt,
-        weight=400,
-    ).height_emu
-    gap = theme.spacing.sm_emu
-    media_height = box.height - caption_height - gap
-    if media_height <= 0:
-        raise PptxRenderError("Kotak gambar tidak menyisakan ruang media setelah caption.")
-    media = Box(left=box.left, top=box.top, width=box.width, height=media_height)
-    caption_box = Box(
-        left=box.left,
-        top=box.top + media_height + gap,
-        width=box.width,
-        height=caption_height,
-    )
-    return media, caption_box
+    return (picture,)
 
 
 def _picture_source(path: Path) -> str | BinaryIO:

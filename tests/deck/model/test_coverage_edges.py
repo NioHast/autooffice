@@ -14,7 +14,6 @@ def _deck(
     blocks: tuple[BlockIR, ...],
     *,
     meta: dict[str, str] | None = None,
-    source: dict[str, str] | None = None,
 ) -> DeckIR:
     return DeckIR(
         schema="autooffice.deck/v1",
@@ -27,7 +26,6 @@ def _deck(
                 order=0,
                 blocks=blocks,
                 notes=None,
-                source=source,
             ),
         ),
         keys=KeyManifest(bindings=()),

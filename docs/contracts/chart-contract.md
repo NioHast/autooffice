@@ -7,11 +7,22 @@ Data mengalir satu arah dari YAML ke Sheets; tidak ada pull data chart.
 Status: F0 contract, version 1
 Sumber: AUTO_OFFICE_PLAN.md bagian 8.3, 8.4, dan 9.1 sampai 9.5.
 
+## Daftar Isi
+
+- [Bentuk data](#bentuk-data)
+- [Aturan native dan linked](#aturan-native-dan-linked)
+- [Batas slot warna](#batas-slot-warna)
+- [Klarifikasi implementasi F2-CHARTS](#klarifikasi-implementasi-f2-charts)
+- [Sheets dan preflight](#sheets-dan-preflight)
+- [Invariant](#invariant)
+- [Contoh minimal](#contoh-minimal)
+- [Acceptance](#acceptance)
+
 ## Bentuk data
 
 - `chart_id` logis: `<slide_id>.<block_id>`, misalnya `s04.chart1`; unik per deck.
 - Field spec: `kind`, `orientation`, `title`, `alt`, `categories`, `series`,
-  `unit`, dan `caption`.
+  dan `unit`. Field `caption` dihapus oleh ADR 0017.
 - `kind`: `bar`, `line`, atau `donut`.
 - `orientation`: `vertical` atau `horizontal`, hanya untuk `bar`.
 - `series[].name` plain text dan `series[].values` adalah angka.
@@ -58,9 +69,23 @@ atau perilaku baru.
   seri. Donut memakai slot berurutan sesuai jumlah kategori. Kode chart tidak
   memuat warna literal.
 - Legend donut selalu tampil; legend `bar` dan `line` tampil bila jumlah seri
-  lebih dari satu. Gridline value axis memakai `chart.grid`; garis axis dan
-  tick label memakai `chart.axis`; legend memakai `chart.legend`; title
-  memakai `chart.title`; family font memakai `typography.family`.
+  lebih dari satu. Gridline value axis memakai `chart.grid` dengan lebar 1 pt;
+  garis axis dan tick label memakai `chart.axis`; legend memakai `chart.legend`;
+  title memakai `chart.title`; family font memakai `typography.family`.
+- Data label native (`c:dLbls`) aktif untuk `bar`, `line`, dan `donut` dengan
+  `show_value`. Font label memakai `minimum_pt`.
+  - `bar`: warna `chart.axis`, `c:dLblPos val="outEnd"`.
+  - `line`: hanya titik terakhir tiap seri yang diberi label. Label seri
+    pertama memakai `c:dLblPos val="t"`, seri kedua `val="b"`, sehingga label
+    tidak bertumpuk. Warna label `chart.axis`.
+  - `donut`: **tidak menulis `c:dLblPos`** karena elemen itu tidak didukung
+    untuk doughnut dan membuat PowerPoint menolak berkas. Label memakai posisi
+    default di dalam slice dengan warna `accent_ink` (putih). Putih lolos
+    kontras minimal 4,5:1 terhadap seluruh warna slice theme. `c:showLeaderLines
+    val="1"` tetap ditulis, tetapi label di tengah slice tidak memerlukan
+    leader line.
+- Marker chart line memakai 6 pt sebagai konstanta renderer yang disengaja,
+  bukan token theme, karena hanya varian line yang memakai marker.
 - `unit` dirender sebagai title value axis untuk `bar` dan `line`.
 - Chart native memakai nama shape `autooffice:chart:<chart_id>`, metadata
   `title` berisi `<chart_id>`, dan `descr` berisi alt manusia.

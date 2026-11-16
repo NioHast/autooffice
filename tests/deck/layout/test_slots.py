@@ -1,4 +1,4 @@
-"""Test kontrak slot, role, source, dan penolakan authoring absolute."""
+"""Test kontrak slot, role, dan penolakan authoring absolute."""
 
 from collections.abc import Callable
 from dataclasses import replace
@@ -116,33 +116,6 @@ def test_preset_span_is_rejected(
         validate_slide(slide_factory(blocks), demo_spec)
 
 
-def test_source_requires_accepting_layout(
-    block_factory: Callable[..., BlockIR],
-    slide_factory: Callable[..., SlideIR],
-    demo_spec: LayoutSpec,
-) -> None:
-    slide = slide_factory(_blocks(block_factory), source={"text": "Sumber internal"})
-
-    with pytest.raises(SlotValidationError, match="tidak menerima source"):
-        validate_slide(slide, replace(demo_spec, accepts_source=False))
-
-
-def test_source_is_not_a_slot_assignment(
-    block_factory: Callable[..., BlockIR],
-    slide_factory: Callable[..., SlideIR],
-    demo_spec: LayoutSpec,
-) -> None:
-    slide = slide_factory(
-        _blocks(block_factory),
-        source={"text": "Sumber internal", "url": "https://example.com"},
-    )
-
-    assignments = validate_slide(slide, demo_spec)
-
-    assert tuple(item.slot.slot_id for item in assignments) == ("title", "body")
-    assert all(item.slot.slot_id != "source" for item in assignments)
-
-
 def test_notes_are_not_a_slot(
     block_factory: Callable[..., BlockIR],
     slide_factory: Callable[..., SlideIR],
@@ -197,7 +170,6 @@ def test_slot_without_chart_kind_ignores_chart_kind(
         layout_id="chart-only",
         slots=(SlotSpec(slot_id="chart1", required=True, block_types=("chart",)),),
         rows=(("chart1",),),
-        accepts_source=True,
     )
     slide = slide_factory(
         (block_factory("chart1", "chart", fields={"kind": "line"}),),
@@ -224,7 +196,6 @@ def test_chart_kind_is_ignored_for_non_chart_block(
             ),
         ),
         rows=(("body",),),
-        accepts_source=True,
     )
     slide = slide_factory(
         (block_factory("body", "text", fields={"text": "Isi"}),),
@@ -256,7 +227,6 @@ def test_layout_spec_unknown_row_slot_is_rejected() -> None:
             layout_id="rusak",
             slots=(SlotSpec(slot_id="title", required=True, block_types=("text",), role="title"),),
             rows=(("title", "hantu"),),
-            accepts_source=True,
         )
 
 
@@ -265,7 +235,6 @@ def test_layout_spec_missing_slot_from_rows_is_rejected() -> None:
         layout_id="rusak",
         slots=(SlotSpec(slot_id="title", required=True, block_types=("text",), role=None),),
         rows=(("title",),),
-        accepts_source=True,
     )
 
     with pytest.raises(LayoutSpecError, match="tidak menempatkan slot di rows: body"):
@@ -284,7 +253,6 @@ def test_layout_spec_duplicate_row_slot_is_rejected() -> None:
             layout_id="rusak",
             slots=(SlotSpec(slot_id="title", required=True, block_types=("text",), role=None),),
             rows=(("title", "title"),),
-            accepts_source=True,
         )
 
 
@@ -299,7 +267,6 @@ def test_row_may_not_have_more_than_twelve_slots() -> None:
             layout_id="rusak",
             slots=slots,
             rows=(tuple(slot.slot_id for slot in slots),),
-            accepts_source=True,
         )
 
 
@@ -318,7 +285,6 @@ def test_layout_spec_slot_span_outside_one_to_twelve_is_rejected(span: int) -> N
                 ),
             ),
             rows=(("title",),),
-            accepts_source=True,
         )
 
 
@@ -343,7 +309,6 @@ def test_layout_spec_row_span_sum_over_twelve_is_rejected() -> None:
                 ),
             ),
             rows=(("left", "right"),),
-            accepts_source=True,
         )
 
 
@@ -353,7 +318,6 @@ def test_layout_spec_min_one_of_unknown_slot_is_rejected() -> None:
             layout_id="rusak",
             slots=(SlotSpec(slot_id="title", required=True, block_types=("text",), role=None),),
             rows=(("title",),),
-            accepts_source=True,
             min_one_of=(("title", "hantu"),),
         )
 
@@ -364,7 +328,6 @@ def test_layout_spec_min_one_of_empty_group_is_rejected() -> None:
             layout_id="rusak",
             slots=(SlotSpec(slot_id="title", required=True, block_types=("text",), role=None),),
             rows=(("title",),),
-            accepts_source=True,
             min_one_of=((),),
         )
 
@@ -379,7 +342,6 @@ def test_layout_spec_min_one_of_duplicate_slot_across_groups_is_rejected() -> No
                 SlotSpec(slot_id="note", required=False, block_types=("text",), role=None),
             ),
             rows=(("title",), ("body", "note")),
-            accepts_source=True,
             min_one_of=(("body", "note"), ("note",)),
         )
 
@@ -389,7 +351,6 @@ def _spec_with(**overrides: object) -> LayoutSpec:
         "layout_id": "demo",
         "slots": (SlotSpec(slot_id="title", required=True, block_types=("text",), role="title"),),
         "rows": (("title",),),
-        "accepts_source": True,
     }
     values.update(overrides)
     return LayoutSpec(**values)  # type: ignore[arg-type]
@@ -401,7 +362,6 @@ def _spec_with(**overrides: object) -> LayoutSpec:
         ({"layout_id": ""}, "layout_id tidak boleh kosong"),
         ({"rows": ()}, "minimal satu row"),
         ({"slots": ()}, "tidak memiliki slot"),
-        ({"accepts_source": "yes"}, "bukan bool"),
     ],
 )
 def test_layout_spec_requires_core_contract(
@@ -511,7 +471,6 @@ def test_slide_missing_every_min_one_of_slot_is_rejected(
             ),
         ),
         rows=(("title",), ("body", "note")),
-        accepts_source=True,
         min_one_of=(("body", "note"),),
     )
     slide = slide_factory((block_factory("title", "text", fields={"text": "Judul"}, role="title"),))

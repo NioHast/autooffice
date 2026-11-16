@@ -218,7 +218,6 @@ belum memiliki PNG.
   type: diagram
   source: "diagrams/01-flowchart.puml"
   alt: "Diagram alur pengajuan cuti"
-  caption: "Gambar 1. Flowchart pengajuan cuti."
 ```
 
 Aturan block diagram:
@@ -227,7 +226,7 @@ Aturan block diagram:
 - path relatif terhadap direktori `deck.yaml`, memakai `/`, dan tidak boleh
   keluar dari root deck;
 - `alt` wajib non-kosong;
-- `caption` opsional dan menjadi key teks, bukan alt;
+- `source` di sini adalah path berkas, bukan catatan sumber slide;
 - PlantUML tidak ditulis inline di YAML;
 - `check` memvalidasi schema, path, dan alt tanpa merender;
 - `build` merender PNG dan menempatkannya sebagai picture native di PPTX atau

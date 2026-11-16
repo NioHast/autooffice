@@ -7,6 +7,7 @@ from autooffice.design.contrast import contrast_ratio, meets_contrast, relative_
 
 TEXT_MINIMUM = 4.5
 CHART_MINIMUM = 3.0
+CARD_FILL_MINIMUM = 1.10
 
 
 def test_relative_luminance_extremes() -> None:
@@ -113,3 +114,12 @@ def test_chart_series_meets_wcag_non_text_contrast(name: str) -> None:
         for surface in (theme.colors.surface, theme.colors.background):
             ratio = contrast_ratio(color, surface)
             assert ratio >= CHART_MINIMUM, f"{name}:series[{index}] = {ratio:.3f}"
+
+
+@pytest.mark.parametrize("name", ["indigo", "hitam"])
+def test_card_fill_is_visible_against_background(name: str) -> None:
+    theme = resolve_theme(name)
+
+    ratio = contrast_ratio(theme.card.fill, theme.colors.background)
+
+    assert ratio >= CARD_FILL_MINIMUM, f"{name}:card.fill = {ratio:.4f}"

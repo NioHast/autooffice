@@ -1,7 +1,6 @@
 """Preset layout ``image-full``: gambar penuh kanvas dengan overlay teks.
 
-Overlay hanya berupa slot teks; tidak ada posisi absolut. Caption gambar
-adalah field block ``image``, bukan slot terpisah.
+Overlay hanya berupa slot teks; tidak ada posisi absolut.
 """
 
 from autooffice.deck.layout.spec import LayoutSpec, SlotSpec
@@ -43,5 +42,5 @@ LAYOUT = LayoutSpec(
         ("subtitle",),
         ("credit",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

@@ -15,7 +15,7 @@ SLIDE_ID_PATTERN = re.compile(r"^s[0-9]{2,}$")
 BLOCK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 LEAF_SEGMENT_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _INDEXED_SEGMENT_PATTERN = re.compile(r"^(?:item|cat|series|value|r|c|h)(\d+)$")
-_SLIDE_LEAVES = frozenset({"notes", "source.text"})
+_SLIDE_LEAVES = frozenset({"notes"})
 
 
 class KeyGrammarError(AutoOfficeError):
@@ -78,9 +78,7 @@ def make_key(slide_id: str, block_id: str | None, leaf: str) -> str:
     validate_leaf(leaf)
     if block_id is None:
         if leaf not in _SLIDE_LEAVES:
-            raise KeyGrammarError(
-                f"Leaf slide '{leaf}' tidak dikenal; hanya notes dan source.text."
-            )
+            raise KeyGrammarError(f"Leaf slide '{leaf}' tidak dikenal; hanya notes.")
         key = f"{slide_id}.{leaf}"
     else:
         validate_block_id(block_id)
@@ -101,8 +99,6 @@ def parse_key(key: str) -> ParsedKey:
         if parts[1] != "notes":
             raise KeyGrammarError(f"Key '{key}' bukan key slide yang dikenal.")
         return ParsedKey(key=key, slide_id=slide_id, block_id=None, leaf="notes")
-    if len(parts) == 3 and parts[1] == "source" and parts[2] == "text":
-        return ParsedKey(key=key, slide_id=slide_id, block_id=None, leaf="source.text")
     block_id = validate_block_id(parts[1])
     leaf = validate_leaf(".".join(parts[2:]))
     return ParsedKey(key=key, slide_id=slide_id, block_id=block_id, leaf=leaf)
@@ -195,7 +191,7 @@ class KeyRegistry:
             raise KeyGrammarError(f"Binding '{binding.key}' memiliki plain_text kosong.")
         if not isinstance(binding.yaml_path, tuple) or not binding.yaml_path:
             raise KeyGrammarError(f"Binding '{binding.key}' harus memiliki yaml_path.")
-        if binding.kind not in {"text", "data", "notes", "source", "media_text"}:
+        if binding.kind not in {"text", "data", "notes"}:
             raise KeyGrammarError(f"Binding '{binding.key}' memiliki kind tidak dikenal.")
 
 

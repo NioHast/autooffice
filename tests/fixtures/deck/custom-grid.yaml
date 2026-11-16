@@ -15,8 +15,6 @@ slides:
     layout: custom
     notes: |
       Layout custom dipakai hanya bila preset tidak cukup.
-    source:
-      text: "Sumber: data internal, 2026"
     rows:
       - blocks:
           - id: eyebrow

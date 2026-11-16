@@ -20,11 +20,15 @@ WIDTH = 2_000_000
 
 
 def _inner_width(theme: Theme) -> int:
-    return WIDTH - 2 * theme.spacing.card_padding_emu
+    return WIDTH
+
+
+def _card_inner_width(theme: Theme) -> int:
+    return WIDTH - 2 * theme.card.padding_emu
 
 
 def _bullet_width(theme: Theme) -> int:
-    return max(1, _inner_width(theme) - theme.spacing.md_emu)
+    return max(1, _inner_width(theme) - theme.spacing.card_padding_emu)
 
 
 def _line_height(theme: Theme, size_pt: float | None = None) -> int:
@@ -95,7 +99,7 @@ def test_non_string_text_is_measured_as_text(
     expected = measure_text("1234", available_width_emu=_inner_width(theme), theme=theme)
 
     assert measurement.line_count == 1
-    assert measurement.height_emu == expected.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == expected.height_emu
 
 
 def test_bullets_accept_list_items(block_factory: Callable[..., BlockIR], theme: Theme) -> None:
@@ -105,7 +109,7 @@ def test_bullets_accept_list_items(block_factory: Callable[..., BlockIR], theme:
     item = measure_text("satu", available_width_emu=_bullet_width(theme), theme=theme)
 
     assert measurement.line_count == 2
-    assert measurement.height_emu == 2 * item.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == 2 * item.height_emu + theme.spacing.sm_emu
 
 
 def test_bullets_without_usable_items_measure_one_blank_line(
@@ -118,7 +122,7 @@ def test_bullets_without_usable_items_measure_one_blank_line(
 
     assert measurement.line_count == 1
     assert measurement.width_emu == 0
-    assert measurement.height_emu == blank.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == blank.height_emu
 
 
 def test_quote_without_attribution_measures_text_only(
@@ -127,34 +131,36 @@ def test_quote_without_attribution_measures_text_only(
     block = block_factory("quote1", "quote", fields={"text": "Kutipan singkat"})
 
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
-    text = measure_text("Kutipan singkat", available_width_emu=_inner_width(theme), theme=theme)
+    text = measure_text(
+        "Kutipan singkat",
+        available_width_emu=_card_inner_width(theme),
+        theme=theme,
+    )
 
     assert measurement.line_count == text.line_count
-    assert measurement.height_emu == text.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == text.height_emu + 2 * theme.card.padding_emu
 
 
-def test_metric_without_value_measures_label_and_caption(
+def test_metric_without_value_measures_label(
     block_factory: Callable[..., BlockIR], theme: Theme
 ) -> None:
     block = block_factory(
         "metric1",
         "metric",
-        fields={"label": "Pendapatan", "caption": "2025"},
+        fields={"label": "Pendapatan"},
     )
 
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
     label = measure_text(
         "Pendapatan",
-        available_width_emu=_inner_width(theme),
+        available_width_emu=_card_inner_width(theme),
         theme=theme,
-        weight=600,
+        font_size_pt=theme.typography.label_pt,
+        weight=theme.typography.weights[1],
     )
-    caption = measure_text("2025", available_width_emu=_inner_width(theme), theme=theme)
 
-    assert measurement.line_count == 2
-    assert measurement.height_emu == (
-        label.height_emu + caption.height_emu + 2 * theme.spacing.card_padding_emu
-    )
+    assert measurement.line_count == label.line_count
+    assert measurement.height_emu == label.height_emu + 2 * theme.card.padding_emu
 
 
 def test_metric_with_only_value_measures_one_line(
@@ -165,15 +171,15 @@ def test_metric_with_only_value_measures_one_line(
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
     value = measure_text(
         "42%",
-        available_width_emu=_inner_width(theme),
+        available_width_emu=_card_inner_width(theme),
         theme=theme,
-        font_size_pt=theme.typography.title_pt,
-        weight=800,
+        font_size_pt=theme.typography.metric_pt,
+        weight=theme.typography.weights[3],
     )
 
     assert measurement.line_count == 1
     assert measurement.width_emu == value.width_emu
-    assert measurement.height_emu == value.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == value.height_emu + 2 * theme.card.padding_emu
 
 
 def test_metric_without_fields_measures_blank_line(
@@ -182,17 +188,17 @@ def test_metric_without_fields_measures_blank_line(
     block = block_factory("metric1", "metric", fields={})
 
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
-    blank = measure_text("", available_width_emu=_inner_width(theme), theme=theme)
+    blank = measure_text("", available_width_emu=_card_inner_width(theme), theme=theme)
 
     assert measurement == BlockMeasurement(
         width_emu=0,
-        height_emu=blank.height_emu + 2 * theme.spacing.card_padding_emu,
+        height_emu=blank.height_emu + 2 * theme.card.padding_emu,
         line_count=1,
         overflow_width_emu=0,
     )
 
 
-def test_table_without_cells_only_has_padding(
+def test_table_without_cells_has_zero_height(
     block_factory: Callable[..., BlockIR], theme: Theme
 ) -> None:
     block = block_factory("table1", "table", fields={})
@@ -201,23 +207,10 @@ def test_table_without_cells_only_has_padding(
 
     assert measurement == BlockMeasurement(
         width_emu=0,
-        height_emu=2 * theme.spacing.card_padding_emu,
+        height_emu=0,
         line_count=0,
         overflow_width_emu=0,
     )
-
-
-def test_table_caption_is_measured_without_cells(
-    block_factory: Callable[..., BlockIR], theme: Theme
-) -> None:
-    block = block_factory("table1", "table", fields={"caption": "Tabel kosong"})
-
-    measurement = measure_block(block, width_emu=WIDTH, theme=theme)
-    caption = measure_text("Tabel kosong", available_width_emu=_inner_width(theme), theme=theme)
-
-    assert measurement.line_count == caption.line_count
-    assert measurement.width_emu == caption.width_emu
-    assert measurement.height_emu == caption.height_emu + 2 * theme.spacing.card_padding_emu
 
 
 def test_table_rows_without_header_are_measured(
@@ -264,25 +257,7 @@ def test_unknown_block_type_falls_back_to_label(
     label = measure_text("Ringkasan", available_width_emu=_inner_width(theme), theme=theme)
 
     assert measurement.line_count == 1
-    assert measurement.height_emu == label.height_emu + 2 * theme.spacing.card_padding_emu
-
-
-def test_media_caption_overflow_width_is_reported(
-    block_factory: Callable[..., BlockIR], theme: Theme
-) -> None:
-    caption = "W" * 800
-    block = block_factory(
-        "image1",
-        "image",
-        fields={"path": "assets/hero.png", "caption": caption},
-    )
-
-    measurement = measure_block(block, width_emu=400_000, theme=theme)
-    measured_caption = measure_text(caption, available_width_emu=400_000, theme=theme)
-
-    assert measurement.width_emu == measured_caption.width_emu
-    assert measurement.overflow_width_emu == measured_caption.overflow_width_emu
-    assert measurement.overflow_width_emu > 0
+    assert measurement.height_emu == label.height_emu
 
 
 def test_media_zero_available_height_reports_minimum_overflow(

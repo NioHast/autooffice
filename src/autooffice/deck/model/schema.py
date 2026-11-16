@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Literal, cast
-from urllib.parse import urlsplit
 
 from autooffice.deck.blocks.registry import block_specs
 from autooffice.deck.layout.registry import layout_names
@@ -112,8 +111,7 @@ _META_FIELDS = (
 )
 _THEME_FIELDS = ("name",)
 _DEFAULTS_FIELDS = ("layout", "image_fit", "code_language")
-_SLIDE_FIELDS = ("id", "layout", "notes", "source", "blocks", "rows")
-_SOURCE_FIELDS = ("text", "url")
+_SLIDE_FIELDS = ("id", "layout", "notes", "blocks", "rows")
 _ROW_FIELDS = ("blocks",)
 _SERIES_FIELDS = ("name", "values")
 _LAYOUT_NAMES = frozenset(layout_names())
@@ -188,14 +186,6 @@ class DeckDefaults:
 
 
 @dataclass(frozen=True, slots=True)
-class SourceDefinition:
-    """Sumber slide yang sudah divalidasi."""
-
-    text: str
-    url: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class ChartSeries:
     """Satu seri chart beserta nilai numeriknya."""
 
@@ -224,7 +214,6 @@ class SlideDefinition:
     slide_id: str
     layout: str
     notes: str | None
-    source: SourceDefinition | None
     blocks: tuple[BlockDefinition, ...]
     rows: tuple[tuple[BlockDefinition, ...], ...]
 
@@ -459,14 +448,6 @@ def _validate_slide(
             slide_id=slide_id,
         )
 
-    source: SourceDefinition | None = None
-    if "source" in mapping:
-        source = _validate_source(
-            mapping["source"],
-            path=(*path, "source"),
-            slide_id=slide_id,
-        )
-
     has_blocks = "blocks" in mapping
     has_rows = "rows" in mapping
     if has_blocks and has_rows:
@@ -527,7 +508,6 @@ def _validate_slide(
         slide_id=slide_id,
         layout=layout,
         notes=notes,
-        source=source,
         blocks=blocks,
         rows=rows,
     )
@@ -634,14 +614,6 @@ def _validate_block(
     mapping = _require_mapping(value, path=path, context="block")
     block_id_value = _require_field(mapping, "id", path=path, context="block")
     block_id = _validate_block_id_value(block_id_value, path=(*path, "id"))
-    if block_id == "source":
-        raise _schema_error(
-            "Block ID 'source' bertabrakan dengan key slide 'source.text' "
-            f"('{slide_id}.source.text'); gunakan ID block lain.",
-            path=(*path, "id"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
     previous = seen_block_ids.get(block_id)
     if previous is not None:
         raise _schema_error(
@@ -928,14 +900,6 @@ def _image_fields(
             ),
         )
     fields: dict[str, object] = {"path": asset_path, "alt": alt, "fit": fit}
-    if "caption" in mapping:
-        fields["caption"] = _inline_value(
-            mapping["caption"],
-            field="caption",
-            path=(*path, "caption"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
     return fields
 
 
@@ -1015,14 +979,6 @@ def _table_fields(
             )
         )
     fields: dict[str, object] = {"columns": columns, "rows": tuple(rows)}
-    if "caption" in mapping:
-        fields["caption"] = _inline_value(
-            mapping["caption"],
-            field="caption",
-            path=(*path, "caption"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
     if "emphasis_column" in mapping:
         emphasis = _int_value(
             mapping["emphasis_column"],
@@ -1164,14 +1120,6 @@ def _chart_fields(
             mapping["unit"],
             field="unit",
             path=(*path, "unit"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
-    if "caption" in mapping:
-        fields["caption"] = _inline_value(
-            mapping["caption"],
-            field="caption",
-            path=(*path, "caption"),
             slide_id=slide_id,
             block_id=block_id,
         )
@@ -1350,14 +1298,6 @@ def _diagram_fields(
         block_id=block_id,
     )
     fields: dict[str, object] = {"source": source, "alt": alt}
-    if "caption" in mapping:
-        fields["caption"] = _inline_value(
-            mapping["caption"],
-            field="caption",
-            path=(*path, "caption"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
     return fields
 
 
@@ -1405,14 +1345,6 @@ def _metric_fields(
         ),
         "status": "neutral",
     }
-    if "caption" in mapping:
-        fields["caption"] = _inline_value(
-            mapping["caption"],
-            field="caption",
-            path=(*path, "caption"),
-            slide_id=slide_id,
-            block_id=block_id,
-        )
     if "status" in mapping:
         fields["status"] = _choice(
             mapping["status"],
@@ -1423,53 +1355,6 @@ def _metric_fields(
             block_id=block_id,
         )
     return fields
-
-
-def _validate_source(
-    value: object,
-    *,
-    path: tuple[str | int, ...],
-    slide_id: str,
-) -> SourceDefinition:
-    mapping = _require_mapping(value, path=path, context="source")
-    _check_fields(mapping, _SOURCE_FIELDS, path=path, context="source", slide_id=slide_id)
-    text = _plain_value(
-        _require_field(mapping, "text", path=path, context="source"),
-        field="source.text",
-        path=(*path, "text"),
-        slide_id=slide_id,
-        multiline=True,
-    )
-    url: str | None = None
-    if "url" in mapping:
-        url = _source_url(mapping["url"], path=(*path, "url"), slide_id=slide_id)
-    return SourceDefinition(text=text, url=url)
-
-
-def _source_url(value: object, *, path: tuple[str | int, ...], slide_id: str) -> str:
-    url = _require_str(value, field="source.url", path=path, slide_id=slide_id)
-    if any(character.isspace() or ord(character) < 32 for character in url):
-        raise _schema_error(
-            "source.url tidak boleh memuat spasi atau karakter kontrol.",
-            path=path,
-            slide_id=slide_id,
-        )
-    try:
-        parsed = urlsplit(url)
-        hostname = parsed.hostname
-    except ValueError as error:
-        raise _schema_error(
-            f"source.url '{url}' tidak valid: {error}.",
-            path=path,
-            slide_id=slide_id,
-        ) from error
-    if parsed.scheme not in {"http", "https"} or hostname is None:
-        raise _schema_error(
-            "source.url hanya menerima URL http:// atau https:// dengan host.",
-            path=path,
-            slide_id=slide_id,
-        )
-    return url
 
 
 def _validated_asset_path(
@@ -1665,6 +1550,20 @@ def _check_fields(
     if name in STYLE_FIELDS:
         raise _schema_error(
             f"Field style '{name}' dilarang pada {context}; nilai visual berasal dari token.",
+            path=field_path,
+            slide_id=slide_id,
+            block_id=block_id,
+        )
+    if name == "caption":
+        raise _schema_error(
+            "Field 'caption' sudah dihapus, lihat ADR 0017.",
+            path=field_path,
+            slide_id=slide_id,
+            block_id=block_id,
+        )
+    if name == "source" and context == "slide":
+        raise _schema_error(
+            "Field 'source' (catatan sumber slide) sudah dihapus, lihat ADR 0017.",
             path=field_path,
             slide_id=slide_id,
             block_id=block_id,

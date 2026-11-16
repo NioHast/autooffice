@@ -1,7 +1,4 @@
-"""Preset layout ``diagram``: judul, subtitle, dan gambar PlantUML.
-
-Caption diagram adalah field block ``diagram``, bukan slot terpisah.
-"""
+"""Preset layout ``diagram``: judul, subtitle, dan gambar PlantUML."""
 
 from autooffice.deck.layout.spec import LayoutSpec, SlotSpec
 
@@ -34,5 +31,5 @@ LAYOUT = LayoutSpec(
         ("subtitle",),
         ("diagram1",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

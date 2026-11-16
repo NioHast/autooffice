@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal
 
-KeyKind = Literal["text", "data", "notes", "source", "media_text"]
+KeyKind = Literal["text", "data", "notes"]
 
 # Disalin dari layout custom agar model tidak mengimpor layout.
 _CUSTOM_LAYOUT = "custom"
@@ -53,29 +53,17 @@ class BlockIR:
 
 @dataclass(frozen=True, slots=True)
 class SlideIR:
-    """Satu slide tervalidasi beserta block, rows custom, notes, dan sumbernya."""
+    """Satu slide tervalidasi beserta block, rows custom, dan notes."""
 
     slide_id: str
     layout: str
     order: int
     blocks: tuple[BlockIR, ...]
     notes: str | None
-    source: Mapping[str, str] | None
     rows: tuple[tuple[str, ...], ...] = ()
 
     def __post_init__(self) -> None:
         self._validate_rows()
-        if self.source is None:
-            return
-        source = dict(self.source)
-        if "text" not in source:
-            raise ValueError("SlideIR.source wajib memuat 'text'.")
-        unexpected = set(source) - {"text", "url"}
-        if unexpected:
-            raise ValueError(
-                f"SlideIR.source hanya menerima 'text' dan 'url', bukan {sorted(unexpected)}."
-            )
-        object.__setattr__(self, "source", MappingProxyType(source))
 
     def _validate_rows(self) -> None:
         """Pastikan rows merujuk block slide tanpa duplikat."""

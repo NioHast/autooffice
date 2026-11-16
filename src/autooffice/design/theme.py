@@ -43,15 +43,22 @@ class ChartPalette:
 
 @dataclass(frozen=True, slots=True)
 class Typography:
-    """Family, weight, dan ukuran tipografi deck."""
+    """Family, weight, tracking, dan ukuran tipografi deck."""
 
     family: str
     weights: tuple[int, int, int, int]
+    display_pt: float
+    cover_title_pt: float
     title_pt: float
+    lead_pt: float
     body_pt: float
+    metric_pt: float
+    caption_pt: float
+    label_pt: float
     minimum_pt: float
     line_height: float
     tracking_em: float
+    kicker_tracking_em: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +97,15 @@ class RadiusTokens:
 
 
 @dataclass(frozen=True, slots=True)
+class CardTokens:
+    """Token card konten: fill, padding, dan radius."""
+
+    fill: str
+    padding_emu: int
+    radius_emu: int
+
+
+@dataclass(frozen=True, slots=True)
 class ShadowTokens:
     """Token bayangan kartu, overlay, dan tanpa bayangan."""
 
@@ -104,6 +120,7 @@ class CodeTokens:
 
     family: str
     size_pt: float
+    filename_pt: float
     line_height: float
 
 
@@ -119,6 +136,7 @@ class Theme:
     grid: GridTokens
     spacing: SpacingTokens
     radius: RadiusTokens
+    card: CardTokens
     shadow: ShadowTokens
     code: CodeTokens
 
@@ -159,11 +177,18 @@ def _theme_from_data(tokens: TokensData, data: ThemeData, name: str) -> Theme:
         typography=Typography(
             family=tokens["typography"]["family"],
             weights=tokens["typography"]["weights"],
+            display_pt=tokens["typography"]["display_pt"],
+            cover_title_pt=tokens["typography"]["cover_title_pt"],
             title_pt=tokens["typography"]["title_pt"],
+            lead_pt=tokens["typography"]["lead_pt"],
             body_pt=tokens["typography"]["body_pt"],
+            metric_pt=tokens["typography"]["metric_pt"],
+            caption_pt=tokens["typography"]["caption_pt"],
+            label_pt=tokens["typography"]["label_pt"],
             minimum_pt=tokens["typography"]["minimum_pt"],
             line_height=tokens["typography"]["line_height"],
             tracking_em=tokens["typography"]["tracking_em"],
+            kicker_tracking_em=tokens["typography"]["kicker_tracking_em"],
         ),
         grid=GridTokens(
             columns=tokens["grid"]["columns"],
@@ -188,6 +213,11 @@ def _theme_from_data(tokens: TokensData, data: ThemeData, name: str) -> Theme:
             md_emu=tokens["radius"]["md_emu"],
             lg_emu=tokens["radius"]["lg_emu"],
         ),
+        card=CardTokens(
+            fill=tokens["card"]["fill"],
+            padding_emu=tokens["card"]["padding_emu"],
+            radius_emu=tokens["card"]["radius_emu"],
+        ),
         shadow=ShadowTokens(
             card=tokens["shadow"]["card"],
             overlay=tokens["shadow"]["overlay"],
@@ -196,6 +226,7 @@ def _theme_from_data(tokens: TokensData, data: ThemeData, name: str) -> Theme:
         code=CodeTokens(
             family=tokens["code"]["family"],
             size_pt=tokens["code"]["size_pt"],
+            filename_pt=tokens["code"]["filename_pt"],
             line_height=tokens["code"]["line_height"],
         ),
     )

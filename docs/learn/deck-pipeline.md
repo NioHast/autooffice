@@ -87,7 +87,6 @@ deck:
 | `slides[id=s01].blocks[id=title].text` | `s01.title.text` |
 | `slides[id=s03].blocks[id=points].items[0]` | `s03.points.item1.text` |
 | `slides[id=s05].notes` | `s05.notes` |
-| `slides[id=s05].source.text` | `s05.source.text` |
 | `slides[id=s09].blocks[id=table1].rows[2][3]` | `s09.table1.r3.c4` |
 | `slides[id=s07].blocks[id=chart1].series[0].values[2]` | `s07.chart1.series1.value3` |
 

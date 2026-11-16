@@ -31,7 +31,6 @@ from .shapes import (
     box_from_placed,
     c_nv_pr,
     collect_render_warnings,
-    field_optional_text,
     rgb,
     set_chrome_shape,
     validate_box_within_slide,
@@ -80,13 +79,6 @@ class PptxRenderer:
                         request.theme,
                         target=request.target,
                         workspace=request.workspace,
-                    )
-                if slide_ir.source is not None:
-                    text_renderer.render_source_text(
-                        slide,
-                        slide_ir.slide_id,
-                        dict(slide_ir.source),
-                        request.theme,
                     )
                 if slide_ir.notes:
                     set_notes(
@@ -210,7 +202,6 @@ def _render_chart(
         width=box.width,
         height=box.height,
         placeholder=target == OutputTarget.SLIDES,
-        caption=field_optional_text(block.fields, "caption"),
     )
     node = c_nv_pr(shape)
     if node is not None:
@@ -218,7 +209,7 @@ def _render_chart(
 
 
 def _chart_keys(spec: ChartSpec) -> tuple[str, ...]:
-    """Turunkan key metadata chart; caption dihitung dari shape nyata."""
+    """Turunkan key metadata chart dari spec."""
     keys = [f"{spec.chart_id}.title"]
     keys.extend(f"{spec.chart_id}.cat{index}" for index in range(1, len(spec.categories) + 1))
     for series_index, series in enumerate(spec.series, start=1):

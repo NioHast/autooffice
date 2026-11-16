@@ -17,7 +17,7 @@ from autooffice.deck.model import (
 from autooffice.deck.model.coverage import _expected_leaves
 
 
-def _deck(blocks: tuple[BlockIR, ...], *, source: dict[str, str] | None = None) -> DeckIR:
+def _deck(blocks: tuple[BlockIR, ...]) -> DeckIR:
     return DeckIR(
         schema="autooffice.deck/v1",
         meta={"title": "Coverage Deck"},
@@ -29,7 +29,6 @@ def _deck(blocks: tuple[BlockIR, ...], *, source: dict[str, str] | None = None) 
                 order=0,
                 blocks=blocks,
                 notes=None,
-                source=source,
             ),
         ),
         keys=KeyManifest(bindings=()),
@@ -61,7 +60,7 @@ def test_plan_from_all_blocks_is_complete(fixture_dir: Path) -> None:
     plan = build_coverage_plan(deck)
 
     assert plan.ok is True
-    assert len(plan.declared_keys) == 37
+    assert len(plan.declared_keys) == 31
     assert plan.unkeyed_visible == ()
     assert plan.missing_alt == ()
     assert plan.charts[0].chart_id == "s01.chart1"
@@ -108,12 +107,6 @@ def test_defensive_missing_alt_detected() -> None:
     assert plan.ok is False
 
 
-def test_unkeyed_slide_source_detected() -> None:
-    plan = build_coverage_plan(_deck((), source={"text": "Sumber"}))
-
-    assert plan.unkeyed_visible == ("s01.source",)
-
-
 def test_defensive_duplicate_manifest_key_detected(fixture_dir: Path) -> None:
     """Guard internal: KeyRegistry menolak key duplikat sebelum IR terbentuk."""
     deck = compile_deck(load_deck(fixture_dir / "minimal.yaml"))
@@ -144,8 +137,8 @@ def test_report_is_deterministic_and_has_schema(fixture_dir: Path) -> None:
 
     assert report["schema"] == "autooffice.coverage/v1"
     assert report["deck_id"] == "semua-block"
-    assert report["declared"] == 37
-    assert report["rendered"] == 37
+    assert report["declared"] == 31
+    assert report["rendered"] == 31
     assert report["missing"] == []
     assert report["extra"] == []
     assert report["duplicate"] == []
@@ -205,8 +198,7 @@ def _scale_deck() -> DeckIR:
                     fields={"text": "Ekstra", "heading": "Ekstra"},
                 )
             )
-        source = {"text": "Sumber"} if index % 30 == 0 else None
-        slides.append(SlideIR(slide_id, "content", index, tuple(blocks), None, source))
+        slides.append(SlideIR(slide_id, "content", index, tuple(blocks), None))
         for position in range(1, 11):
             for leaf in ("text", "heading"):
                 bindings.append(
@@ -243,13 +235,6 @@ def _reference_unkeyed_visible(deck: DeckIR) -> tuple[str, ...]:
 
     unkeyed: list[str] = []
     for slide in deck.slides:
-        slide_leaves = {
-            binding.leaf
-            for binding in bindings
-            if binding.slide_id == slide.slide_id and binding.block_id is None
-        }
-        if slide.source is not None and "source.text" not in slide_leaves:
-            unkeyed.append(f"{slide.slide_id}.source")
         for block in slide.blocks:
             namespace = f"{slide.slide_id}.{block.block_id}"
             if set(_expected_leaves(block)) - declarations.get(namespace, set()):
@@ -268,7 +253,6 @@ def test_scale_plan_matches_reference_and_keeps_binding_scans_linear() -> None:
     assert len(deck.keys.bindings) == 6000
     assert plan.unkeyed_visible == reference
     assert "s001.extra" in plan.unkeyed_visible
-    assert "s031.source" in plan.unkeyed_visible
     assert plan.missing_alt == ()
     assert plan.charts == ()
     assert plan.ok is False

@@ -41,6 +41,7 @@ _TOKEN_KEYS = (
     "grid",
     "spacing",
     "radius",
+    "card",
     "shadow",
     "chart",
     "code",
@@ -84,11 +85,18 @@ class TypographyData(TypedDict):
 
     family: str
     weights: tuple[int, int, int, int]
+    display_pt: float
+    cover_title_pt: float
     title_pt: float
+    lead_pt: float
     body_pt: float
+    metric_pt: float
+    caption_pt: float
+    label_pt: float
     minimum_pt: float
     line_height: float
     tracking_em: float
+    kicker_tracking_em: float
 
 
 class GridData(TypedDict):
@@ -123,6 +131,14 @@ class RadiusData(TypedDict):
     lg_emu: int
 
 
+class CardData(TypedDict):
+    """Fill, padding, dan radius card konten dalam EMU."""
+
+    fill: str
+    padding_emu: int
+    radius_emu: int
+
+
 class ShadowData(TypedDict):
     """Bayangan kartu, overlay, dan tanpa bayangan."""
 
@@ -146,6 +162,7 @@ class CodeData(TypedDict):
 
     family: str
     size_pt: float
+    filename_pt: float
     line_height: float
 
 
@@ -158,6 +175,7 @@ class TokensData(TypedDict):
     grid: GridData
     spacing: SpacingData
     radius: RadiusData
+    card: CardData
     shadow: ShadowData
     chart: ChartDefaultsData
     code: CodeData
@@ -253,6 +271,13 @@ def _number(mapping: Mapping[str, object], key: str, where: str) -> float:
     return float(value)
 
 
+def _positive_number(mapping: Mapping[str, object], key: str, where: str) -> float:
+    value = _number(mapping, key, where)
+    if value <= 0:
+        raise DesignTokenError(f"{where}.{key} wajib lebih besar dari nol")
+    return value
+
+
 def _integer(mapping: Mapping[str, object], key: str, where: str) -> int:
     value = mapping[key]
     if isinstance(value, bool) or not isinstance(value, int):
@@ -318,7 +343,22 @@ def _validate_colors(mapping: Mapping[str, object], where: str) -> ColorsData:
 def _validate_typography(mapping: Mapping[str, object], where: str) -> TypographyData:
     _require_exact(
         mapping,
-        ("family", "weights", "title_pt", "body_pt", "minimum_pt", "line_height", "tracking_em"),
+        (
+            "family",
+            "weights",
+            "display_pt",
+            "cover_title_pt",
+            "title_pt",
+            "lead_pt",
+            "body_pt",
+            "metric_pt",
+            "caption_pt",
+            "label_pt",
+            "minimum_pt",
+            "line_height",
+            "tracking_em",
+            "kicker_tracking_em",
+        ),
         where,
     )
     raw_weights = mapping["weights"]
@@ -332,11 +372,18 @@ def _validate_typography(mapping: Mapping[str, object], where: str) -> Typograph
     return TypographyData(
         family=_text(mapping, "family", where),
         weights=(weights[0], weights[1], weights[2], weights[3]),
-        title_pt=_number(mapping, "title_pt", where),
-        body_pt=_number(mapping, "body_pt", where),
-        minimum_pt=_number(mapping, "minimum_pt", where),
-        line_height=_number(mapping, "line_height", where),
+        display_pt=_positive_number(mapping, "display_pt", where),
+        cover_title_pt=_positive_number(mapping, "cover_title_pt", where),
+        title_pt=_positive_number(mapping, "title_pt", where),
+        lead_pt=_positive_number(mapping, "lead_pt", where),
+        body_pt=_positive_number(mapping, "body_pt", where),
+        metric_pt=_positive_number(mapping, "metric_pt", where),
+        caption_pt=_positive_number(mapping, "caption_pt", where),
+        label_pt=_positive_number(mapping, "label_pt", where),
+        minimum_pt=_positive_number(mapping, "minimum_pt", where),
+        line_height=_positive_number(mapping, "line_height", where),
         tracking_em=_number(mapping, "tracking_em", where),
+        kicker_tracking_em=_positive_number(mapping, "kicker_tracking_em", where),
     )
 
 
@@ -396,6 +443,15 @@ def _validate_radius(mapping: Mapping[str, object], where: str) -> RadiusData:
     )
 
 
+def _validate_card(mapping: Mapping[str, object], where: str) -> CardData:
+    _require_exact(mapping, ("fill", "padding_emu", "radius_emu"), where)
+    return CardData(
+        fill=_hex(mapping, "fill", where),
+        padding_emu=_integer(mapping, "padding_emu", where),
+        radius_emu=_integer(mapping, "radius_emu", where),
+    )
+
+
 def _validate_shadow(mapping: Mapping[str, object], where: str) -> ShadowData:
     _require_exact(mapping, ("card", "overlay", "none"), where)
     return ShadowData(
@@ -418,11 +474,12 @@ def _validate_chart_defaults(mapping: Mapping[str, object], where: str) -> Chart
 
 
 def _validate_code(mapping: Mapping[str, object], where: str) -> CodeData:
-    _require_exact(mapping, ("family", "size_pt", "line_height"), where)
+    _require_exact(mapping, ("family", "size_pt", "filename_pt", "line_height"), where)
     return CodeData(
         family=_text(mapping, "family", where),
-        size_pt=_number(mapping, "size_pt", where),
-        line_height=_number(mapping, "line_height", where),
+        size_pt=_positive_number(mapping, "size_pt", where),
+        filename_pt=_positive_number(mapping, "filename_pt", where),
+        line_height=_positive_number(mapping, "line_height", where),
     )
 
 
@@ -442,6 +499,7 @@ def load_tokens() -> TokensData:
         grid=_validate_grid(_mapping(data["grid"], "tokens.grid"), "tokens.grid"),
         spacing=_validate_spacing(_mapping(data["spacing"], "tokens.spacing"), "tokens.spacing"),
         radius=_validate_radius(_mapping(data["radius"], "tokens.radius"), "tokens.radius"),
+        card=_validate_card(_mapping(data["card"], "tokens.card"), "tokens.card"),
         shadow=_validate_shadow(_mapping(data["shadow"], "tokens.shadow"), "tokens.shadow"),
         chart=_validate_chart_defaults(_mapping(data["chart"], "tokens.chart"), "tokens.chart"),
         code=_validate_code(_mapping(data["code"], "tokens.code"), "tokens.code"),

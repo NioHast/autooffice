@@ -321,7 +321,7 @@ def test_custom_media_reserves_following_body_row(
     )
 
 
-def test_source_and_notes_are_allowed_on_custom_slides(
+def test_notes_are_allowed_on_custom_slides(
     block_factory: Callable[..., BlockIR],
     slide_factory: Callable[..., SlideIR],
     theme,
@@ -330,7 +330,6 @@ def test_source_and_notes_are_allowed_on_custom_slides(
     slide = slide_factory(
         (block,),
         layout="custom",
-        source={"text": "Sumber internal"},
         notes="Catatan pembicara",
     )
 
@@ -378,42 +377,6 @@ def test_custom_overflow_findings_deduplicate_width_and_height_keys(
     assert tuple(finding.kind for finding in plan.overflows) == ("lebar", "tinggi")
     assert all(finding.key == "s01.body.text" for finding in plan.overflows)
     assert all(finding.estimated_overflow_emu > 0 for finding in plan.overflows)
-
-
-def test_custom_media_caption_height_overflow_uses_caption_key(
-    block_factory: Callable[..., BlockIR],
-    slide_factory: Callable[..., SlideIR],
-    theme,
-    grid: Grid,
-) -> None:
-    title = block_factory(
-        "title",
-        "text",
-        fields={"text": "\n".join(["baris"] * 11)},
-        role="title",
-        span=12,
-    )
-    image = block_factory(
-        "image1",
-        "image",
-        fields={
-            "path": "assets/hero.png",
-            "alt": "Ilustrasi",
-            "caption": "Keterangan gambar",
-        },
-        span=12,
-    )
-    slide = slide_factory((title, image), layout="custom")
-
-    plan = plan_custom_slide_with_findings(slide, theme, rows=((title,), (image,)))
-    image_box = plan.layout.boxes[1]
-
-    assert plan.layout.overflow_keys == ("s01.image1.caption",)
-    assert tuple((finding.kind, finding.key) for finding in plan.overflows) == (
-        ("tinggi", "s01.image1.caption"),
-    )
-    assert plan.overflows[0].estimated_overflow_emu > 0
-    assert image_box.top_emu + image_box.height_emu > grid.content_bottom_emu
 
 
 def test_custom_rows_below_content_bottom_report_height_findings(

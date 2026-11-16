@@ -6,6 +6,17 @@ Sumber: `AUTO_OFFICE_PLAN.md` bagian 12.3, 12.11, 18.9, keputusan L17, dan
 [ADR 0010](../decisions/0010-risk-based-coverage.md).
 Pemilik kontrak: integration owner.
 
+## Daftar Isi
+
+- [Tujuan](#tujuan)
+- [Target berbasis risiko](#target-berbasis-risiko)
+- [Rasional](#rasional)
+- [Invarian](#invarian)
+- [Exclusion terdaftar](#exclusion-terdaftar)
+- [Perintah gate](#perintah-gate)
+- [Contoh](#contoh)
+- [Pemetaan acceptance](#pemetaan-acceptance)
+
 ## Tujuan
 
 Kontrak ini membekukan definisi coverage, target berbasis risiko, kebijakan
@@ -88,6 +99,8 @@ baik dialokasikan ke modul kritis, mutation testing, dan test perilaku.
 14. Angka 100% tanpa assertion perilaku tetap dianggap gagal oleh test-quality
     checker.
 15. Data branch wajib ada; checker menolak `.coverage` tanpa arc branch.
+16. Field block `caption` dan field slide `source` dihapus oleh ADR 0017;
+    keduanya tidak lagi menghasilkan key, shape, atau temuan coverage.
 
 ## Exclusion terdaftar
 

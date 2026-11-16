@@ -54,5 +54,5 @@ LAYOUT = LayoutSpec(
         ("author", "role"),
         ("summary",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

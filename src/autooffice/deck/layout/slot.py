@@ -70,11 +70,6 @@ def validate_slide(slide: SlideIR, spec: LayoutSpec) -> tuple[SlotAssignment, ..
         raise SlotValidationError(
             f"Slide '{slide.slide_id}' memakai layout '{slide.layout}', bukan '{spec.layout_id}'."
         )
-    if slide.source is not None and not spec.accepts_source:
-        raise SlotValidationError(
-            f"Slide '{slide.slide_id}' memiliki source, tetapi layout "
-            f"'{spec.layout_id}' tidak menerima source (accepts_source=False)."
-        )
 
     slots_by_id = {slot.slot_id: slot for slot in spec.slots}
     blocks_by_id: dict[str, BlockIR] = {}

@@ -66,14 +66,13 @@ def single_slide_deck(
     keys: tuple[KeyBinding, ...] = (),
     slide_id: str = "s01",
     notes: str | None = None,
-    source: dict[str, str] | None = None,
 ) -> DeckIR:
     """Bangun deck satu slide tanpa layout engine."""
     return DeckIR(
         schema="autooffice.deck/v1",
         meta={"title": "Edge Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR(slide_id, "content", 0, blocks, notes, source),),
+        slides=(SlideIR(slide_id, "content", 0, blocks, notes),),
         keys=KeyManifest(keys),
     )
 

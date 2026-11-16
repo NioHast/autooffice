@@ -39,5 +39,5 @@ LAYOUT = LayoutSpec(
         ("points",),
         ("note",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

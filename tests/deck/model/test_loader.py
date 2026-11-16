@@ -48,7 +48,6 @@ def test_minimal_fixture_loads_and_compiles(fixture_dir: Path) -> None:
     assert ir.slides[0].layout == "content"
     assert ir.keys.keys() == (
         "s01.notes",
-        "s01.source.text",
         "s01.title.text",
         "s01.title.heading",
         "s01.points.item1.text",

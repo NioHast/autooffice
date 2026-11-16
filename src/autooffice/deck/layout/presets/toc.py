@@ -43,6 +43,6 @@ LAYOUT = LayoutSpec(
         ("lead",),
         ("group1", "group2", "group3"),
     ),
-    accepts_source=True,
+    vertical_align="center",
     min_one_of=(("group1", "group2", "group3"),),
 )

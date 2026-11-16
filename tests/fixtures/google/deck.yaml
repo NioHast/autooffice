@@ -19,9 +19,6 @@ slides:
     notes: |
       Catatan awal untuk slide pertama.
       Baris kedua tetap dipertahankan.
-    source:
-      text: "Sumber: data internal, 2026"
-      url: "https://example.com/data"
     blocks:
       - id: title
         type: text
@@ -37,11 +34,8 @@ slides:
         rows:
           - ["Peserta", "12"]
           - ["Selesai", "10"]
-        caption: "Tabel awal"
   - id: s02
     layout: line
-    source:
-      text: "Sumber: metrik internal, 2026"
     blocks:
       - id: title
         type: text

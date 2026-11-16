@@ -40,5 +40,5 @@ LAYOUT = LayoutSpec(
         ),
     ),
     rows=(("title",), ("lead",), ("matrix1", "legend"), ("note",)),
-    accepts_source=True,
+    vertical_align="center",
 )
