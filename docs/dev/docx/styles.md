@@ -6,17 +6,39 @@ Halaman ini menjelaskan style inti yang dipakai pipeline dan asal
 
 Style inti yang dipakai pipeline:
 
-- `Normal`, `Heading1` sampai `Heading9`;
+- `Normal`, `Heading1` sampai `Heading5`;
 - `TOCHeading`, `TOC1`, `TOC2`, `TOC3`;
 - `Caption`, `TableCaption`, `ImageCaption`, `Figure`;
-- `Bibliography`, `SourceCode`, `VerbatimChar`, `HTMLCode`,
-  `HTMLPreformatted`;
+- `Bibliography`, `SourceCode`, `VerbatimChar`;
 - `IstilahAsing`, `IstilahReview`;
 - style sampul seperti `CoverTitle`, `CoverSubtitle`, `CoverName`,
   `CoverInstitution`, dan `CoverImage`.
 
 `style_reference` menghasilkan `reference.docx` turunan dari `format.yaml`.
 Sumber `reference.docx` di `src/autooffice/docx/data/` tidak pernah ditimpa.
+
+## Style yang sengaja dihapus
+
+`reference.docx` sumber **bukan lagi salinan stok Pandoc**. Sebanyak 12 style
+dihapus secara sengaja dari `word/styles.xml` (63 menjadi 51 style dasar):
+
+- `Heading6`, `Heading7`, `Heading8`, `Heading9` (paragraf) beserta
+  `Heading6Char`, `Heading7Char`, `Heading8Char`, `Heading9Char` (karakter);
+- `DefinitionTerm` dan `Definition` (paragraf);
+- `HTMLPreformatted` (paragraf) dan `HTMLCode` (karakter).
+
+`style_reference` juga tidak mendeklarasikan ulang `HTMLPreformatted` dan
+`HTMLCode`. `w:latentStyles` dibiarkan apa adanya. `FootnoteText`,
+`FootnoteBlockText`, dan `FootnoteReference` tetap dipertahankan karena
+catatan kaki masih didukung.
+
+Konsekuensi: dokumen yang memakai heading level 6+, definition list, atau blok
+HTML mentah akan **gagal** di gate parity
+(`tests/docx/test_style_parity.py`). Pandoc memakai atau mengimpor style yang
+tidak ada di reference dan `test_pandoc_imports_no_style_outside_reference`
+menyebut `styleId` yang hilang. Tambahkan style itu kembali ke `reference.docx`
+(dan ke `style_specs_for_format` bila perlu) bila konstruksinya memang
+didukung.
 
 ## Numbering heading
 

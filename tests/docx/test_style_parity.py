@@ -1,10 +1,17 @@
 """Gate parity style DOCX: output Pandoc tidak boleh membawa style baru.
 
 Fixture ``tests/fixtures/docx/kitchen-sink`` memancing blok dan properti yang
-ditulis Pandoc untuk dokumen produksi: heading 1-6, paragraf, daftar rapat dan
+ditulis Pandoc untuk dokumen produksi: heading 1-5, paragraf, daftar rapat dan
 renggang, blockquote, blok kode ber-highlight dan tanpa bahasa, kode sebaris,
-tabel dan caption, gambar dan caption, footnote, definition list, sitasi,
-garis horizontal, serta format inline.
+tabel dan caption, gambar dan caption, footnote, sitasi, garis horizontal,
+serta format inline.
+
+``reference.docx`` sengaja tidak lagi memuat ``Heading6``-``Heading9``,
+``DefinitionTerm``/``Definition``, dan ``HTMLPreformatted``/``HTMLCode``.
+Dokumen yang memakai heading level 6+, definition list, atau blok HTML mentah
+akan memakai atau memicu impor style yang tidak ada di reference sehingga gate
+ini gagal; tambahkan kembali style tersebut ke reference bila konstruksinya
+memang didukung.
 
 Tes menjalankan Pandoc lewat :func:`build_pandoc_command` milik stage
 ``pandoc`` supaya flag yang diuji identik dengan produksi, lalu membandingkan
@@ -12,6 +19,8 @@ dua arah terhadap ``reference.docx`` turunan:
 
 - style yang ada di output tetapi tidak ada di reference = Pandoc mengimpor
   style sendiri (gate ini gagal);
+- style yang dipakai output tetapi tidak ada di reference = konstruksi
+  dokumen memakai style yang tidak didukung (gate ini gagal);
 - style yang ada di keduanya harus punya definisi XML yang sama.
 
 Bila Pandoc kelak menambah style baru, tes gagal dan menyebut ``styleId`` yang
@@ -61,8 +70,6 @@ REQUIRED_USED_STYLES = frozenset(
         "BodyText",
         "CaptionedFigure",
         "Compact",
-        "Definition",
-        "DefinitionTerm",
         "FirstParagraph",
         "FootnoteReference",
         "FootnoteText",
@@ -71,7 +78,6 @@ REQUIRED_USED_STYLES = frozenset(
         "Heading3",
         "Heading4",
         "Heading5",
-        "Heading6",
         "Hyperlink",
         "ImageCaption",
         "KeywordTok",
@@ -81,6 +87,28 @@ REQUIRED_USED_STYLES = frozenset(
         "VerbatimChar",
     }
 )
+
+# Style yang sengaja dihapus dari ``reference.docx``. Fixture tidak boleh
+# memakai konstruksi yang memicunya; bila Pandoc tetap mengimpor salah satu
+# style ini, gate ``test_pandoc_imports_no_style_outside_reference`` gagal.
+RETIRED_STYLES = frozenset(
+    {
+        "DefinitionTerm",
+        "Definition",
+        "HTMLPreformatted",
+        "HTMLCode",
+        "Heading6",
+        "Heading7",
+        "Heading8",
+        "Heading9",
+        "Heading6Char",
+        "Heading7Char",
+        "Heading8Char",
+        "Heading9Char",
+    }
+)
+
+FOOTNOTE_STYLES = frozenset({"FootnoteText", "FootnoteBlockText", "FootnoteReference"})
 
 
 @pytest.fixture(scope="module")
@@ -227,6 +255,23 @@ def test_style_specs_cover_every_highlight_style(format_spec: Format) -> None:
     assert missing == [], f"style_specs_for_format belum memuat: {missing}"
 
 
+def test_reference_omits_retired_styles_and_keeps_footnotes(
+    tmp_path: Path,
+    format_spec: Format,
+) -> None:
+    reference = tmp_path / "reference.docx"
+    build_reference_docx(Path(format_spec.assets.reference_docx), reference, format_spec)
+
+    styles = _styles(reference)
+    present = sorted(RETIRED_STYLES & set(styles))
+    assert present == [], f"style yang sudah dipensiunkan muncul lagi di reference: {present}"
+
+    missing_footnotes = sorted(FOOTNOTE_STYLES - set(styles))
+    assert missing_footnotes == [], (
+        f"style footnote wajib tetap ada di reference: {missing_footnotes}"
+    )
+
+
 def test_pandoc_imports_no_style_outside_reference(
     parity_build: tuple[Path, Path],
 ) -> None:
@@ -238,6 +283,13 @@ def test_pandoc_imports_no_style_outside_reference(
     assert imported == [], (
         "Pandoc mengimpor style yang tidak ada di reference turunan: "
         f"{imported}. Deklarasikan di style_specs_for_format()/format.yaml."
+    )
+
+    undeclared = sorted(_used_style_ids(output) - reference_ids)
+    assert undeclared == [], (
+        "Pandoc memakai style yang tidak dideklarasikan reference turunan: "
+        f"{undeclared}. Konstruksi fixture memakai style yang sudah dipensiunkan "
+        "atau style baru belum dideklarasikan di style_specs_for_format()/format.yaml."
     )
 
 
