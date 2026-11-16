@@ -366,8 +366,9 @@ def _resource_paths(ctx: object, markdown: Path) -> tuple[Path, ...]:
     """Direktori pencarian gambar untuk Pandoc.
 
     Gambar Markdown relatif terhadap ``document.md``; PlantUML dapat menulis ke
-    ``gambar/`` di direktori dokumen atau workspace. Logo front matter memakai
-    path absolut sehingga tidak butuh entri tambahan.
+    ``gambar/`` di direktori dokumen atau workspace. Sampul menulis logo sebagai
+    ``logo.jpg`` relatif terhadap direktori format, jadi direktori format ikut
+    masuk daftar pencarian.
     """
 
     document_path = Path(getattr(getattr(ctx, "document", None), "path", Path.cwd()))
@@ -382,6 +383,7 @@ def _resource_paths(ctx: object, markdown: Path) -> tuple[Path, ...]:
     candidates: list[Path] = [
         document_path.parent,
         markdown.parent,
+        format_path,
         format_path.parent,
         document_path.parent / "gambar",
     ]

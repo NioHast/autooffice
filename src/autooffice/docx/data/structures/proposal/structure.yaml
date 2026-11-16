@@ -1,12 +1,12 @@
 # Struktur proposal tesis UNDIP MSI.
-# Memuat halaman persetujuan, TOC, empat bab body, dan bibliografi.
-# Penomoran arab bertitik; cover tanpa dosen pembimbing dan logo 4,7 cm.
+# Penomoran arab bertitik; cover ditulis di document.md, TOC oleh stage toc.
 format: undip-msi
 
-front_matter:
-  - {id: cover, source: generated}
-  - {id: approval, source: template, template: approval.md}
-  - {id: toc, source: generated}
+toc: true
+
+lists:
+  figures: false
+  tables: false
 
 body:
   - {id: pendahuluan, title: "Pendahuluan"}
@@ -21,8 +21,3 @@ numbering:
   body: ARABIC_DOTTED
   sub_dot: true
   subsub_dot: true
-
-# Kunci cover mengikuti kontrak DOCX di docs/contracts/docx.md.
-cover:
-  show_lecturer: false
-  logo_width: 4.7cm

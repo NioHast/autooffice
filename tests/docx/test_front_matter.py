@@ -1,7 +1,5 @@
-"""Tes unit stage ``front_matter`` dan perilaku cover."""
+"""Tes unit stage ``front_matter`` setelah front matter pindah ke Markdown."""
 
-import re
-from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,17 +13,26 @@ from autooffice.docx.markdown.headings import LINE_BREAK
 from autooffice.docx.metadata import normalize_metadata
 from autooffice.docx.pipeline import ArtifactStore, Workspace
 from autooffice.docx.stages.front_matter import (
-    PAGE_BREAK_XML,
+    SECTION_BREAK_MARKER,
     FrontMatterError,
     FrontMatterStage,
     render_front_matter,
-    render_template,
-    spacer,
+    section_break,
 )
 from autooffice.docx.stages.plantuml import PlantUmlStage
 
 _TITLE = "Optimasi Pipeline Pemrosesan Dokumen Markdown untuk Laporan Tugas Akhir"
+_PAGE_BREAK_XML = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
 _BODY = (
+    '::: {custom-style="CoverTitle"}\n'
+    "JUDUL SAMPUL\n"
+    ":::\n\n"
+    f"{SECTION_BREAK_MARKER}\n\n"
+    "# LEMBAR PENGESAHAN {-}\n\n"
+    "Isi lembar pengesahan.\n\n"
+    "```{=openxml}\n"
+    f"{_PAGE_BREAK_XML}\n"
+    "```\n\n"
     "# Pendahuluan\n\n"
     "Teks pendahuluan.\n\n"
     "## Latar Belakang\n\n"
@@ -38,24 +45,13 @@ _BASE_FRONT_MATTER: dict[str, Any] = {
     "title": _TITLE,
     "author": "Nama Mahasiswa",
     "nim": "30000000000000",
-    "lecturer": "Dr. Nama Dosen Pengampu, M.Kom.",
-    "lecturer_label": "Dosen Pengampu:",
-    "course": "Penulisan Laporan Akademik",
-    "institution": "Universitas Diponegoro",
-    "faculty": "Program Studi Magister Sistem Informasi",
-    "year": "2026",
-    "date": "Agustus 2026",
+    "lang": "id-ID",
     "report_name": "Tugas",
-    "abstract_id": "Abstrak baris pertama.\n\nAbstrak baris kedua.",
-    "abstract_en": "First paragraph.\n\nSecond paragraph.",
-    "keywords": "machine learning",
-    "keywords_en": ["pipeline", "DOCX"],
-    "preface": "Ucapan terima kasih.",
 }
 
 
 def _document(
-    front_matter: Mapping[str, Any] | None = None,
+    front_matter: dict[str, Any] | None = None,
     *,
     body: str = _BODY,
     structure_id: str = "thesis",
@@ -72,202 +68,24 @@ def _document(
         structure_id=structure_id,
         format_id="undip-msi",
         bibliography=None,
+        body_start=9,
     )
 
 
 def _render(
-    front_matter: Mapping[str, Any] | None = None,
     *,
     body: str = _BODY,
     structure_id: str = "thesis",
-    include_logo: bool = True,
-    logo: str | Path | None = None,
+    page_overrides: dict[str, Any] | None = None,
 ) -> str:
-    return render_front_matter(
-        _document(front_matter, body=body, structure_id=structure_id),
-        load_structure(structure_id),
-        load_format("undip-msi"),
-        body=body,
-        include_logo=include_logo,
-        logo=logo,
-    )
-
-
-def _render_with_page(**page_overrides: Any) -> str:
     format_ = load_format("undip-msi")
+    if page_overrides:
+        format_ = replace(format_, page=replace(format_.page, **page_overrides))
     return render_front_matter(
-        _document(),
-        load_structure("thesis"),
-        replace(format_, page=replace(format_.page, **page_overrides)),
-        body=_BODY,
-        include_logo=False,
+        body,
+        format_,
+        numbering_body=load_structure(structure_id).numbering.body,
     )
-
-
-def _block(output: str, style: str) -> str:
-    match = re.search(
-        rf'::: \{{custom-style="{re.escape(style)}"\}}\n(.*?)\n:::',
-        output,
-        re.S,
-    )
-    assert match is not None, f"blok style {style!r} tidak ditemukan"
-    return match.group(1)
-
-
-def test_cover_identity_logo_and_lecturer() -> None:
-    output = _render()
-
-    assert '::: {custom-style="CoverTitle"}' in output
-    assert "OPTIMASI PIPELINE" in output
-    assert "**Penulisan Laporan Akademik**" in output
-    assert "Dosen Pengampu: **Dr. Nama Dosen Pengampu, M.Kom.**" in output
-    assert "**Nama Mahasiswa**" in output
-    assert "30000000000000" in output
-    assert "PROGRAM STUDI MAGISTER SISTEM INFORMASI" in output
-    assert "UNIVERSITAS DIPONEGORO" in output
-    assert "2026" in output
-    assert "{width=4.88cm}" in output
-    assert "logo.jpg" in output
-
-
-def test_cover_author_scalar_not_split_into_three() -> None:
-    output = _render({"author": "Nama Mahasiswa"})
-
-    # Author scalar harus menjadi satu CoverName, bukan tiga entri.
-    assert output.count('custom-style="CoverName"') == 1
-    assert output.count("**Nama Mahasiswa**") == 1
-    assert "**Nama**" not in output
-    assert "**Mahasiswa**" not in output
-
-
-def test_cover_author_list_student_id_per_entry() -> None:
-    output = _render(
-        {
-            "author": [
-                {"name": "Nama Satu", "nim": "30000000000001"},
-                {"name": "Nama Dua", "nim": "30000000000002"},
-            ],
-            "nim": None,
-        }
-    )
-
-    assert output.count('custom-style="CoverName"') == 2
-    assert "**Nama Satu**" in output
-    assert "**Nama Dua**" in output
-    assert "30000000000001" in output
-    assert "30000000000002" in output
-
-
-def test_cover_show_lecturer_false() -> None:
-    output = _render(structure_id="assignment")
-
-    assert "Dosen Pengampu" not in output
-    assert "Dr. Nama Dosen Pengampu" not in output
-
-
-def test_cover_title_split_uses_two_lines() -> None:
-    output = _render()
-    title_block = _block(output, "CoverTitle")
-
-    # Judul panjang dipecah seimbang menjadi dua baris.
-    assert title_block == (
-        "OPTIMASI PIPELINE PEMROSESAN DOKUMEN  \nMARKDOWN UNTUK LAPORAN TUGAS AKHIR"
-    )
-
-
-def test_cover_long_two_word_title_does_not_crash() -> None:
-    long_title = ("A" * 30) + " " + ("B" * 30)
-    output = _render({"title": long_title})
-    title_block = _block(output, "CoverTitle")
-
-    assert title_block == ("A" * 30) + "  \n" + ("B" * 30)
-
-
-def test_approval_and_statement_from_template() -> None:
-    output = _render()
-
-    assert "# LEMBAR PENGESAHAN {-}" in output
-    assert "# PERNYATAAN {-}" in output
-    assert f"**Judul:** {_TITLE}" in output
-    assert "**Penulis:** Nama Mahasiswa" in output
-    assert "**NIM:** 30000000000000" in output
-    assert "**Institusi:** Universitas Diponegoro" in output
-    assert "{{" not in output
-    assert "{{ title }}" not in output
-
-
-def test_abstract_id_keywords_scalar_and_paragraph() -> None:
-    output = _render()
-
-    assert "# ABSTRAK {-}" in output
-    assert "Abstrak baris pertama.\n\nAbstrak baris kedua." in output
-    assert '**Kata Kunci:** [machine learning]{custom-style="AbstractKeywordText"}' in output
-    # Kata kunci string adalah satu entri, bukan dipecah per karakter/kata.
-    assert "m, a, c" not in output
-    assert "*machine learning*" not in output
-
-
-def test_abstract_en_keywords_list() -> None:
-    output = _render()
-
-    assert "# ABSTRACT {-}" in output
-    assert "First paragraph.\n\nSecond paragraph." in output
-    assert '**Keywords:** [pipeline, DOCX]{custom-style="AbstractKeywordText"}' in output
-    assert "*First paragraph.*" not in output
-
-
-def test_abstract_english_uses_paragraph_style_not_asterisks() -> None:
-    output = _render()
-    abstract_en = output[output.index("# ABSTRACT {-}") : output.index("PENDAHULUAN")]
-
-    assert '::: {custom-style="AbstractBodyEn" lang="en-US"}' in abstract_en
-    assert '::: {custom-style="AbstractKeywords" lang="en-US"}' in abstract_en
-    assert not re.search(r"(?<!\*)\*(?!\*)", abstract_en)
-
-
-def test_abstract_without_title_uses_custom_style() -> None:
-    output = _render()
-
-    abstract_id = output[output.index("# ABSTRAK {-}") : output.index("# ABSTRACT {-}")]
-    assert "CoverLine" not in abstract_id
-    assert _TITLE.upper() not in abstract_id
-    assert '::: {custom-style="AbstractBody"}' in abstract_id
-    assert '::: {custom-style="AbstractKeywords"}' in abstract_id
-
-    abstract_en = output[output.index("# ABSTRACT {-}") : output.index("PENDAHULUAN")]
-    assert "CoverLine" not in abstract_en
-    assert _TITLE.upper() not in abstract_en
-    assert '::: {custom-style="AbstractBodyEn" lang="en-US"}' in abstract_en
-    assert 'custom-style="AbstractKeywords" lang="en-US"' in abstract_en
-    assert '::: {custom-style="AbstractBody"}' not in abstract_en
-    assert '**Keywords:** [pipeline, DOCX]{custom-style="AbstractKeywordText"}' in abstract_en
-    assert "*First paragraph.*" not in abstract_en
-    assert "*Second paragraph.*" not in abstract_en
-
-
-def test_front_matter_order_and_no_toc_field() -> None:
-    output = _render()
-
-    positions = [
-        output.index('custom-style="CoverTitle"'),
-        output.index("# LEMBAR PENGESAHAN {-}"),
-        output.index("# PERNYATAAN {-}"),
-        output.index("# KATA PENGANTAR {-}"),
-        output.index("# ABSTRAK {-}"),
-        output.index("# ABSTRACT {-}"),
-        output.index("PENDAHULUAN"),
-    ]
-    assert positions == sorted(positions)
-    assert "w:sdt" not in output
-    assert "TOC \\o" not in output
-    assert "TOC \\c" not in output
-
-
-def test_page_break_between_front_matter() -> None:
-    output = _render()
-
-    # Approval, statement, preface, abstract_id, abstract_en.
-    assert output.count(PAGE_BREAK_XML) == 5
 
 
 def test_section_break_uses_format_yaml_margins() -> None:
@@ -279,23 +97,22 @@ def test_section_break_uses_format_yaml_margins() -> None:
     assert 'w:left="2268"' in output
     assert 'w:header="720"' in output
     assert 'w:footer="720"' in output
-    # Nilai default berasal dari ``format.yaml``, bukan bawaan Word.
     assert 'w:top="1134"' not in output
     assert 'w:right="1417"' not in output
 
 
 def test_section_break_normalizes_legacy_size_alias() -> None:
-    portrait = _render_with_page(size="LETTER", orientation="portrait")
+    portrait = _render(page_overrides={"size": "LETTER", "orientation": "portrait"})
     assert 'w:w="12240"' in portrait
     assert 'w:h="15840"' in portrait
     assert 'w:orient="landscape"' not in portrait
 
-    landscape = _render_with_page(size="LETTER", orientation="landscape")
+    landscape = _render(page_overrides={"size": "LETTER", "orientation": "landscape"})
     assert 'w:w="15840"' in landscape
     assert 'w:h="12240"' in landscape
     assert 'w:orient="landscape"' in landscape
 
-    lowercase = _render_with_page(size="a4", orientation="portrait")
+    lowercase = _render(page_overrides={"size": "a4", "orientation": "portrait"})
     assert 'w:w="11906"' in lowercase
     assert 'w:h="16838"' in lowercase
 
@@ -312,25 +129,63 @@ def test_section_break_rejects_invalid_size_or_orientation(
     orientation: str,
 ) -> None:
     with pytest.raises(FrontMatterError) as excinfo:
-        _render_with_page(size=size, orientation=orientation)
+        _render(page_overrides={"size": size, "orientation": orientation})
 
     assert excinfo.value.code == "FRONT-MATTER-PAGE"
     assert size in str(excinfo.value)
     assert orientation in str(excinfo.value)
 
 
-def test_spacer_is_explicit_spacing() -> None:
+def test_marker_replaced_by_raw_openxml() -> None:
     output = _render()
 
-    assert output.count('w:spacing w:before="640"') == 3
-    assert "<w:p/><w:p/>" not in output
-    assert "spacer" not in output.lower()
+    assert SECTION_BREAK_MARKER not in output
+    assert output.count("```{=openxml}") == 2
+    assert "<w:sectPr>" in output
 
 
-def test_spacer_zero_twips_is_empty() -> None:
-    assert spacer(0) == ""
-    assert spacer(-1) == ""
-    assert 'w:before="360"' in spacer(360)
+def test_every_marker_is_replaced() -> None:
+    body = f"{SECTION_BREAK_MARKER}\n\nteks\n\n{SECTION_BREAK_MARKER}\n"
+    output = render_front_matter(body, load_format("undip-msi"))
+
+    assert SECTION_BREAK_MARKER not in output
+    assert output.count("<w:sectPr>") == 2
+
+
+def test_marker_without_surrounding_blank_lines_is_replaced() -> None:
+    body = f"sebelum\n{SECTION_BREAK_MARKER}\nsesudah\n"
+    output = render_front_matter(body, load_format("undip-msi"))
+
+    assert "sebelum" in output
+    assert "sesudah" in output
+    assert SECTION_BREAK_MARKER not in output
+    assert "<w:sectPr>" in output
+
+
+def test_missing_marker_is_left_untouched() -> None:
+    output = render_front_matter("teks tanpa marker\n", load_format("undip-msi"))
+
+    assert output.strip() == "teks tanpa marker"
+
+
+def test_cover_markdown_is_not_rendered_from_metadata() -> None:
+    output = _render(body='::: {custom-style="CoverTitle"}\nJUDUL MANUAL\n:::\n')
+
+    assert "JUDUL MANUAL" in output
+    assert _TITLE.upper() not in output
+    assert "Nama Mahasiswa" not in output
+
+
+def test_template_placeholders_are_not_expanded() -> None:
+    output = _render(body="**Judul:** {{ title }}\n")
+
+    assert "{{ title }}" in output
+
+
+def test_page_break_raw_block_passes_through() -> None:
+    output = _render()
+
+    assert _PAGE_BREAK_XML in output
 
 
 def test_heading_body_uppercase_and_line_break_for_roman() -> None:
@@ -341,23 +196,27 @@ def test_heading_body_uppercase_and_line_break_for_roman() -> None:
     assert "### Detail" in output
 
 
-def test_heading_arabic_dotted_for_assignment() -> None:
+def test_front_matter_headings_are_untouched() -> None:
+    output = _render()
+
+    assert "# LEMBAR PENGESAHAN {-}" in output
+    assert "LEMBAR PENGESAHAN" not in output.replace("# LEMBAR PENGESAHAN {-}", "")
+
+
+def test_appendix_stays_unnumbered() -> None:
+    body = _BODY + "\n# Lampiran\n\n## Berkas\n\n- `document.md`\n"
+    output = _render(body=body)
+
+    assert "# Lampiran {-}" in output
+    assert "## Berkas {-}" in output
+    assert "LAMPIRAN" not in output
+
+
+def test_arabic_dotted_assignment_has_no_line_break() -> None:
     output = _render(structure_id="assignment")
 
     assert "# PENDAHULUAN" in output
-    assert "## Latar Belakang" in output
-
-
-def test_template_replaces_placeholder_and_rejects_unknown() -> None:
-    rendered = render_template("**Judul:** {{ title }}", {"title": "Contoh"})
-    assert rendered == "**Judul:** Contoh"
-
-    with pytest.raises(FrontMatterError):
-        render_template("{{ tidak_ada }}", {"title": "Contoh"})
-
-
-def test_placeholder_terms_unchanged() -> None:
-    assert render_template("teks {{?istilah?}}", {"title": "x"}) == "teks {{?istilah?}}"
+    assert f"# {LINE_BREAK}PENDAHULUAN" not in output
 
 
 def _stage_context(
@@ -385,7 +244,7 @@ def _stage_context(
     )
 
 
-def test_stage_front_matter_writes_markdown_idempotently(tmp_path: Path) -> None:
+def test_stage_writes_markdown_idempotently(tmp_path: Path) -> None:
     stage = FrontMatterStage()
     ctx = _stage_context(tmp_path)
 
@@ -395,6 +254,8 @@ def test_stage_front_matter_writes_markdown_idempotently(tmp_path: Path) -> None
     assert path.is_file()
     text = path.read_text(encoding="utf-8")
     assert 'custom-style="CoverTitle"' in text
+    assert SECTION_BREAK_MARKER not in text
+    assert "<w:sectPr>" in text
     assert f"# {LINE_BREAK}PENDAHULUAN" in text
     assert ctx.artifacts.get("markdown") == path
 
@@ -488,3 +349,11 @@ def test_document_without_plantuml_can_still_pass_front_matter(tmp_path: Path) -
     assert f"# {LINE_BREAK}PENDAHULUAN" in text
     assert "Teks tanpa diagram." in text
     assert ctx.artifacts.get("markdown") == front_matter
+
+
+def test_section_break_function_is_reusable() -> None:
+    block = section_break(load_format("undip-msi"))
+
+    assert block.startswith("```{=openxml}")
+    assert "<w:sectPr>" in block
+    assert block.endswith("```")

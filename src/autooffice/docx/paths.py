@@ -110,12 +110,6 @@ def structure_dir(structure_id: str, *, root: Path | None = None) -> Path:
     return path
 
 
-def templates_dir(structure_id: str, *, root: Path | None = None) -> Path:
-    """Direktori template milik satu struktur."""
-
-    return structure_dir(structure_id, root=root) / "templates"
-
-
 def glossary_file(*, root: Path | None = None) -> Path:
     """Path glosarium paket; melempar ``AssetError`` bila berkas tidak ada."""
 

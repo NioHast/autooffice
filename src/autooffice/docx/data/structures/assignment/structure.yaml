@@ -1,9 +1,12 @@
 # Struktur tugas/laporan mata kuliah UNDIP MSI.
-# Penomoran arab bertitik; cover tanpa dosen pembimbing dan logo 4,7 cm.
+# Penomoran arab bertitik; cover ditulis di document.md.
 format: undip-msi
 
-front_matter:
-  - {id: cover, source: generated}
+toc: false
+
+lists:
+  figures: false
+  tables: false
 
 body:
   - {id: pendahuluan, title: "Pendahuluan"}
@@ -17,8 +20,3 @@ numbering:
   body: ARABIC_DOTTED
   sub_dot: true
   subsub_dot: true
-
-# Assignment tidak menampilkan dosen (`show_lecturer: false`).
-cover:
-  show_lecturer: false
-  logo_width: 4.7cm

@@ -115,7 +115,7 @@ berada di berkas yang sama.
 | `src/autooffice/docx/document.py` | Parser `document.md` dan validasi body. |
 | `src/autooffice/docx/package/` | Model package DOCX dan helper XML. |
 | `src/autooffice/docx/stages/` | Stage kanonik pipeline. |
-| `src/autooffice/docx/data/` | Format, struktur, template, glosarium, logo, CSL, `reference.docx`. |
+| `src/autooffice/docx/data/` | Format, struktur, glosarium, logo, CSL, `reference.docx`. |
 | `examples/` | Tiga contoh single-file: assignment, proposal, thesis. |
 | `tests/docx/`, `tests/cli/`, `tests/deck/` | Suite AutoOffice dan fixture golden. |
 | `docs/dev/` | Dokumentasi developer, kontrak, ADR, dan materi belajar ini. |
@@ -148,9 +148,9 @@ ada kebutuhan Node.js, Chromium, atau Graphviz.
 
 ## Perintah aman pertama
 
-Perintah `check` tidak memanggil Pandoc atau Office. Perintah ini membaca front
-matter, format, struktur, template, aset, urutan Heading 1, dan caption
-Markdown. Contoh:
+Perintah `check` tidak memanggil Pandoc atau Office. Perintah ini membaca blok
+YAML metadata, format, struktur, aset body, urutan Heading 1, dan caption
+Markdown body. Contoh:
 
 ```bash
 uv run autooffice check examples/assignment-single/document.md

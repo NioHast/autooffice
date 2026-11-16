@@ -11,7 +11,7 @@ error domain sendiri.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -217,13 +217,6 @@ class Format:
 
 
 @dataclass(frozen=True)
-class FrontMatterItem:
-    id: str
-    source: str
-    template: str | None = None
-
-
-@dataclass(frozen=True)
 class BodyChapter:
     id: str
     title: str
@@ -249,26 +242,13 @@ class ListSettings:
 
 
 @dataclass(frozen=True)
-class CoverOverrides:
-    show_lecturer: bool = True
-    logo_width: int = 2767  # 4.88 cm
-    title_split: bool = True
-
-
-@dataclass(frozen=True)
 class Structure:
     id: str
     format_id: str
     path: Path
     data: Mapping[str, Any]
-    front_matter: tuple[FrontMatterItem, ...]
     body: tuple[BodyChapter, ...]
     back_matter: tuple[BackMatterItem, ...]
     toc: bool
     numbering: Numbering
     lists: ListSettings
-    cover: CoverOverrides = field(default_factory=CoverOverrides)
-
-    @property
-    def template_dir(self) -> Path:
-        return self.path / "templates"

@@ -137,27 +137,23 @@ def _set_sdt_id(sdt: etree._Element, value: int) -> None:
 
 
 def _list_requests(structure: object | None) -> tuple[tuple[str, str], ...]:
-    """Daftar ``(kunci lists, judul)`` sesuai urutan ``front_matter``."""
+    """Daftar ``(kunci lists, judul)`` dari flag ``structure.lists``.
+
+    Urutan field mengikuti baseline: daftar tabel sebelum daftar gambar.
+    """
 
     if structure is None:
         return ()
     settings = getattr(structure, "lists", None)
     enabled = {
-        "tables": bool(getattr(settings, "tables", True)),
-        "figures": bool(getattr(settings, "figures", True)),
+        "tables": bool(getattr(settings, "tables", False)),
+        "figures": bool(getattr(settings, "figures", False)),
     }
-    requests: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    for item in getattr(structure, "front_matter", ()) or ():
-        item_id = str(getattr(item, "id", ""))
-        if item_id not in LIST_TITLES or item_id in seen:
-            continue
-        key, title = LIST_TITLES[item_id]
-        if not enabled[key]:
-            continue
-        seen.add(item_id)
-        requests.append((key, title))
-    return tuple(requests)
+    requests = (
+        ("tables", LIST_TITLES["list_of_tables"][1]),
+        ("figures", LIST_TITLES["list_of_figures"][1]),
+    )
+    return tuple(request for request in requests if enabled[request[0]])
 
 
 def _caption_settings(format_value: object | None) -> dict[str, str]:

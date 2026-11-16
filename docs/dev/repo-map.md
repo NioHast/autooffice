@@ -41,7 +41,7 @@ repo.
 |       |   |-- markdown/        # parser blok dan heading Markdown
 |       |   |-- adeu/            # bookmark, manifest, source scan, rekonsiliasi
 |       |   |-- terms/           # glosarium dan istilah
-|       |   |-- data/            # format, struktur, template, glosarium, CSL
+|       |   |-- data/            # format, struktur, glosarium, CSL
 |       |   |-- command.py       # API build_docx
 |       |   `-- pipeline.py      # orkestrasi stage DOCX
 |       |-- google/              # Drive, Sheets, Slides, state, OAuth
@@ -93,7 +93,7 @@ repo.
 | `src/autooffice/docx/document.py` | Parse `document.md`, validasi front matter dan body. |
 | `src/autooffice/docx/paths.py` | Lokasi data paket dan validasi path relatif. |
 | `src/autooffice/docx/errors.py` | Hierarki error DOCX dan pemetaan exit code. |
-| `src/autooffice/docx/data/` | Format, struktur, template, glosarium, logo, CSL, `reference.docx`. |
+| `src/autooffice/docx/data/` | Format, struktur, glosarium, logo, CSL, `reference.docx`. |
 | `src/autooffice/docx/adeu/` | Bookmark `pNNNN`, manifest, source scan, dan modul rekonsiliasi internal. |
 | `src/autooffice/docx/markdown/` | Parser blok Markdown dan penomoran heading Markdown. |
 | `src/autooffice/deck/model/` | Compiler `deck.yaml`, DeckIR, key manifest, dan coverage plan. |
@@ -127,14 +127,8 @@ docx/data/
 |       `-- reference.docx
 |-- structures/
 |   |-- assignment/structure.yaml
-|   |-- proposal/
-|   |   |-- structure.yaml
-|   |   `-- templates/approval.md
-|   `-- thesis/
-|       |-- structure.yaml
-|       `-- templates/
-|           |-- approval.md
-|           `-- statement.md
+|   |-- proposal/structure.yaml
+|   `-- thesis/structure.yaml
 `-- glossary/istilah.tsv
 ```
 

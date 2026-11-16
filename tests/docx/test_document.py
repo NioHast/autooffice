@@ -254,6 +254,47 @@ def test_body_order_errors(tmp_path: Path, body: str, code: str) -> None:
     assert error.value.code == code
 
 
+def test_front_matter_markdown_headings_are_unnumbered_and_skipped(tmp_path: Path) -> None:
+    body = (
+        '::: {custom-style="CoverTitle"}\n'
+        "JUDUL MANUAL\n"
+        ":::\n\n"
+        "<!-- section-break -->\n\n"
+        "# LEMBAR PENGESAHAN {-}\n\n"
+        "Teks pengesahan.\n\n" + _ASSIGNMENT_BODY
+    )
+    project = load_project(_write_document(tmp_path, _assignment_front_matter(), body))
+
+    assert project.document.body_start > 0
+
+
+def test_front_matter_layout_assets_are_not_caption_validated(tmp_path: Path) -> None:
+    body = (
+        '::: {custom-style="CoverImage"}\n'
+        "![](logo.jpg){width=4.7cm}\n"
+        ":::\n\n"
+        "<!-- section-break -->\n\n"
+        "# LEMBAR PENGESAHAN {-}\n\n"
+        "| Nama | Tanda tangan |\n"
+        "| --- | --- |\n"
+        "| Nama Mahasiswa | |\n\n" + _ASSIGNMENT_BODY
+    )
+    project = load_project(_write_document(tmp_path, _assignment_front_matter(), body))
+
+    assert project.document.body_start > 0
+    assert project.assets.images == ()
+
+
+def test_front_matter_heading_without_marker_rejected(tmp_path: Path) -> None:
+    body = "# LEMBAR PENGESAHAN\n\nTeks.\n\n" + _ASSIGNMENT_BODY
+    path = _write_document(tmp_path, _assignment_front_matter(), body)
+
+    with pytest.raises(DocgenError) as error:
+        load_project(path)
+    assert error.value.code == "CFG-BODY-ORDER"
+    assert "{-}" in str(error.value)
+
+
 def test_duplicate_yaml_key_rejected(tmp_path: Path) -> None:
     front_matter = _assignment_front_matter() + 'title: "Kedua"\n'
     with pytest.raises(DocgenError) as error:
@@ -336,7 +377,7 @@ def test_user_glossary_override(tmp_path: Path) -> None:
     assert project.assets.glossary == (tmp_path / "istilah.tsv").resolve()
 
 
-def test_thesis_requires_document_front_matter(tmp_path: Path) -> None:
+def test_thesis_without_front_matter_keys_is_accepted(tmp_path: Path) -> None:
     front_matter = (
         'title: "Tesis Uji"\n'
         'author: "Nama Mahasiswa"\n'
@@ -345,11 +386,11 @@ def test_thesis_requires_document_front_matter(tmp_path: Path) -> None:
         "format: undip-msi\n"
         "bibliography: references.bib\n"
     )
-    path = _write_document(tmp_path, front_matter, _THESIS_BODY)
-    with pytest.raises(DocgenError) as error:
-        load_project(path)
-    assert error.value.code == "CFG-CONDITIONAL"
-    assert error.value.key in {"preface", "abstract_id", "abstract_en"}
+    project = load_project(_write_document(tmp_path, front_matter, _THESIS_BODY))
+
+    assert project.structure.id == "thesis"
+    assert project.document.metadata.preface is None
+    assert project.document.metadata.abstract_en is None
 
 
 def test_thesis_with_all_document_sources_accepted(tmp_path: Path) -> None:

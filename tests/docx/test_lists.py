@@ -158,12 +158,6 @@ def _a4_page() -> SimpleNamespace:
 def _ctx(
     package: DocumentPackage,
     *,
-    front_matter: tuple[str, ...] = (
-        "cover",
-        "toc",
-        "list_of_tables",
-        "list_of_figures",
-    ),
     tables: bool = True,
     figures: bool = True,
     page: SimpleNamespace | None = None,
@@ -173,7 +167,6 @@ def _ctx(
         document=SimpleNamespace(),
         structure=SimpleNamespace(
             toc=True,
-            front_matter=tuple(SimpleNamespace(id=item) for item in front_matter),
             lists=SimpleNamespace(tables=tables, figures=figures),
         ),
         format=SimpleNamespace(
@@ -325,7 +318,7 @@ def test_list_entry_style_tab_check_skipped_without_page_geometry(tmp_path: Path
     ppr.remove(ppr.find(qn("w:tabs")))
     before = sha256_c14n(style)
 
-    result = ListsStage().run(_ctx(package, front_matter=("cover", "toc", "list_of_tables")))
+    result = ListsStage().run(_ctx(package, tables=True, figures=False))
 
     assert result.status == "ok"
     assert result.changed is True
@@ -341,7 +334,8 @@ def test_list_entry_style_verifies_format_fallback_tab(tmp_path: Path) -> None:
     result = ListsStage().run(
         _ctx(
             package,
-            front_matter=("cover", "toc", "list_of_tables"),
+            tables=True,
+            figures=False,
             page=_a4_page(),
         )
     )
@@ -446,7 +440,7 @@ def test_caption_seq_preserves_run_formatting(tmp_path: Path) -> None:
     )
     package = DocumentPackage.load(_write_package(tmp_path, body))
 
-    ListsStage().run(_ctx(package, front_matter=(), figures=False))
+    ListsStage().run(_ctx(package, tables=False, figures=False))
 
     table = _caption(package, "Tabel 2.1 pipeline AutoOffice")
     styled = []
@@ -506,22 +500,23 @@ def test_existing_caption_field_is_not_duplicated(tmp_path: Path) -> None:
     insert_seq(package, paragraph=caption, label="Tabel")
     before = len(iter_fields_in_paragraph(caption))
 
-    ListsStage().run(_ctx(package, front_matter=("cover", "toc", "list_of_tables")))
+    ListsStage().run(_ctx(package, tables=True, figures=False))
     fields = iter_fields_in_paragraph(caption)
     assert len(fields) == before
     assert sum(field.kind is FieldKind.SEQ for field in fields) == 1
 
 
-def test_front_matter_order_is_preserved(tmp_path: Path) -> None:
+def test_list_order_is_tables_then_figures(tmp_path: Path) -> None:
     package = _build_package(tmp_path)
     ListsStage().run(
         _ctx(
             package,
-            front_matter=("cover", "toc", "list_of_figures", "list_of_tables"),
+            tables=True,
+            figures=True,
         )
     )
     titles = [_sdt_title(sdt) for sdt in _toc_sdts(package)]
-    assert titles == ["DAFTAR ISI", "DAFTAR GAMBAR", "DAFTAR TABEL"]
+    assert titles == ["DAFTAR ISI", "DAFTAR TABEL", "DAFTAR GAMBAR"]
 
 
 def test_no_main_toc_still_inserts_lists(tmp_path: Path) -> None:
@@ -554,7 +549,7 @@ def test_stage_is_idempotent(tmp_path: Path) -> None:
 def test_no_lists_means_skipped(tmp_path: Path) -> None:
     package = _build_package(tmp_path)
     before = sha256_c14n(package.xml(DOCUMENT_PART))
-    ctx = _ctx(package, front_matter=("cover", "toc"), tables=False, figures=False)
+    ctx = _ctx(package, tables=False, figures=False)
     stage = ListsStage()
     assert stage.enabled(ctx) is False
     result = stage.run(ctx)

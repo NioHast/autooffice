@@ -1,12 +1,15 @@
 # Format Dokumen
 
-Sumber naskah adalah satu `document.md` berisi YAML front matter dan body
-Markdown. Aturan visual tidak ditulis di naskah. Format dan struktur membacanya
-dari `src/autooffice/docx/data/`.
+Sumber naskah adalah satu `document.md` berisi blok YAML metadata dan body
+Markdown. Sampul, lembar pengesahan, pernyataan, kata pengantar, abstrak, dan
+kata kunci ditulis langsung sebagai Markdown; tidak ada template Python yang
+dirender saat build. Aturan visual tetap dibaca dari
+`src/autooffice/docx/data/`.
 
 ## Daftar isi
 
 - [Front matter](#front-matter)
+- [Front matter Markdown](#front-matter-markdown)
 - [Heading](#heading)
 - [Caption tabel](#caption-tabel)
 - [Caption gambar](#caption-gambar)
@@ -62,19 +65,19 @@ report_name: "Tugas"
 | Kunci | Tipe | Default | Keterangan |
 | --- | --- | --- | --- |
 | `nim` | teks | - | Hanya untuk satu author dan tidak boleh bertentangan dengan `author[].nim`. |
-| `subtitle` | teks | - | Subjudul sampul. |
-| `lecturer` | teks | - | Nama dosen. |
-| `lecturer_label` | teks | `Dosen Pengampu:` | Label dosen. |
-| `course` | teks | - | Nama mata kuliah. |
-| `institution` | teks | - | Institusi. |
-| `faculty` | teks | - | Fakultas atau program studi. |
-| `year` | teks | - | Tahun. |
-| `date` | teks | - | Bulan atau tanggal. |
+| `subtitle` | teks | - | Metadata opsional; tulis subjudul sampul di Markdown. |
+| `lecturer` | teks | - | Metadata opsional; tulis dosen di Markdown. |
+| `lecturer_label` | teks | `Dosen Pengampu:` | Metadata opsional. |
+| `course` | teks | - | Metadata opsional; tulis mata kuliah di Markdown. |
+| `institution` | teks | - | Metadata opsional; tulis institusi di Markdown. |
+| `faculty` | teks | - | Metadata opsional; tulis program studi di Markdown. |
+| `year` | teks | - | Metadata opsional; tulis tahun di Markdown. |
+| `date` | teks | - | Metadata opsional; tulis bulan/tanggal di Markdown. |
 | `lang` | BCP-47 | `id-ID` | Locale sitasi. |
 | `bibliography` | path relatif | `references.bib` | Harus berekstensi `.bib` dan ada. |
-| `preface` | Markdown | - | Wajib untuk struktur `thesis`. |
-| `abstract_id` | Markdown | - | Wajib untuk struktur `thesis`. |
-| `abstract_en` | Markdown | - | Wajib untuk struktur `thesis`. |
+| `preface` | Markdown | - | Metadata opsional; tidak lagi dirender. Tulis kata pengantar di Markdown. |
+| `abstract_id` | Markdown | - | Metadata opsional; tidak lagi dirender. |
+| `abstract_en` | Markdown | - | Metadata opsional; tidak lagi dirender. |
 | `keywords` | daftar atau teks | - | Hanya boleh jika `abstract_id` ada. |
 | `keywords_en` | daftar atau teks | - | Hanya boleh jika `abstract_en` ada. |
 
@@ -107,8 +110,108 @@ Jangan menambahkan `daftar_gambar`, `daftar_tabel`, `preset`, `margin_preset`,
 `approval`, `statement`, `references`, `csl`, `reference-doc`, `template`, atau
 `cover` ke front matter. Kunci itu sudah dihapus dan menghasilkan error
 migrasi. Kunci `toc` di front matter juga ditolak sebagai kunci tidak dikenal
-(`CFG-UNKNOWN-KEY`); daftar isi dikendalikan oleh entri `toc` di
-`front_matter` `structure.yaml`, bukan oleh naskah.
+(`CFG-UNKNOWN-KEY`); daftar isi dikendalikan flag `toc` di `structure.yaml`,
+bukan oleh naskah.
+
+## Front matter Markdown
+
+Tulis seluruh tampilan front matter setelah blok YAML dan sebelum Heading 1
+bab pertama. Heading front matter wajib memakai `{-}` agar tidak mendapat
+nomor bab. Stage `front_matter` hanya mengganti marker dan menyiapkan heading
+body; tidak ada render sampul dari metadata. Karena sampul kini berupa teks
+Markdown, judul dan identitas di sampul harus diselaraskan manual dengan blok
+YAML.
+
+````markdown
+::: {custom-style="CoverTitle"}
+JUDUL LAPORAN\
+SUBJUDUL LAPORAN
+:::
+
+::: {custom-style="CoverLecturer"}
+Dosen Pembimbing: **Dr. Nama Dosen, M.Kom.**
+:::
+
+\
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.88cm}
+:::
+
+\
+
+::: {custom-style="CoverLine"}
+Disusun oleh:
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+::: {custom-style="CoverLine"}
+30000000000000
+:::
+
+\
+
+::: {custom-style="CoverInstitution"}
+PROGRAM STUDI MAGISTER SISTEM INFORMASI
+:::
+
+::: {custom-style="CoverInstitution"}
+UNIVERSITAS DIPONEGORO
+:::
+
+::: {custom-style="CoverInstitution"}
+2026
+:::
+
+<!-- section-break -->
+
+# LEMBAR PENGESAHAN {-}
+
+**Judul:** Judul Laporan
+
+**Penulis:** Nama Mahasiswa
+**NIM:** 30000000000000
+**Institusi:** Universitas Diponegoro
+
+November 2026
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# KATA PENGANTAR {-}
+
+Ucapan terima kasih.
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# ABSTRAK {-}
+
+::: {custom-style="AbstractBody"}
+Isi abstrak Indonesia.
+:::
+
+::: {custom-style="AbstractKeywords"}
+**Kata Kunci:** [Markdown, Pandoc]{custom-style="AbstractKeywordText"}
+:::
+````
+
+Aturan penting:
+
+- Baris `\` memberi jarak vertikal sampul; jangan memakai paragraf kosong.
+- `<!-- section-break -->` menutup sampul dan membuat section baru dengan
+  geometri dari `format.yaml`. Letakkan pada baris sendiri.
+- Blok raw OpenXML berisi `<w:br w:type="page"/>` memulai halaman baru.
+- Logo sampul ditulis `![](logo.jpg){width=...cm}`. Path dicari di direktori
+  dokumen lalu di direktori format; alt text boleh kosong.
+- Abstrak Inggris memakai `::: {custom-style="AbstractBodyEn" lang="en-US"}`.
+- Tabel tata letak pada lembar pengesahan tidak memerlukan caption karena
+  validasi caption hanya berlaku pada body.
 
 ## Heading
 
@@ -117,10 +220,9 @@ migrasi. Kunci `toc` di front matter juga ditolak sebagai kunci tidak dikenal
 - Heading 1 harus sama dengan urutan `body` pada struktur, tanpa nomor.
 - Jangan menulis `# BAB I` atau `# 1. Pendahuluan`; pipeline menambahkan nomor.
 - Heading 2 dan Heading 3 tidak boleh melompati level.
-- Atribut `{.unnumbered}` atau `{-}` pada heading Markdown tidak didukung:
-  Pandoc membuang atribut itu sebelum DOCX, sehingga heading tetap mengikuti
-  numbering struktur. Heading tak bernomor hanya dikenali dari posisi
-  front/back matter dan `structure.body`.
+- Atribut `{.unnumbered}` atau `{-}` wajib dipakai pada heading front matter
+  (`# LEMBAR PENGESAHAN {-}`) dan `# Lampiran`. Pada body bernomor, atribut
+  itu tidak boleh dipakai karena heading harus mengikuti `structure.body`.
 
 ```markdown
 # Pendahuluan

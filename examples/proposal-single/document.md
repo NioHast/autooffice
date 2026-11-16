@@ -2,16 +2,69 @@
 title: "Rancangan Pipeline Validasi Dokumen Akademik Berbasis Markdown"
 author: "Nama Mahasiswa"
 nim: "30000000000000"
-institution: "Universitas Diponegoro"
-faculty: "Program Studi Magister Sistem Informasi"
-year: "2026"
-date: "November 2026"
 lang: "id-ID"
 report_name: "Tugas"
 structure: proposal
 format: undip-msi
 bibliography: references.bib
 ---
+
+::: {custom-style="CoverTitle"}
+RANCANGAN PIPELINE VALIDASI\
+DOKUMEN AKADEMIK BERBASIS MARKDOWN
+:::
+
+\
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.7cm}
+:::
+
+\
+
+::: {custom-style="CoverLine"}
+Disusun oleh:
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+::: {custom-style="CoverLine"}
+30000000000000
+:::
+
+\
+
+::: {custom-style="CoverInstitution"}
+PROGRAM STUDI MAGISTER SISTEM INFORMASI
+:::
+
+::: {custom-style="CoverInstitution"}
+UNIVERSITAS DIPONEGORO
+:::
+
+::: {custom-style="CoverInstitution"}
+2026
+:::
+
+<!-- section-break -->
+
+# HALAMAN PERSETUJUAN {-}
+
+<!-- TODO: isi teks resmi kampus: kalimat persetujuan dan blok tanda tangan. -->
+
+**Judul:** Rancangan Pipeline Validasi Dokumen Akademik Berbasis Markdown
+
+**Penulis:** Nama Mahasiswa
+**NIM:** 30000000000000
+**Institusi:** Universitas Diponegoro
+
+November 2026
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
 
 # Pendahuluan
 

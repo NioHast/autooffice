@@ -104,10 +104,40 @@ agent, tanpa dua sumber yang harus dijaga bersamaan.
   `tests/docx/test_style_reference.py`, `tests/docx/test_toc.py`, dan
   `tests/docx/test_lists.py`.
 
+## Amandemen 2026-11-16: front matter di `document.md`
+
+Fase 3b memindahkan seluruh front matter yang sebelumnya dibangkitkan Python
+ke `document.md`. Amandemen ini tidak mengubah keputusan bahwa
+`reference.docx` adalah sumber kebenaran visual; ia hanya menegaskan bentuk
+final front matter.
+
+- Sampul, lembar pengesahan, pernyataan, kata pengantar, abstrak, dan kata
+  kunci ditulis sebagai Markdown dengan `custom-style` yang sudah ada.
+- Jarak vertikal sampul memakai baris `\`, bukan `spacer()` Python.
+- Section break penutup sampul memakai marker `<!-- section-break -->`.
+  Stage `front_matter` menggantinya dengan raw `w:sectPr` yang geometrinya
+  berasal dari `format.yaml`.
+- `toc` dan `lists` kembali menjadi flag eksplisit di `structure.yaml` karena
+  daftar `front_matter` dihapus. Penempatan TOC tidak berubah: stage `toc`
+  tetap menyisipkan field sebelum Heading 1 bernomor pertama.
+- Template `approval.md`/`statement.md` dan placeholder `{{ key }}` dihapus.
+- Verifikasi minimal ADR ini tetap berlaku: style wajib ada di reference,
+  TOC ditulis oleh stage, dan front matter diakhiri section break yang berasal
+  dari marker.
+
+Verifikasi fase 3b: tesis 21 halaman dengan 13 `w:sectPr`, proposal 9 halaman
+dengan 7 `w:sectPr`, assignment 8 halaman dengan 5 `w:sectPr`; field
+`TOC \o` serta dua field `TOC \c` pada tesis; heading+caption 36/14/15; dua
+build tesis menghasilkan sha256 identik. Perbedaan `word/document.xml`
+terhadap baseline v4.0.0 hanya pada `rId`, `descr`, lima paragraf jarak
+sampul, dan style `AbstractBodyEn`/`AbstractKeywordText` yang sudah ada
+sebelum fase ini.
+
 ## Status
 
-Diterima. Menghidupkan kembali derived reference generatif, menjadikan
-`format.yaml` sebagai sumber nilai visual, atau menghapus verifikasi minimal
-memerlukan ADR baru yang menandai ADR ini sebagai `superseded`.
+Diterima, dengan amandemen 2026-11-16 di atas. Menghidupkan kembali derived
+reference generatif, menjadikan `format.yaml` sebagai sumber nilai visual,
+atau menghapus verifikasi minimal memerlukan ADR baru yang menandai ADR ini
+sebagai `superseded`.
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

@@ -27,11 +27,9 @@ _EXPECTED_CONFIG_EXPORTS = frozenset(
         "CodeFont",
         "CodeFormat",
         "CodeTable",
-        "CoverOverrides",
         "FigureStyle",
         "FontFormat",
         "Format",
-        "FrontMatterItem",
         "HeadingStyle",
         "ListSettings",
         "Margins",
@@ -85,8 +83,10 @@ def _write_structure(root: Path, name: str, text: str) -> Path:
 def _minimal_structure(extra: str = "") -> str:
     return (
         "format: undip-msi\n\n"
-        "front_matter:\n"
-        "  - {id: cover, source: generated}\n\n"
+        "toc: false\n\n"
+        "lists:\n"
+        "  figures: false\n"
+        "  tables: false\n\n"
         "body:\n"
         '  - {id: pendahuluan, title: "Pendahuluan"}\n\n'
         "back_matter:\n"
@@ -97,7 +97,7 @@ def _minimal_structure(extra: str = "") -> str:
 
 
 def test_config_public_api_complete() -> None:
-    assert len(config.__all__) == 32
+    assert len(config.__all__) == 30
     missing = _EXPECTED_CONFIG_EXPORTS.difference(config.__all__)
     assert not missing, f"nama publik hilang: {sorted(missing)}"
 
@@ -186,20 +186,19 @@ def test_all_builtin_structures_load() -> None:
     assignment = load_structure("assignment")
     assert assignment.toc is False
     assert assignment.lists.figures is False
-    assert assignment.cover.show_lecturer is False
-    assert assignment.cover.title_split is True
-    assert [item.id for item in assignment.front_matter] == ["cover"]
+    assert assignment.lists.tables is False
+    assert not hasattr(assignment, "cover")
+    assert not hasattr(assignment, "front_matter")
 
     proposal = load_structure("proposal")
     assert proposal.toc is True
     assert proposal.lists.figures is False
-    assert any(item.source == "template" for item in proposal.front_matter)
+    assert proposal.lists.tables is False
 
     thesis = load_structure("thesis")
     assert thesis.toc is True
     assert thesis.lists.figures is True
     assert thesis.lists.tables is True
-    assert next(item.id for item in thesis.front_matter) == "cover"
     assert any(item.id == "appendices" for item in thesis.back_matter)
 
 
@@ -387,42 +386,12 @@ def test_figures_legacy_alignment_rejected(tmp_path: Path) -> None:
     assert error.value.key == "figures.alignment"
 
 
-def test_structure_cover_defaults(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    _write_structure(data_root, "contoh", _minimal_structure())
-
-    structure = load_structure("contoh", root=data_root)
-    assert structure.cover.show_lecturer is True
-    assert structure.cover.logo_width == 2767  # 4.88 cm
-    assert structure.cover.title_split is True
-
-
-def test_structure_template_missing(tmp_path: Path) -> None:
+def test_structure_toc_flag(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_structure(
         data_root,
         "contoh",
-        _minimal_structure().replace(
-            "  - {id: cover, source: generated}\n",
-            "  - {id: cover, source: generated}\n"
-            "  - {id: approval, source: template, template: approval.md}\n",
-        ),
-    )
-
-    with pytest.raises(ConfigError) as error:
-        load_structure("contoh", root=data_root)
-    assert error.value.code == "CFG-TEMPLATE-MISSING"
-
-
-def test_structure_toc_derived_from_front_matter(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    _write_structure(
-        data_root,
-        "contoh",
-        _minimal_structure().replace(
-            "  - {id: cover, source: generated}\n",
-            "  - {id: cover, source: generated}\n  - {id: toc, source: generated}\n",
-        ),
+        _minimal_structure().replace("toc: false", "toc: true"),
     )
 
     structure = load_structure("contoh", root=data_root)
@@ -433,16 +402,14 @@ def test_structure_toc_derived_from_front_matter(tmp_path: Path) -> None:
     assert without_toc.toc is False
 
 
-def test_structure_lists_derived_from_front_matter(tmp_path: Path) -> None:
+def test_structure_lists_flags(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_structure(
         data_root,
         "contoh",
         _minimal_structure().replace(
-            "  - {id: cover, source: generated}\n",
-            "  - {id: cover, source: generated}\n"
-            "  - {id: list_of_tables, source: generated}\n"
-            "  - {id: list_of_figures, source: generated}\n",
+            "  figures: false\n  tables: false\n",
+            "  figures: true\n  tables: true\n",
         ),
     )
 
@@ -456,31 +423,45 @@ def test_structure_lists_derived_from_front_matter(tmp_path: Path) -> None:
     assert without_lists.lists.figures is False
 
 
-def test_structure_toc_key_rejected(tmp_path: Path) -> None:
+def test_structure_front_matter_and_cover_keys_rejected(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_structure(
         data_root,
-        "contoh",
-        _minimal_structure() + "\ntoc: true\n",
+        "front-matter",
+        _minimal_structure() + "\nfront_matter:\n  - {id: cover, source: generated}\n",
     )
-
     with pytest.raises(ConfigError) as error:
-        load_structure("contoh", root=data_root)
+        load_structure("front-matter", root=data_root)
     assert error.value.code == "CFG-UNKNOWN-KEY"
+    assert error.value.key == "structure.front_matter"
+
+    _write_structure(
+        data_root,
+        "cover",
+        _minimal_structure() + "\ncover:\n  show_lecturer: true\n",
+    )
+    with pytest.raises(ConfigError) as error:
+        load_structure("cover", root=data_root)
+    assert error.value.code == "CFG-UNKNOWN-KEY"
+    assert error.value.key == "structure.cover"
+
+
+def test_structure_toc_and_lists_are_required(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    without_toc = _minimal_structure().replace("toc: false\n\n", "")
+    _write_structure(data_root, "tanpa-toc", without_toc)
+    with pytest.raises(ConfigError) as error:
+        load_structure("tanpa-toc", root=data_root)
+    assert error.value.code == "CFG-REQUIRED"
     assert error.value.key == "structure.toc"
 
-
-def test_structure_lists_key_rejected(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    _write_structure(
-        data_root,
-        "contoh",
-        _minimal_structure() + "\nlists:\n  figures: true\n  tables: true\n",
+    without_lists = _minimal_structure().replace(
+        "lists:\n  figures: false\n  tables: false\n\n", ""
     )
-
+    _write_structure(data_root, "tanpa-lists", without_lists)
     with pytest.raises(ConfigError) as error:
-        load_structure("contoh", root=data_root)
-    assert error.value.code == "CFG-UNKNOWN-KEY"
+        load_structure("tanpa-lists", root=data_root)
+    assert error.value.code == "CFG-REQUIRED"
     assert error.value.key == "structure.lists"
 
 
@@ -504,33 +485,6 @@ def test_structure_unknown_keys(tmp_path: Path) -> None:
         load_structure("contoh", root=data_root)
     assert error.value.code == "CFG-UNKNOWN-KEY"
     assert error.value.key == "structure.chapters"
-
-
-def test_structure_cover_title_split_and_path_escape(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    _write_structure(
-        data_root,
-        "contoh",
-        _minimal_structure()
-        + "\ncover:\n  show_lecturer: false\n  logo_width: 4.7cm\n  title_split: false\n",
-    )
-    structure = load_structure("contoh", root=data_root)
-    assert structure.cover.title_split is False
-    assert structure.cover.logo_width == 2665
-    assert structure.cover.show_lecturer is False
-
-    _write_structure(
-        data_root,
-        "contoh",
-        _minimal_structure().replace(
-            "  - {id: cover, source: generated}\n",
-            "  - {id: cover, source: generated}\n"
-            "  - {id: approval, source: template, template: ../approval.md}\n",
-        ),
-    )
-    with pytest.raises(ConfigError) as error:
-        load_structure("contoh", root=data_root)
-    assert error.value.code == "CFG-PATH-ESCAPE"
 
 
 def test_structure_body_unique(tmp_path: Path) -> None:

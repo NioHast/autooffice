@@ -21,8 +21,9 @@ uv run autooffice <perintah> ...
 
 ## 1. Pilih struktur
 
-Struktur menentukan urutan bab, front matter, penomoran, dan daftar. Format
-`undip-msi` menentukan margin, font, caption, sitasi, dan aset visual.
+Struktur menentukan urutan bab, penomoran, flag TOC, dan daftar. Format
+`undip-msi` menentukan margin, font, caption, sitasi, dan aset visual. Isi
+front matter (sampul dan halaman pendahulu) ditulis di `document.md`.
 
 | Struktur | Cocok untuk | Bab body | Penomoran |
 | --- | --- | ---: | --- |
@@ -30,10 +31,11 @@ Struktur menentukan urutan bab, front matter, penomoran, dan daftar. Format
 | `proposal` | Proposal tesis | 4 | `1.`, `1.1`, `1.1.1` |
 | `thesis` | Tesis atau skripsi | 5 | `BAB I`, `1.1`, `1.1.1` |
 
-Struktur `thesis` menambahkan halaman pengesahan, pernyataan, kata pengantar,
-abstrak Indonesia dan Inggris, daftar isi, daftar tabel, daftar gambar, dan
-lampiran. Struktur `proposal` menambahkan halaman pengesahan dan daftar isi.
-Struktur `assignment` hanya memuat sampul.
+Contoh `thesis` memuat halaman pengesahan, pernyataan, kata pengantar, abstrak
+Indonesia dan Inggris, daftar isi, daftar tabel, daftar gambar, dan lampiran.
+Contoh `proposal` memuat halaman persetujuan dan daftar isi. Contoh
+`assignment` hanya memuat sampul. Bagian-bagian itu adalah Markdown biasa di
+`document.md`, bukan hasil render template.
 
 ## 2. Siapkan berkas
 
@@ -58,10 +60,12 @@ Jangan menyalin `out/` atau `.laporan/` dari contoh. Keduanya artefak build.
 
 ## 3. Tulis front matter
 
-Front matter wajib berada di awal `document.md` dan dibatasi `---`. Kunci
-wajib adalah `title`, `author`, `report_name`, `structure`, dan `format`.
+Blok YAML wajib berada di awal `document.md` dan dibatasi `---`. Kunci wajib
+adalah `title`, `author`, `report_name`, `structure`, dan `format`. Setelah
+blok YAML, tulis sampul sebagai Markdown lalu akhiri dengan marker
+`<!-- section-break -->`.
 
-```yaml
+````markdown
 ---
 title: "Analisis Pipeline Markdown untuk Laporan Tugas"
 author: "Nama Mahasiswa"
@@ -71,6 +75,50 @@ structure: assignment
 format: undip-msi
 bibliography: references.bib
 ---
+
+::: {custom-style="CoverTitle"}
+ANALISIS PIPELINE MARKDOWN UNTUK LAPORAN TUGAS
+:::
+
+::: {custom-style="CoverCourse"}
+**Penulisan Laporan Akademik**
+:::
+
+\
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.7cm}
+:::
+
+\
+
+::: {custom-style="CoverLine"}
+Disusun oleh:
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+::: {custom-style="CoverLine"}
+30000000000000
+:::
+
+\
+
+::: {custom-style="CoverInstitution"}
+PROGRAM STUDI MAGISTER SISTEM INFORMASI
+:::
+
+::: {custom-style="CoverInstitution"}
+UNIVERSITAS DIPONEGORO
+:::
+
+::: {custom-style="CoverInstitution"}
+2026
+:::
+
+<!-- section-break -->
 
 # Pendahuluan
 
@@ -83,10 +131,11 @@ Isi pembahasan.
 # Penutup
 
 Kesimpulan.
-```
+````
 
 Heading 1 harus sama dengan urutan `body` struktur. Jangan menulis nomor bab.
-Rincian kunci lain ada di [document-format.md](document-format.md).
+Rincian kunci dan bentuk front matter ada di
+[document-format.md](document-format.md).
 
 ## 4. Check
 
@@ -96,9 +145,9 @@ Jalankan pemeriksaan sumber sebelum build:
 uv run autooffice check document.md
 ```
 
-`check` memvalidasi front matter, keberadaan format dan struktur, template,
-bibliografi, gambar, urutan Heading 1, dan caption Markdown. Perintah ini tidak
-memanggil Pandoc atau Word dan tidak menulis berkas.
+`check` memvalidasi blok YAML metadata, keberadaan format dan struktur,
+bibliografi, gambar body, urutan Heading 1, dan caption Markdown body. Perintah
+ini tidak memanggil Pandoc atau Word dan tidak menulis berkas.
 
 Aturan prosa ada di [writing-rules.md](writing-rules.md). Paket AutoOffice tidak
 menyertakan pemeriksa prosa terpisah; jalankan `autooffice doctor` untuk

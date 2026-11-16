@@ -28,6 +28,7 @@ from .config import (
     parse_yaml_mapping,
 )
 from .errors import ConfigError, DocumentError
+from .markdown.headings import parse_heading
 from .metadata import Metadata, normalize_metadata
 
 _FRONT_MATTER_START = "---"
@@ -82,13 +83,9 @@ class Document:
     structure_id: str
     format_id: str
     bibliography: str | None
-
-
-@dataclass(frozen=True)
-class EffectiveCover:
-    show_lecturer: bool
-    logo_width: int
-    title_split: bool
+    # Indeks baris (0-based) Heading 1 bab pertama di ``body``. Baris sebelum
+    # itu adalah front matter yang ditulis langsung di ``document.md``.
+    body_start: int = 0
 
 
 @dataclass(frozen=True)
@@ -98,15 +95,6 @@ class Project:
     format: Format
     assets: Assets
     warnings: tuple[str, ...] = ()
-
-    @property
-    def effective_cover(self) -> EffectiveCover:
-        cover = self.structure.cover
-        return EffectiveCover(
-            show_lecturer=cover.show_lecturer,
-            logo_width=cover.logo_width,
-            title_split=cover.title_split,
-        )
 
 
 def _doc_error(
@@ -299,13 +287,42 @@ def _plain_heading(text: str) -> str:
     return " ".join(text.split())
 
 
-def _validate_body(body: str, *, structure: Structure, path: Path) -> None:
+def _body_start_line(body: str, *, structure: Structure) -> int:
+    """Indeks baris Heading 1 bab pertama, atau 0 bila tidak ditemukan.
+
+    Front matter ditulis langsung di ``document.md`` sebelum bab pertama.
+    Pencarian memakai heading yang sudah di-mask agar ``#`` di dalam code fence
+    tidak dianggap heading.
+    """
+
+    if not structure.body:
+        return 0
+    target = " ".join(structure.body[0].title.split()).casefold()
+    for index, line in enumerate(masked_lines(body)):
+        parsed = parse_heading(line)
+        if parsed is None or parsed.level != 1:
+            continue
+        text = _plain_heading(parsed.text)
+        if " ".join(text.split()).casefold() == target:
+            return index
+    return 0
+
+
+def _validate_body(
+    body: str,
+    *,
+    structure: Structure,
+    path: Path,
+    body_start: int = 0,
+) -> None:
     """Validasi urutan heading body terhadap ``structure.body``.
 
-    Heading 1 harus cocok berurutan dengan chapter, heading 2/3 harus berada di
-    bawah level yang tepat, dan ``# Lampiran`` hanya boleh muncul sekali
-    setelah semua bab bila ``back_matter`` memuat ``appendices``. Pelanggaran
-    melempar ``DocumentError`` dengan kode ``CFG-BODY-*``; input tidak dimutasi.
+    Heading sebelum bab pertama adalah front matter: hanya heading bertanda
+    ``{-}``/``.unnumbered`` yang diperbolehkan. Heading 1 body harus cocok
+    berurutan dengan chapter, heading 2/3 harus berada di bawah level yang
+    tepat, dan ``# Lampiran`` hanya boleh muncul sekali setelah semua bab bila
+    ``back_matter`` memuat ``appendices``. Pelanggaran melempar
+    ``DocumentError`` dengan kode ``CFG-BODY-*``; input tidak dimutasi.
     """
 
     chapters = structure.body
@@ -315,6 +332,17 @@ def _validate_body(body: str, *, structure: Structure, path: Path) -> None:
     appendix_seen = False
 
     for line_number, line in enumerate(masked_lines(body), start=1):
+        if line_number - 1 < body_start:
+            parsed_front = parse_heading(line)
+            if parsed_front is not None and parsed_front.text and not parsed_front.unnumbered:
+                text = _plain_heading(parsed_front.text)
+                raise _doc_error(
+                    f"Heading front matter '{text}' harus memakai tanda {{-}}",
+                    code="CFG-BODY-ORDER",
+                    path=path,
+                    key=f"body:{line_number}",
+                )
+            continue
         match = _HEADING_RE.match(line)
         if match is None:
             continue
@@ -414,26 +442,6 @@ def _validate_body(body: str, *, structure: Structure, path: Path) -> None:
         )
 
 
-def _validate_structure_document_fields(
-    front_matter: Mapping[str, Any],
-    *,
-    structure: Structure,
-    path: Path,
-) -> None:
-    for item in structure.front_matter:
-        if item.source != "document":
-            continue
-        value = front_matter.get(item.id)
-        if not isinstance(value, str) or not value.strip():
-            raise _doc_error(
-                f"front matter '{item.id}' wajib diisi karena structure "
-                f"'{structure.id}' mendeklarasikannya sebagai source: document",
-                code="CFG-CONDITIONAL",
-                path=path,
-                key=item.id,
-            )
-
-
 def load_project(document: str | Path, *, root: Path | None = None) -> Project:
     """Muat dan validasi silang dokumen, struktur, format, metadata, dan aset.
 
@@ -468,12 +476,13 @@ def load_project(document: str | Path, *, root: Path | None = None) -> Project:
         load_format(structure.format_id, root=root)
 
     metadata = normalize_metadata(raw.front_matter, source=raw.path)
-    _validate_structure_document_fields(
-        raw.front_matter,
+    body_start = _body_start_line(raw.body, structure=structure)
+    _validate_body(
+        raw.body,
         structure=structure,
         path=raw.path,
+        body_start=body_start,
     )
-    _validate_body(raw.body, structure=structure, path=raw.path)
 
     bibliography_value = raw.front_matter.get("bibliography")
     if bibliography_value is not None and not isinstance(bibliography_value, str):
@@ -490,6 +499,7 @@ def load_project(document: str | Path, *, root: Path | None = None) -> Project:
         format=format_,
         bibliography=bibliography_value,
         body=raw.body,
+        body_start=body_start,
     )
 
     warnings: list[str] = []
@@ -506,6 +516,7 @@ def load_project(document: str | Path, *, root: Path | None = None) -> Project:
         format_id=format_id,
         bibliography=bibliography_value
         or (format_.citation.bibliography if assets.bibliography is not None else None),
+        body_start=body_start,
     )
     return Project(
         document=document_model,

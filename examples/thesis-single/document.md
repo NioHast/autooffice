@@ -2,54 +2,145 @@
 title: "Analisis Pipeline Dokumen Akademik Berbasis Markdown dan Pandoc"
 author: "Nama Mahasiswa"
 nim: "30000000000000"
-lecturer: "Dr. Nama Dosen Pembimbing, M.Kom."
-lecturer_label: "Dosen Pembimbing:"
-institution: "Universitas Diponegoro"
-faculty: "Program Studi Magister Sistem Informasi"
-year: "2026"
-date: "November 2026"
 lang: "id-ID"
 report_name: "Tugas"
 structure: thesis
 format: undip-msi
 bibliography: references.bib
-abstract_id: |
-  Penulisan laporan akademik menuntut struktur, penomoran, dan sitasi yang
-  konsisten. Perubahan kecil pada naskah sering menggeser tata letak ketika
-  dokumen disunting langsung di pengolah kata. Contoh ini membahas pipeline
-  AutoOffice yang memisahkan naskah Markdown dari aturan format dan struktur.
-  Pipeline memvalidasi front matter, merender diagram PlantUML, memanggil
-  Pandoc, lalu merapikan caption, persamaan, penomoran, dan daftar isi pada
-  berkas DOCX. Pembahasan difokuskan pada rancangan lapisan, mekanisme
-  validasi, dan keterlacakan aset. Hasil yang ditunjukkan adalah keluaran
-  contoh untuk struktur tesis, bukan pengukuran kinerja produksi.
-abstract_en: |
-  Academic reports require consistent structure, numbering, and citations.
-  Small edits often shift the layout when a document is edited directly in a
-  word processor. This example discusses the AutoOffice pipeline, which
-  separates Markdown manuscripts from formatting and structure rules. The
-  pipeline validates front matter, renders PlantUML diagrams, invokes Pandoc,
-  and then normalizes captions, equations, numbering, and the table of
-  contents in the DOCX file. The discussion focuses on the layer design,
-  validation mechanism, and asset traceability. The results show sample output
-  for the thesis structure rather than production performance measurements.
-preface: |
-  Contoh ini disusun untuk memperlihatkan bagaimana naskah akademik dapat
-  ditulis sebagai Markdown dan dibangun menjadi dokumen Word dengan aturan
-  format yang terpisah. Ucapan terima kasih disampaikan kepada semua pihak
-  yang telah menyediakan dokumentasi dan perkakas sumber terbuka yang dipakai
-  oleh pipeline ini.
-keywords:
-  - Markdown
-  - Pandoc
-  - DOCX
-  - pipeline dokumen
-keywords_en:
-  - Markdown
-  - Pandoc
-  - DOCX
-  - document pipeline
 ---
+
+::: {custom-style="CoverTitle"}
+ANALISIS PIPELINE DOKUMEN AKADEMIK\
+BERBASIS MARKDOWN DAN PANDOC
+:::
+
+::: {custom-style="CoverLecturer"}
+Dosen Pembimbing: **Dr. Nama Dosen Pembimbing, M.Kom.**
+:::
+
+\
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.88cm}
+:::
+
+\
+
+::: {custom-style="CoverLine"}
+Disusun oleh:
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+::: {custom-style="CoverLine"}
+30000000000000
+:::
+
+\
+
+::: {custom-style="CoverInstitution"}
+PROGRAM STUDI MAGISTER SISTEM INFORMASI
+:::
+
+::: {custom-style="CoverInstitution"}
+UNIVERSITAS DIPONEGORO
+:::
+
+::: {custom-style="CoverInstitution"}
+2026
+:::
+
+<!-- section-break -->
+
+# LEMBAR PENGESAHAN {-}
+
+<!-- TODO: isi teks resmi kampus: kalimat pengesahan dan blok tanda tangan. -->
+
+**Judul:** Analisis Pipeline Dokumen Akademik Berbasis Markdown dan Pandoc
+
+**Penulis:** Nama Mahasiswa
+**NIM:** 30000000000000
+**Institusi:** Universitas Diponegoro
+
+November 2026
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# PERNYATAAN {-}
+
+<!-- TODO: isi teks resmi kampus: kalimat pernyataan dan blok tanda tangan. -->
+
+**Judul:** Analisis Pipeline Dokumen Akademik Berbasis Markdown dan Pandoc
+
+**Penulis:** Nama Mahasiswa
+**NIM:** 30000000000000
+**Institusi:** Universitas Diponegoro
+
+November 2026
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# KATA PENGANTAR {-}
+
+Contoh ini disusun untuk memperlihatkan bagaimana naskah akademik dapat
+ditulis sebagai Markdown dan dibangun menjadi dokumen Word dengan aturan
+format yang terpisah. Ucapan terima kasih disampaikan kepada semua pihak
+yang telah menyediakan dokumentasi dan perkakas sumber terbuka yang dipakai
+oleh pipeline ini.
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# ABSTRAK {-}
+
+::: {custom-style="AbstractBody"}
+Penulisan laporan akademik menuntut struktur, penomoran, dan sitasi yang
+konsisten. Perubahan kecil pada naskah sering menggeser tata letak ketika
+dokumen disunting langsung di pengolah kata. Contoh ini membahas pipeline
+AutoOffice yang memisahkan naskah Markdown dari aturan format dan struktur.
+Pipeline memvalidasi front matter, merender diagram PlantUML, memanggil
+Pandoc, lalu merapikan caption, persamaan, penomoran, dan daftar isi pada
+berkas DOCX. Pembahasan difokuskan pada rancangan lapisan, mekanisme
+validasi, dan keterlacakan aset. Hasil yang ditunjukkan adalah keluaran
+contoh untuk struktur tesis, bukan pengukuran kinerja produksi.
+:::
+
+::: {custom-style="AbstractKeywords"}
+**Kata Kunci:** [Markdown, Pandoc, DOCX, pipeline dokumen]{custom-style="AbstractKeywordText"}
+:::
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
+# ABSTRACT {-}
+
+::: {custom-style="AbstractBodyEn" lang="en-US"}
+Academic reports require consistent structure, numbering, and citations.
+Small edits often shift the layout when a document is edited directly in a
+word processor. This example discusses the AutoOffice pipeline, which
+separates Markdown manuscripts from formatting and structure rules. The
+pipeline validates front matter, renders PlantUML diagrams, invokes Pandoc,
+and then normalizes captions, equations, numbering, and the table of
+contents in the DOCX file. The discussion focuses on the layer design,
+validation mechanism, and asset traceability. The results show sample output
+for the thesis structure rather than production performance measurements.
+:::
+
+::: {custom-style="AbstractKeywords" lang="en-US"}
+**Keywords:** [Markdown, Pandoc, DOCX, document pipeline]{custom-style="AbstractKeywordText"}
+:::
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
 
 # Pendahuluan
 

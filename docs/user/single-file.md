@@ -1,8 +1,9 @@
 # Alur Satu Berkas
 
 `autooffice` memakai satu berkas Markdown sebagai sumber: `document.md`.
-Berkas itu memuat YAML front matter dan seluruh body. Tidak ada direktori `chapters/`,
-tidak ada `manifest.yaml`, dan tidak ada perintah `build-file` terpisah.
+Berkas itu memuat YAML metadata, front matter Markdown (sampul dan halaman
+pendahulu), dan seluruh body. Tidak ada direktori `chapters/`, tidak ada
+`manifest.yaml`, dan tidak ada perintah `build-file` terpisah.
 Perintah `check` dan `build` menerima path `document.md` secara langsung.
 
 Alur ini cocok untuk tugas, proposal, dan tesis yang ditulis sebagai satu
@@ -25,9 +26,9 @@ memakai path absolut atau `..`.
 
 ## Front matter
 
-Front matter wajib di awal berkas:
+Blok YAML metadata wajib di awal berkas, diikuti front matter Markdown:
 
-```yaml
+```markdown
 ---
 title: "Analisis Pipeline Markdown untuk Laporan Tugas"
 author: "Nama Mahasiswa"
@@ -38,6 +39,16 @@ bibliography: references.bib
 report_name: "Tugas"
 ---
 
+::: {custom-style="CoverTitle"}
+ANALISIS PIPELINE MARKDOWN UNTUK LAPORAN TUGAS
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+<!-- section-break -->
+
 # Pendahuluan
 
 Naskah dimulai di sini.
@@ -46,6 +57,12 @@ Naskah dimulai di sini.
 Kunci `title`, `author`, `report_name`, `structure`, dan `format` wajib.
 `bibliography` wajib ada karena ketiga struktur memiliki daftar pustaka. Nilai
 default-nya `references.bib`, tetapi berkasnya tetap harus tersedia.
+
+Sampul, lembar pengesahan, pernyataan, kata pengantar, abstrak, dan kata kunci
+adalah Markdown biasa. Baris `\` memberi jarak vertikal sampul,
+`<!-- section-break -->` menutup sampul, dan blok raw OpenXML berisi
+`<w:br w:type="page"/>` memulai halaman baru. Bentuk lengkap ada di
+[document-format.md](document-format.md#front-matter-markdown).
 
 ## Body dan bab
 

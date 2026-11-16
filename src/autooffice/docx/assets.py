@@ -38,7 +38,6 @@ class Assets:
     bibliography: Path | None
     glossary: Path
     glossary_is_override: bool
-    templates_dir: Path
     images: tuple[ImageReference, ...] = ()
 
 
@@ -191,8 +190,14 @@ def resolve_assets(
     format: Format,
     bibliography: str | None,
     body: str,
+    body_start: int = 0,
 ) -> Assets:
-    """Resolve gambar, bibliografi, glosarium, dan template."""
+    """Resolve gambar, bibliografi, dan glosarium.
+
+    ``body_start`` adalah indeks baris (0-based) Heading 1 bab pertama. Baris
+    sebelumnya adalah front matter yang ditulis langsung di ``document.md``
+    dan tidak ikut dipindai sebagai gambar body.
+    """
 
     document_dir = document_path.parent.resolve()
     has_bibliography = any(item.id == "bibliography" for item in structure.back_matter)
@@ -205,14 +210,9 @@ def resolve_assets(
     )
     images_dir, images_dir_exists = _resolve_images_dir(document_dir)
     glossary, glossary_is_override = _resolve_glossary(document_dir)
-    images = iter_image_references(body, base=document_dir)
-    templates = structure.template_dir.resolve()
-    if not templates.is_dir() and any(item.source == "template" for item in structure.front_matter):
-        raise AssetError(
-            "direktori template struktur tidak ditemukan",
-            code="CFG-TEMPLATE-MISSING",
-            path=templates,
-        )
+    body_lines = body.splitlines(keepends=True)
+    start = max(0, min(body_start, len(body_lines)))
+    images = iter_image_references("".join(body_lines[start:]), base=document_dir)
     return Assets(
         document_dir=document_dir,
         images_dir=images_dir,
@@ -220,6 +220,5 @@ def resolve_assets(
         bibliography=resolved_bibliography,
         glossary=glossary,
         glossary_is_override=glossary_is_override,
-        templates_dir=templates,
         images=images,
     )

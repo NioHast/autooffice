@@ -2,19 +2,56 @@
 title: "Analisis Pipeline Markdown untuk Laporan Tugas"
 author: "Nama Mahasiswa"
 nim: "30000000000000"
-lecturer: "Dr. Nama Dosen Pengampu, M.Kom."
-lecturer_label: "Dosen Pengampu:"
-course: "Penulisan Laporan Akademik"
-institution: "Universitas Diponegoro"
-faculty: "Program Studi Magister Sistem Informasi"
-year: "2026"
-date: "Agustus 2026"
 lang: "id-ID"
 report_name: "Tugas"
 structure: assignment
 format: undip-msi
 bibliography: references.bib
 ---
+
+::: {custom-style="CoverTitle"}
+ANALISIS PIPELINE MARKDOWN UNTUK LAPORAN TUGAS
+:::
+
+::: {custom-style="CoverCourse"}
+**Penulisan Laporan Akademik**
+:::
+
+\
+
+::: {custom-style="CoverImage"}
+![](logo.jpg){width=4.7cm}
+:::
+
+\
+
+::: {custom-style="CoverLine"}
+Disusun oleh:
+:::
+
+::: {custom-style="CoverName"}
+**Nama Mahasiswa**
+:::
+
+::: {custom-style="CoverLine"}
+30000000000000
+:::
+
+\
+
+::: {custom-style="CoverInstitution"}
+PROGRAM STUDI MAGISTER SISTEM INFORMASI
+:::
+
+::: {custom-style="CoverInstitution"}
+UNIVERSITAS DIPONEGORO
+:::
+
+::: {custom-style="CoverInstitution"}
+2026
+:::
+
+<!-- section-break -->
 
 # Pendahuluan
 
