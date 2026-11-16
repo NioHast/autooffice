@@ -178,7 +178,7 @@ _RAW_STAGE_SPECS: tuple[tuple[StageName, int, str, frozenset[str], bool], ...] =
         StageName.TOC,
         130,
         "stages/toc.py",
-        frozenset({"word/document.xml", "word/styles.xml"}),
+        frozenset({"word/document.xml"}),
         True,
     ),
     (

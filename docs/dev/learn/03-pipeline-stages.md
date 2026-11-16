@@ -82,7 +82,7 @@ package yang sama.
 | 100 | `numbering` | `stages/numbering.py` | `word/document.xml`, `word/numbering.xml` | Indentasi daftar. |
 | 110 | `blank_lines` | `stages/blank_lines.py` | `word/document.xml` | Paragraf kosong sesuai aturan layout. |
 | 120 | `terms` | `stages/terms.py` | `word/document.xml`, `word/styles.xml` | Style istilah, verifikasi, review file. |
-| 130 | `toc` | `stages/toc.py` | `word/document.xml`, `word/styles.xml` | Field TOC native dan style TOC. |
+| 130 | `toc` | `stages/toc.py` | `word/document.xml` | Field TOC native; style TOC diverifikasi dari reference. |
 | 140 | `page_numbers` | `stages/page_numbers.py` | document, header/footer, rels, content types | Romawi front matter, Arab body. |
 | 150 | `lists` | `stages/lists.py` | `word/document.xml` | Daftar tabel/gambar dan field `SEQ`. |
 

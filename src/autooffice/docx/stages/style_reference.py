@@ -1,6 +1,8 @@
 """Stage ``style_reference``: derived ``reference.docx`` dari ``format.yaml``.
 
-Sumber kebenaran nilai visual adalah :class:`autooffice.docx.config.Format`. Stage ini
+Sumber kebenaran nilai visual adalah :class:`autooffice.docx.config.Format`.
+Style yang dibekukan di ``reference.docx`` sumber (lihat
+:data:`BAKED_STYLE_IDS`) tidak ditulis ulang, hanya diverifikasi. Stage ini
 tidak pernah menulis ke ``assets.reference_docx``; derived reference selalu
 ditulis ke workspace/cache. Semua mutasi XML memakai ``autooffice.docx``.
 """
@@ -23,6 +25,7 @@ from ..package.styles import (
     apply_page_layout,
     apply_style_specs,
     build_style_patch,
+    get_style_element,
     verify_style_contract,
 )
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
@@ -30,7 +33,22 @@ from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 STYLE_REFERENCE_PART = "word/styles.xml"
 DEFAULT_REFERENCE_NAME = "reference.docx"
 
+# Style yang nilainya dibekukan di ``reference.docx`` sumber dan hanya
+# diverifikasi setiap build, bukan ditulis ulang. Empat style pertama punya
+# ``StyleSpec`` di bawah; ``TableofFigures`` diverifikasi stage ``lists``.
+BAKED_STYLE_IDS: frozenset[str] = frozenset(
+    {
+        "AbstractBody",
+        "AbstractKeywords",
+        "IstilahAsing",
+        "IstilahReview",
+        "TableofFigures",
+    }
+)
+
 # Style karakter yang wajib ada agar stage terms dapat langsung bekerja.
+# Keduanya termasuk BAKED_STYLE_IDS: spec ini tidak ditulis ulang, tetapi
+# dipakai verify_style_contract untuk memeriksa nilai di reference turunan.
 TERM_STYLES: tuple[StyleSpec, ...] = (
     StyleSpec(
         style_id="IstilahAsing",
@@ -436,6 +454,17 @@ def style_specs_for_format(
     return specs
 
 
+def _verify_baked_styles(package: DocumentPackage) -> None:
+    """Pastikan setiap style pada :data:`BAKED_STYLE_IDS` ada di source.
+
+    Style yang dibekukan tidak pernah dibuat ulang, jadi source yang tidak
+    memuatnya harus gagal sebelum derived reference ditulis.
+    """
+
+    for style_id in sorted(BAKED_STYLE_IDS):
+        get_style_element(package, style_id)
+
+
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -453,7 +482,9 @@ def build_reference_docx(
     Output boleh berada di workspace/cache. Fungsi ini deterministik: input
     dan format yang sama menghasilkan payload ZIP yang sama. ``numbering``
     menulis definisi numbering native dan ``w:numPr`` pada style heading;
-    ``None`` memakai skema default ``BAB_ROMAN`` bertitik.
+    ``None`` memakai skema default ``BAB_ROMAN`` bertitik. Style pada
+    :data:`BAKED_STYLE_IDS` sudah dibekukan di ``source`` dan hanya
+    diverifikasi, tidak ditulis ulang.
     """
 
     format_spec = _resolve_format_arg(format_spec, format)
@@ -483,8 +514,12 @@ def build_reference_docx(
 
     before = _digest(source_path)
     package = DocumentPackage.load(source_path)
+    _verify_baked_styles(package)
     specs = style_specs_for_format(format_spec)
-    apply_style_specs(package, specs)
+    apply_style_specs(
+        package,
+        {style_id: spec for style_id, spec in specs.items() if style_id not in BAKED_STYLE_IDS},
+    )
     numbering_spec = numbering or NumberingSpec()
     ensure_heading_numbering(
         package,
@@ -631,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
+    "BAKED_STYLE_IDS",
     "DEFAULT_REFERENCE_NAME",
     "TERM_STYLES",
     "StyleReferenceStage",

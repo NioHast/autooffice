@@ -7,15 +7,15 @@ dipertahankan dan switch ``\s 1`` tetap dipakai: Word mereset counter ``SEQ``
 pada heading level 1, dan heading kini memakai numbering native ``w:numPr``
 (style ``Heading1``) sehingga level 1 tetap dikenali. Pengukuran Word 16 pada
 contoh tesis: setelah field diperbarui, caption tetap ``Tabel 2.1``,
-``Gambar 3.1``, dan ``Tabel 4.1`` (identik baseline). Stage juga memastikan
-style entri ``TableofFigures`` flush left dengan tab leader dot selebar
-konten. Semua field daftar ditulis lewat
-:mod:`autooffice.docx.package.fields`.
+``Gambar 3.1``, dan ``Tabel 4.1`` (identik baseline). Style entri
+``TableofFigures`` sudah dibekukan di ``reference.docx`` sumber dan hanya
+diverifikasi: flush left dengan tab leader dot selebar konten. Semua field
+daftar ditulis lewat :mod:`autooffice.docx.package.fields`.
 """
 
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from lxml import etree
@@ -39,6 +39,7 @@ from ..package.names import (
     W_RPR,
     W_SDT,
     W_VAL,
+    W,
 )
 from ..package.package import DOCUMENT_PART
 from ..package.page import PageError, content_width
@@ -49,18 +50,20 @@ from ..package.paragraphs import (
     remove_direct_children,
 )
 from ..package.runs import build_run
+from ..package.styles import StyleError, get_style_element
 from ..package.xml import (
     iter_paragraphs,
     qn,
     tree_digest,
 )
 from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
-from .toc import STYLES_PART, ensure_list_entry_style, format_tab_fallback
+from .toc import format_tab_fallback
 
 if TYPE_CHECKING:  # pragma: no cover - hanya anotasi
     from ..package.package import DocumentPackage
 
 CAPTION_LABEL_DEFAULTS = {"table": "Tabel", "figure": "Gambar"}
+LIST_ENTRY_STYLE_ID = "TableofFigures"
 LIST_TITLES = {
     "list_of_tables": ("tables", "DAFTAR TABEL"),
     "list_of_figures": ("figures", "DAFTAR GAMBAR"),
@@ -289,6 +292,129 @@ def _list_tab_position(package: DocumentPackage, ctx: object) -> int | None:
         return width - left - right
 
 
+def _verify_style_attrs(
+    element: etree._Element | None,
+    *,
+    style_id: str,
+    label: str,
+    expected: Mapping[str, str],
+) -> None:
+    """Pastikan atribut ``w:val``/lainnya pada ``element`` sesuai harapan."""
+
+    if element is None:
+        raise FieldError(
+            f"style '{style_id}' tidak memiliki {label}",
+            code="LIST-STYLE",
+            key=style_id,
+        )
+    for name, value in expected.items():
+        actual = element.get(W_VAL if name == "val" else W + name)
+        if actual != value:
+            raise FieldError(
+                f"style '{style_id}': {label}@{name} bernilai {actual!r}, seharusnya {value!r}",
+                code="LIST-STYLE",
+                key=style_id,
+            )
+
+
+def verify_list_entry_style(package: DocumentPackage, *, tab_pos: int | None) -> None:
+    """Pastikan ``TableofFigures`` sesuai nilai yang dibekukan di reference.
+
+    Style wajib ada, bertipe paragraf, memakai indentasi nol, spacing
+    ``before``/``after`` 0 dengan line 360, dan (bila ``tab_pos`` diketahui)
+    satu tab kanan berleader dot pada posisi tersebut. Pelanggaran melempar
+    :class:`FieldError` berkode ``LIST-STYLE``.
+    """
+
+    try:
+        style = get_style_element(package, LIST_ENTRY_STYLE_ID)
+    except StyleError as exc:
+        raise FieldError(
+            f"style '{LIST_ENTRY_STYLE_ID}' wajib ada di word/styles.xml",
+            code="LIST-STYLE",
+            key=LIST_ENTRY_STYLE_ID,
+        ) from exc
+
+    if style.get(W + "type") not in {None, "paragraph"}:
+        raise FieldError(
+            f"style '{LIST_ENTRY_STYLE_ID}' bertipe {style.get(W + 'type')!r}, "
+            "seharusnya 'paragraph'",
+            code="LIST-STYLE",
+            key=LIST_ENTRY_STYLE_ID,
+        )
+
+    name = style.find(W + "name")
+    _verify_style_attrs(
+        name, style_id=LIST_ENTRY_STYLE_ID, label="w:name", expected={"val": "table of figures"}
+    )
+    based_on = style.find(W + "basedOn")
+    _verify_style_attrs(
+        based_on,
+        style_id=LIST_ENTRY_STYLE_ID,
+        label="w:basedOn",
+        expected={"val": "Normal"},
+    )
+    next_style = style.find(W + "next")
+    _verify_style_attrs(
+        next_style,
+        style_id=LIST_ENTRY_STYLE_ID,
+        label="w:next",
+        expected={"val": "Normal"},
+    )
+
+    ppr = style.find(W + "pPr")
+    if ppr is None:
+        raise FieldError(
+            f"style '{LIST_ENTRY_STYLE_ID}' tidak memiliki w:pPr",
+            code="LIST-STYLE",
+            key=LIST_ENTRY_STYLE_ID,
+        )
+    _verify_style_attrs(
+        ppr.find(W + "spacing"),
+        style_id=LIST_ENTRY_STYLE_ID,
+        label="w:spacing",
+        expected={"before": "0", "after": "0", "line": "360", "lineRule": "auto"},
+    )
+    _verify_style_attrs(
+        ppr.find(W + "ind"),
+        style_id=LIST_ENTRY_STYLE_ID,
+        label="w:ind",
+        expected={"left": "0", "right": "0", "firstLine": "0"},
+    )
+    _verify_style_attrs(
+        ppr.find(W + "jc"),
+        style_id=LIST_ENTRY_STYLE_ID,
+        label="w:jc",
+        expected={"val": "left"},
+    )
+
+    if tab_pos is None:
+        return
+    tabs = ppr.find(W + "tabs")
+    matching = (
+        ()
+        if tabs is None
+        else tuple(
+            tab
+            for tab in tabs.findall(W + "tab")
+            if tab.get(W_VAL) == "right" and tab.get(W + "pos") == str(tab_pos)
+        )
+    )
+    if not matching:
+        raise FieldError(
+            f"style '{LIST_ENTRY_STYLE_ID}' tidak memiliki tab kanan pada {tab_pos} twip",
+            code="LIST-STYLE",
+            key=LIST_ENTRY_STYLE_ID,
+        )
+    if matching[0].get(W + "leader") != "dot":
+        raise FieldError(
+            f"style '{LIST_ENTRY_STYLE_ID}' tab kanan pada {tab_pos} twip memakai "
+            f"leader {matching[0].get(W + 'leader')!r}, seharusnya 'dot'",
+            code="LIST-STYLE",
+            key=LIST_ENTRY_STYLE_ID,
+        )
+
+
 def _insert_list_fields(
     package: DocumentPackage,
     requests: Sequence[tuple[str, str]],
@@ -304,7 +430,7 @@ def _insert_list_fields(
         if parent is not None:
             parent.remove(sdt)
 
-    ensure_list_entry_style(package, tab_pos=tab_pos)
+    verify_list_entry_style(package, tab_pos=tab_pos)
 
     next_id = _next_sdt_id(body)
     for index, (key, title) in enumerate(requests):
@@ -329,7 +455,7 @@ class ListsStage(BaseStage):
     # stage-api v0.12: page_numbers (140) -> lists (150).
     order = 150
     requires = canonical_prefix(StageName.LISTS)
-    mutates = frozenset({DOCUMENT_PART, STYLES_PART})
+    mutates = frozenset({DOCUMENT_PART})
     idempotent = True
 
     def enabled(self, ctx: object) -> bool:
@@ -365,7 +491,6 @@ class ListsStage(BaseStage):
             )
 
         before_document = tree_digest(package.xml(DOCUMENT_PART))
-        before_styles = tree_digest(package.xml(STYLES_PART))
         labels, scope = _caption_settings(getattr(ctx, "format", None))
         try:
             tab_pos = _list_tab_position(package, ctx)
@@ -383,25 +508,24 @@ class ListsStage(BaseStage):
                 cause=exc,
                 code=exc.code,
             ) from exc
-        changed = (
-            tree_digest(package.xml(DOCUMENT_PART)) != before_document
-            or tree_digest(package.xml(STYLES_PART)) != before_styles
-        )
         return StageResult(
             stage=self.name.value,
             status="ok",
-            changed=changed,
+            changed=tree_digest(package.xml(DOCUMENT_PART)) != before_document,
             duration_ms=int((time.monotonic() - started) * 1000),
             metrics={
                 "list_fields": list_fields,
                 "seq_fields": seq_fields,
+                "list_styles": 1,
             },
         )
 
 
 __all__ = [
     "CAPTION_LABEL_DEFAULTS",
+    "LIST_ENTRY_STYLE_ID",
     "LIST_TITLES",
     "ListsStage",
     "_list_requests",
+    "verify_list_entry_style",
 ]

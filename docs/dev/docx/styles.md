@@ -8,11 +8,16 @@ Style inti yang dipakai pipeline:
 
 - `Normal`, `Heading1` sampai `Heading5`;
 - `TOCHeading`, `TOC1`, `TOC2`, `TOC3`;
-- `Caption`, `TableCaption`, `ImageCaption`, `Figure`;
+- `Caption`, `TableCaption`, `ImageCaption`, `Figure`, `TableofFigures`;
+- `AbstractBody`, `AbstractKeywords`;
 - `Bibliography`, `SourceCode`, `VerbatimChar`;
 - `IstilahAsing`, `IstilahReview`;
 - style sampul seperti `CoverTitle`, `CoverSubtitle`, `CoverName`,
   `CoverInstitution`, dan `CoverImage`.
+
+Style `AbstractBody`, `AbstractKeywords`, `IstilahAsing`, `IstilahReview`, dan
+`TableofFigures` dibekukan di `reference.docx` sumber. `style_reference` dan
+stage terkait hanya memverifikasi nilainya, tidak menulis ulang.
 
 `style_reference` menghasilkan `reference.docx` turunan dari `format.yaml`.
 Sumber `reference.docx` di `src/autooffice/docx/data/` tidak pernah ditimpa.
@@ -39,6 +44,11 @@ tidak ada di reference dan `test_pandoc_imports_no_style_outside_reference`
 menyebut `styleId` yang hilang. Tambahkan style itu kembali ke `reference.docx`
 (dan ke `style_specs_for_format` bila perlu) bila konstruksinya memang
 didukung.
+
+Setelah 12 style dihapus, lima style yang sebelumnya ditulis saat build
+dibekukan ke source: `AbstractBody`, `AbstractKeywords`, `IstilahAsing`,
+`IstilahReview`, dan `TableofFigures`. Source kini memuat 56 style; derived
+reference dan output mempertahankan jumlah itu.
 
 ## Numbering heading
 
