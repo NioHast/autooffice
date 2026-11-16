@@ -55,7 +55,7 @@ Top-level key:
 | `headings` | Style `heading1`, `heading2`, `heading3`. |
 | `toc_heading` | Style judul daftar isi. |
 | `captions` | Label, separator, font, dan keep-next caption gambar/tabel. |
-| `figures` | Perataan caption/gambar, numbering, spacing. |
+| `figures` | Perataan caption/gambar dan spacing. |
 | `code` | Font, border, shading, tabel kode, dan style deteksi. |
 | `bibliography_style` | Judul dan format daftar pustaka. |
 | `citation` | `csl`, `bibliography`, dan `locale`. |

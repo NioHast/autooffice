@@ -124,7 +124,6 @@ def test_load_builtin_format() -> None:
     assert format_.abstract.english_italic is True
     assert format_.figures.caption_alignment == "center"
     assert format_.figures.image_alignment == "center"
-    assert format_.figures.numbering == "chapter"
     assert format_.figures.space_before == 0
     assert format_.figures.space_after == 0
     assert format_.figures.first_line_indent == 0

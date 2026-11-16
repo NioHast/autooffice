@@ -141,12 +141,11 @@ captions:
       # 240 twip = 1,0 baris
       line_spacing: 1.0
 
-# Perataan caption gambar dan counter caption gambar/tabel.
+# Perataan caption dan gambar.
 figures:
   # Perataan caption dan gambar: rata tengah.
   caption_alignment: center
   image_alignment: center
-  numbering: chapter
   space_before: 0pt
   space_after: 0pt
   first_line_indent: 0cm

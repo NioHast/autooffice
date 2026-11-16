@@ -132,7 +132,6 @@ class CaptionsFormat:
 class FigureStyle:
     caption_alignment: str
     image_alignment: str
-    numbering: str
     space_before: int
     space_after: int
     first_line_indent: int

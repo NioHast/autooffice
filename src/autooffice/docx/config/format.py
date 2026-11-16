@@ -164,7 +164,6 @@ _FIGURE_KEYS = frozenset(
     {
         "caption_alignment",
         "image_alignment",
-        "numbering",
         "space_before",
         "space_after",
         "first_line_indent",
@@ -810,13 +809,6 @@ def _parse_figures(
             path=path,
             key="figures.image_alignment",
             default="center",
-        ),
-        numbering=_enum(
-            raw.get("numbering"),
-            path=path,
-            key="figures.numbering",
-            choices=("chapter", "document"),
-            default="chapter",
         ),
         space_before=_dimension(
             raw.get("space_before"),

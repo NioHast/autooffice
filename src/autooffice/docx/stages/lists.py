@@ -160,7 +160,7 @@ def _list_requests(structure: object | None) -> tuple[tuple[str, str], ...]:
     return tuple(requests)
 
 
-def _caption_settings(format_value: object | None) -> tuple[dict[str, str], str]:
+def _caption_settings(format_value: object | None) -> dict[str, str]:
     captions = getattr(format_value, "captions", None)
 
     def label(kind: str) -> str:
@@ -168,14 +168,10 @@ def _caption_settings(format_value: object | None) -> tuple[dict[str, str], str]
         value = getattr(style, "label", None) if style is not None else None
         return str(value or CAPTION_LABEL_DEFAULTS[kind])
 
-    figures = getattr(format_value, "figures", None)
-    scope = str(getattr(figures, "numbering", "chapter") or "chapter")
-    if scope not in {"chapter", "document"}:
-        scope = "chapter"
     return {
         "table": label("table"),
         "figure": label("figure"),
-    }, scope
+    }
 
 
 def _caption_pattern(label: str) -> re.Pattern[str]:
@@ -188,7 +184,6 @@ def _caption_pattern(label: str) -> re.Pattern[str]:
 def _caption_prefix(
     text: str,
     label: str,
-    scope: str,
 ) -> tuple[str, str, str, int, int] | None:
     """Pisahkan caption menjadi ``(before, counter, after, start, end)``.
 
@@ -202,7 +197,7 @@ def _caption_prefix(
         return None
     number = match.group("number")
     start = match.start("number")
-    if scope == "chapter" and "." in number:
+    if "." in number:
         head, _, _tail = number.rpartition(".")
         counter_start = start + len(head) + 1
         prefix = text[:counter_start]
@@ -265,7 +260,6 @@ def _ensure_caption_seq(
     paragraph: etree._Element,
     *,
     label: str,
-    scope: str,
 ) -> bool:
     """Ganti angka urutan caption dengan field ``SEQ`` bila belum ada."""
 
@@ -275,7 +269,7 @@ def _ensure_caption_seq(
         return False
 
     text = paragraph_text(paragraph)
-    parts = _caption_prefix(text, label, scope)
+    parts = _caption_prefix(text, label)
     if parts is None:
         return False
     _before, counter, _after, counter_start, counter_end = parts
@@ -288,9 +282,7 @@ def _ensure_caption_seq(
     template_rpr = before_runs[-1][0] if before_runs else None
     remove_direct_children(paragraph, W_R)
 
-    switches = ["SEQ", label, "\\*", "ARABIC"]
-    if scope == "chapter":
-        switches.extend(("\\s", "1"))
+    switches = ["SEQ", label, "\\*", "ARABIC", "\\s", "1"]
 
     for rpr, value in before_runs:
         paragraph.append(build_run(text=value, rpr=rpr))
@@ -307,7 +299,6 @@ def _ensure_caption_seq(
 def _ensure_caption_seq_fields(
     package: DocumentPackage,
     labels: dict[str, str],
-    scope: str,
 ) -> int:
     count = 0
     for paragraph in iter_paragraphs(_body(package)):
@@ -315,14 +306,12 @@ def _ensure_caption_seq_fields(
             if _ensure_caption_seq(
                 paragraph,
                 label=labels["table"],
-                scope=scope,
             ):
                 count += 1
             continue
         if is_caption_paragraph(paragraph, CaptionKind.FIGURE) and _ensure_caption_seq(
             paragraph,
             label=labels["figure"],
-            scope=scope,
         ):
             count += 1
     return count
@@ -547,10 +536,10 @@ class ListsStage(BaseStage):
             )
 
         before_document = tree_digest(package.xml(DOCUMENT_PART))
-        labels, scope = _caption_settings(getattr(ctx, "format", None))
+        labels = _caption_settings(getattr(ctx, "format", None))
         try:
             tab_pos = _list_tab_position(package, ctx)
-            seq_fields = _ensure_caption_seq_fields(package, labels, scope)
+            seq_fields = _ensure_caption_seq_fields(package, labels)
             list_fields = _insert_list_fields(
                 package,
                 requests,

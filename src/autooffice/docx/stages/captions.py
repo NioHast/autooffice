@@ -91,7 +91,6 @@ def _caption_specs_from_format(
     layout = FigureLayoutSpec(
         caption_alignment=str(getattr(figures, "caption_alignment", "center") or "center"),
         image_alignment=str(getattr(figures, "image_alignment", "center") or "center"),
-        numbering=str(getattr(figures, "numbering", "chapter") or "chapter"),
         space_before=int(getattr(figures, "space_before", 0)),
         space_after=int(getattr(figures, "space_after", 0)),
         first_line_indent=int(getattr(figures, "first_line_indent", 0)),
@@ -205,20 +204,19 @@ def _merge_renumber(report: CaptionReport, numbered: CaptionReport) -> None:
     report.skipped_field = numbered.skipped_field
 
 
-def _add_warnings(report: CaptionReport, scope: str) -> None:
-    if scope == "chapter":
-        if report.chapter_headings == 0:
-            if report.heading1_count == 0:
-                report.warnings.append("Tidak ada paragraf Heading1; penomoran caption dilewati.")
-            else:
-                report.warnings.append(
-                    "Tidak ada Heading1 bernomor; penomoran caption per bab dilewati."
-                )
-        elif report.skipped_no_chapter:
+def _add_warnings(report: CaptionReport) -> None:
+    if report.chapter_headings == 0:
+        if report.heading1_count == 0:
+            report.warnings.append("Tidak ada paragraf Heading1; penomoran caption dilewati.")
+        else:
             report.warnings.append(
-                f"{report.skipped_no_chapter} caption sebelum bab pertama "
-                "dilewati (belum ada nomor bab)."
+                "Tidak ada Heading1 bernomor; penomoran caption per bab dilewati."
             )
+    elif report.skipped_no_chapter:
+        report.warnings.append(
+            f"{report.skipped_no_chapter} caption sebelum bab pertama "
+            "dilewati (belum ada nomor bab)."
+        )
 
     if report.skipped_field:
         report.warnings.append(
@@ -240,7 +238,6 @@ def _missing_message(report: CaptionReport) -> str:
 def apply_captions(
     package: DocumentPackage,
     *,
-    scope: str = "chapter",
     caption_specs: CaptionSpecs | None = None,
     figure_spec: FigureLayoutSpec | None = None,
     code_spec: CodeSpec | None = None,
@@ -266,13 +263,12 @@ def apply_captions(
         report,
         renumber_captions(
             package,
-            scope=scope,
             spec=specs,
             body_titles=body_titles,
             has_back_matter=has_back_matter,
         ),
     )
-    _add_warnings(report, scope)
+    _add_warnings(report)
 
     report.changed = tree_digest(root) != before
     if report.changed:
@@ -313,7 +309,6 @@ def _apply_from_context(
     try:
         return apply_captions(
             package,
-            scope=figure_spec.numbering,
             caption_specs=caption_specs,
             figure_spec=figure_spec,
             code_spec=code_spec,
