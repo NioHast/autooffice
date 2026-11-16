@@ -31,6 +31,7 @@ setelah F0 wajib memiliki ADR.
 | [0017-remove-caption-and-source.md](0017-remove-caption-and-source.md) | Hapus field block `caption` dan field slide `source` beserta jalur ukur, render, key, dan coverage-nya; `role: caption` pada block teks dipertahankan. | diterima |
 | [0018-retire-styles-and-disable-highlighting.md](0018-retire-styles-and-disable-highlighting.md) | Pensiunkan 12 style reference, hapus palet syntax highlighting, pertahankan `Footnote*`, dan perkuat gate parity style. | diterima |
 | [0019-reference-docx-as-single-visual-source.md](0019-reference-docx-as-single-visual-source.md) | `reference.docx` sebagai satu-satunya sumber kebenaran visual; edit reference langsung, backup biner pemilik, dan verifikasi minimal. | diterima |
+| [0020-per-document-settings.md](0020-per-document-settings.md) | Empat key pengaturan perilaku dokumen di front matter `document.md`; tanpa `profile`; nilai yang tidak ditulis jatuh ke perilaku tesis. | diterima |
 
 ## Aturan ADR
 
