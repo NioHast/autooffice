@@ -38,9 +38,9 @@ kode Python yang terlibat, bukan target ukuran seluruh repo.
 | 3b | Front matter pindah ke `document.md`; cover memakai `\` sebagai pengganti `spacer()`. | 2b | -607 LOC |
 | 3c | `format.yaml` dibubarkan tanpa sisa; tidak perlu key `figure_numbering` di front matter. | 3a, 3b | -1.400 LOC |
 | 3d | Hapus derived reference: bake 35 style tersisa + numbering + geometri, lalu hapus stage `style_reference`. | 3a, 3c | -3.000 LOC |
-| 4 | `terms`, `blank_lines`, `equations` menjadi filter JSON. | 3d | -1.019 LOC |
+| 4 | Hanya `terms` yang menjadi filter Python JSON; `blank_lines` dan `equations` tetap di Python. | 3d | -870…-1.570 LOC |
 
-Jumlah indikatif seluruh fase: sekitar **7.094–7.114 LOC**. Angka per fase
+Jumlah indikatif seluruh fase: sekitar **6.945–7.665 LOC**. Angka per fase
 adalah perkiraan dan tidak boleh dipakai sebagai janji rilis.
 
 Urutan ini mengikat: konvensi nama file (3a) dan pembubaran `format.yaml` (3c)
@@ -143,11 +143,53 @@ satu-satunya sumber tampilan.
 reference dihapus; tiga verifikasi minimal lulus; stage `style_reference` tidak
 lagi ada di urutan stage.
 
-### 4 — `terms`, `blank_lines`, dan `equations` sebagai filter JSON
+### 4 — Filter `terms` sebagai Python JSON
 
-Tiga stage Python diganti filter yang bekerja pada AST JSON Pandoc. Walker
-OOXML khusus untuk ketiga transformasi itu dihapus; pipeline hanya menjalankan
-filter pada urutan yang sama.
+Filter adalah lapisan eksekusi kedua (Pandoc memanggil proses Python). Ia hanya
+diambil kalau penghematannya nyata dan kode tetap berada di dalam gate
+kualitas. Karena itu Lua ditolak meski lebih ringkas.
+
+Hanya `terms` yang dijadikan filter. `blank_lines` dan `equations` tetap
+dikerjakan stage Python seperti sekarang.
+
+| Fitur | Keputusan | Alasan |
+| --- | --- | --- |
+| `terms` (istilah asing) | ✅ **dijadikan filter** | AST memetakan langsung ke `Span(custom-style)`; logika pencocokan yang sudah teruji bisa dipakai ulang |
+| `blank_lines` | ❌ tidak | aturannya harus dipetakan ulang ke AST, dan hasil akhirnya tetap menulis raw openxml |
+| `equations` | ❌ tidak | nomor tetap harus raw openxml; tidak ada penghematan nyata, risiko salah nomor tanpa ketahuan |
+
+**Bentuk: Python JSON filter, bukan Lua.**
+
+| | Lua | Python JSON |
+| --- | ---: | ---: |
+| Kode baru | ~380 | ~130 |
+| Kode dipakai ulang | 0 | `load_glossary`, `match_terms` |
+| Tercakup pytest/mypy/ruff/coverage | ❌ | ✅ |
+| Shim Windows | tidak perlu | tidak perlu (lihat di bawah) |
+
+**Distribusi: console_scripts, tanpa `.cmd`.**
+
+```toml
+[project.scripts]
+autooffice-filter-terms = "autooffice.docx.filters.terms:main"
+```
+
+`uv`/`pip` membuatkan `Scripts/autooffice-filter-terms.exe`; Pandoc
+memanggilnya lewat `--filter=autooffice-filter-terms`. Tidak ada file `.cmd`,
+dan tidak bergantung pada `python` di PATH.
+
+**Pola test:** logika ditulis sebagai fungsi murni
+`transform(doc: dict) -> dict`; `main()` hanya pembungkus
+`json.load(sys.stdin)` / `json.dump(sys.stdout)`. Test memanggil `transform`
+langsung, sehingga tetap berjalan di `pytest` dan tercakup coverage. Sekitar
+10 baris per kasus.
+
+**Prasyarat:** setelah Fase 3d (hapus derived reference).
+
+**Perkiraan:** ~130 baris kode baru + ~150 baris test; sekitar 1.000–1.700
+baris Python lama dipensiunkan (pemecahan/bangunan ulang run di
+`terms/model.py` dan `terms/apply.py`). Setelah kode filter baru, pengurangan
+bersih sekitar **870–1.570 LOC**.
 
 ## Yang tetap di Python
 
