@@ -17,7 +17,7 @@ environment proyek.
 
 | Bagian | Nilai |
 | --- | --- |
-| Versi | `3.0.0` |
+| Versi | `4.0.0` |
 | Python | `>=3.15` |
 | Build backend | `setuptools.build_meta` |
 | Entry point | `autooffice = "autooffice.cli.main:main"` |
