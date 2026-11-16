@@ -17,16 +17,10 @@ body:
 back_matter:
   - {id: bibliography, source: generated}
 
-toc: true
-
 numbering:
   body: ARABIC_DOTTED
   sub_dot: true
   subsub_dot: true
-
-lists:
-  figures: false
-  tables: false
 
 # Kunci cover mengikuti kontrak DOCX di docs/contracts/docx.md.
 cover:

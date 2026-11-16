@@ -1,9 +1,8 @@
 """Parser ``structure.yaml`` dan aturan struktur dokumen.
 
 Modul ini memuat :func:`load_structure` serta parser front matter, body, back
-matter, numbering, lists, dan cover. Aturan source front/back matter, ID bab,
-dan konsistensi daftar adalah tanggung jawab khusus struktur dan tidak dipakai
-parser format.
+matter, numbering, dan cover. Aturan source front/back matter dan ID bab
+adalah tanggung jawab khusus struktur dan tidak dipakai parser format.
 
 Semua kegagalan input dilempar sebagai ``ConfigError`` dengan kode stabil;
 modul ini tidak menulis berkas dan tidak menyediakan fallback struktur.
@@ -36,9 +35,7 @@ from .validation import (
     _required,
 )
 
-_STRUCTURE_KEYS = frozenset(
-    {"format", "front_matter", "body", "back_matter", "toc", "numbering", "lists", "cover"}
-)
+_STRUCTURE_KEYS = frozenset({"format", "front_matter", "body", "back_matter", "numbering", "cover"})
 _FRONT_MATTER_RULES: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "cover": frozenset({"generated"}),
@@ -62,7 +59,6 @@ _FRONT_ITEM_KEYS = frozenset({"id", "source", "template"})
 _BODY_KEYS = frozenset({"id", "title"})
 _BACK_KEYS = frozenset({"id", "source"})
 _NUMBERING_KEYS = frozenset({"body", "sub_dot", "subsub_dot"})
-_LISTS_KEYS = frozenset({"figures", "tables"})
 _COVER_KEYS = frozenset({"show_lecturer", "logo_width", "title_split"})
 _BODY_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
@@ -76,15 +72,12 @@ def _parse_front_matter(
     *,
     path: Path,
     templates: Path,
-    toc: bool,
-    lists: ListSettings,
 ) -> tuple[FrontMatterItem, ...]:
-    """Validasi ``front_matter`` terhadap aturan source, ``toc``, dan ``lists``.
+    """Validasi ``front_matter`` terhadap aturan ID dan source.
 
     Mengembalikan tuple unik berurutan; template di-resolve terhadap
     ``templates``. Melempar ``ConfigError`` untuk ID/source tidak dikenal,
-    duplikat, template hilang, atau kombinasi ``front_matter`` yang tidak
-    konsisten.
+    duplikat, atau template hilang.
     """
 
     entries = _expect_list(data, path=path, key="front_matter")
@@ -173,36 +166,6 @@ def _parse_front_matter(
             code="CFG-REQUIRED",
             path=path,
             key="front_matter",
-        )
-    if toc and "toc" not in seen:
-        raise _err(
-            "front_matter wajib memuat 'toc' karena structure.toc bernilai true",
-            code="CFG-CONDITIONAL",
-            path=path,
-            key="front_matter",
-        )
-    if not toc and "toc" in seen:
-        raise _err(
-            "front_matter tidak boleh memuat 'toc' karena structure.toc bernilai false",
-            code="CFG-CONDITIONAL",
-            path=path,
-            key="front_matter",
-        )
-    tables_expected = "list_of_tables" in seen
-    figures_expected = "list_of_figures" in seen
-    if lists.tables != tables_expected:
-        raise _err(
-            "front_matter.list_of_tables tidak konsisten dengan lists.tables",
-            code="CFG-CONDITIONAL",
-            path=path,
-            key="lists.tables",
-        )
-    if lists.figures != figures_expected:
-        raise _err(
-            "front_matter.list_of_figures tidak konsisten dengan lists.figures",
-            code="CFG-CONDITIONAL",
-            path=path,
-            key="lists.figures",
         )
     return tuple(result)
 
@@ -332,23 +295,6 @@ def _parse_numbering(data: Any, *, path: Path) -> Numbering:
     )
 
 
-def _parse_lists(data: Any, *, path: Path) -> ListSettings:
-    mapping = _expect_mapping(data, path=path, key="lists")
-    _check_unknown(mapping, _LISTS_KEYS, path=path, key="lists")
-    return ListSettings(
-        figures=_boolean(
-            _required(mapping, "figures", path=path, key="lists"),
-            path=path,
-            key="lists.figures",
-        ),
-        tables=_boolean(
-            _required(mapping, "tables", path=path, key="lists"),
-            path=path,
-            key="lists.tables",
-        ),
-    )
-
-
 def _parse_cover(data: Any, *, path: Path) -> CoverOverrides:
     if data is None:
         return CoverOverrides()
@@ -409,17 +355,8 @@ def load_structure(structure_id: str, *, root: Path | None = None) -> Structure:
     )
     path_mod.validate_id(format_id, kind="format")
 
-    toc = _boolean(
-        _required(data, "toc", path=path, key="structure"),
-        path=path,
-        key="toc",
-    )
     numbering = _parse_numbering(
         _required(data, "numbering", path=path, key="structure"),
-        path=path,
-    )
-    lists = _parse_lists(
-        _required(data, "lists", path=path, key="structure"),
         path=path,
     )
     templates = directory / "templates"
@@ -435,8 +372,11 @@ def load_structure(structure_id: str, *, root: Path | None = None) -> Structure:
         _required(data, "front_matter", path=path, key="structure"),
         path=path,
         templates=templates,
-        toc=toc,
-        lists=lists,
+    )
+    toc = any(item.id == "toc" for item in front_matter)
+    lists = ListSettings(
+        figures=any(item.id == "list_of_figures" for item in front_matter),
+        tables=any(item.id == "list_of_tables" for item in front_matter),
     )
     body = _parse_body(
         _required(data, "body", path=path, key="structure"),

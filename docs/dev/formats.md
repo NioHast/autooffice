@@ -108,13 +108,11 @@ Top-level key:
 | `front_matter` | Daftar berurutan bagian sebelum body. |
 | `body` | Daftar bab logis. |
 | `back_matter` | Daftar bagian setelah body. |
-| `toc` | Boolean wajib. |
 | `numbering` | Format nomor Heading 1/2/3. |
-| `lists` | Boolean daftar gambar dan tabel. |
 | `cover` | Tampilan sampul. |
 
-Key lain adalah error. `front_matter` minimal memuat `cover`. `body` minimal
-satu entri.
+Key lain adalah error, termasuk `toc` dan `lists`. `front_matter` minimal
+memuat `cover`. `body` minimal satu entri.
 
 ### `front_matter`
 
@@ -132,11 +130,15 @@ Setiap entri memiliki `id`, `source`, dan `template` bila diperlukan.
 | `list_of_tables` | `generated` | Field `TOC \c "Tabel"`. |
 | `list_of_figures` | `generated` | Field `TOC \c "Gambar"`. |
 
-Konsistensi wajib:
+Field turunan:
 
-- `toc: true` berarti `front_matter` memuat `toc`; `toc: false` berarti tidak.
-- `lists.tables: true` berarti `front_matter` memuat `list_of_tables`.
-- `lists.figures: true` berarti `front_matter` memuat `list_of_figures`.
+- `structure.toc` bernilai `true` bila `front_matter` memuat `toc`.
+- `structure.lists.tables` bernilai `true` bila `front_matter` memuat
+  `list_of_tables`.
+- `structure.lists.figures` bernilai `true` bila `front_matter` memuat
+  `list_of_figures`.
+- Jika `list_of_tables` atau `list_of_figures` ada, daftar memakai field
+  `TOC \c` dan caption memakai field `SEQ`.
 - `preface`, `abstract_id`, dan `abstract_en` mewajibkan key yang sama di
   `document.md`.
 
@@ -178,12 +180,6 @@ setelah bab terakhir. Jika `bibliography` ada, berkas `.bib` wajib ada.
 `sub_dot` dan `subsub_dot` mengatur titik akhir nomor subbab. Nomor bab selalu
 mengikuti `numbering.body`.
 
-### `lists`
-
-`lists.figures` dan `lists.tables` wajib boolean dan konsisten dengan
-`front_matter`. Jika aktif, daftar memakai field `TOC \c` dan caption memakai
-field `SEQ`.
-
 ### `cover`
 
 | Key | Default | Isi |
@@ -201,7 +197,7 @@ field `SEQ`.
 - Front matter: `cover`.
 - Body: Pendahuluan, Pembahasan, Penutup.
 - Back matter: bibliography.
-- `toc: false`, `lists` tabel/gambar: false.
+- TOC dan daftar tabel/gambar tidak aktif.
 - Numbering: `ARABIC_DOTTED`.
 - Cover: dosen tidak tampil, logo 4,7 cm.
 
@@ -210,7 +206,7 @@ field `SEQ`.
 - Front matter: cover, approval, toc.
 - Body: Pendahuluan, Tinjauan Pustaka, Metode Penelitian, Jadwal Penelitian.
 - Back matter: bibliography.
-- `toc: true`, `lists` tabel/gambar: false.
+- TOC aktif; daftar tabel/gambar tidak aktif.
 - Numbering: `ARABIC_DOTTED`.
 - Cover: dosen tidak tampil, logo 4,7 cm.
 
@@ -221,7 +217,7 @@ field `SEQ`.
 - Body: Pendahuluan, Tinjauan Pustaka, Metodologi, Hasil dan Pembahasan,
   Penutup.
 - Back matter: bibliography, appendices.
-- `toc: true`, `lists` tabel/gambar: true.
+- TOC aktif; daftar tabel dan gambar aktif.
 - Numbering: `BAB_ROMAN`.
 - Cover: dosen tampil, logo 4,88 cm.
 
