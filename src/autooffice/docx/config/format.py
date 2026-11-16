@@ -86,7 +86,6 @@ _PAGE_KEYS = frozenset(
         "header_distance",
         "footer_distance",
         "gutter",
-        "header_style_ref",
     }
 )
 _MARGIN_KEYS = frozenset({"top", "bottom", "left", "right"})
@@ -206,29 +205,6 @@ _DEFAULT_DETECT_STYLES = (
 )
 
 
-def _header_style_ref(data: Mapping[str, Any], *, path: Path) -> str | None:
-    """Baca ``page.header_style_ref`` opsional untuk field ``STYLEREF``.
-
-    Nilai kosong/absen berarti header body tanpa judul bab. Kutip ganda,
-    backslash, dan karakter kontrol ditolak karena akan memecah sintaks
-    instruksi field Word.
-    """
-
-    value = data.get("header_style_ref")
-    if value is None:
-        return None
-    text = _text(value, path=path, key="page.header_style_ref")
-    if any(character in text for character in '"\\\r\n\t'):
-        raise _err(
-            "'page.header_style_ref' tidak boleh memuat kutip ganda, backslash, atau "
-            "karakter kontrol",
-            code="CFG-TYPE",
-            path=path,
-            key="page.header_style_ref",
-        )
-    return text
-
-
 def _parse_page(data: Mapping[str, Any], *, path: Path) -> PageFormat:
     """Bangun ``PageFormat`` dari blok ``page`` dengan default kontrak.
 
@@ -302,7 +278,6 @@ def _parse_page(data: Mapping[str, Any], *, path: Path) -> PageFormat:
             key="page.gutter",
             default="0cm",
         ),
-        header_style_ref=_header_style_ref(data, path=path),
     )
 
 

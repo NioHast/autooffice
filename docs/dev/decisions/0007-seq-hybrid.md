@@ -3,10 +3,10 @@
 > **Catatan superseded sebagian oleh [ADR 0015](../../decisions/0015-native-heading-numbering.md).**
 > Keputusan hybrid `SEQ` + prefix bab literal tetap berlaku. Analisis
 > `STYLEREF` pada ADR ini (heading nomor literal) tidak lagi berlaku setelah
-> numbering heading dipindah ke `w:numPr` native; header sekarang memakai
-> `STYLEREF \n` + field judul.
+> numbering heading dipindah ke `w:numPr` native. Header berjalan `STYLEREF`
+> kemudian dihapus lewat amandemen ADR 0015; header body kembali tanpa teks.
 
-- Status: diterima; analisis STYLEREF superseded oleh ADR 0015
+- Status: diterima; analisis STYLEREF hanya catatan historis, header berjalan dihapus
 - Tanggal: 2026-11-09
 
 ## Konteks

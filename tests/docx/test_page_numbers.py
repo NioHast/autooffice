@@ -344,26 +344,15 @@ def test_page_numbers_stage_requires_package() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Header body: field STYLEREF opsional
+# Header body: hanya field PAGE
 # ---------------------------------------------------------------------------
-
-
-def _ctx_with_header_style(
-    package: DocumentPackage,
-    value: str,
-) -> SimpleNamespace:
-    ctx = _fake_ctx(package)
-    ctx.format.page.header_style_ref = value
-    return ctx
 
 
 def _body_refs(package: DocumentPackage):
     return section_header_footer(iter_sections(package)[2])
 
 
-def test_page_numbers_stage_without_style_ref_keeps_page_only_header(
-    tmp_path: Path,
-) -> None:
+def test_page_numbers_stage_body_header_is_page_only(tmp_path: Path) -> None:
     package = DocumentPackage.load(_document_with_sections(tmp_path))
     PageNumbersStage().run(_fake_ctx(package))
     refs = _body_refs(package)
@@ -375,89 +364,13 @@ def test_page_numbers_stage_without_style_ref_keeps_page_only_header(
         size_half_points=BODY_HEADER_SIZE_HALF_POINTS,
     )
     assert sha256_c14n(root) == sha256_c14n(expected)
-    assert [field.instruction.strip() for field in iter_fields_in_part(package, part_name)] == [
+    assert [field_instruction(field) for field in iter_fields_in_part(package, part_name)] == [
         "PAGE"
     ]
+    assert [node.text for node in root.iter(qn("w:instrText"))] == [" PAGE "]
 
 
-@pytest.mark.parametrize("configured", ["Heading 1", "Heading1"])
-def test_page_numbers_stage_body_header_style_ref_writes_styleref(
-    tmp_path: Path,
-    configured: str,
-) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-    ctx = _ctx_with_header_style(package, configured)
-
-    PageNumbersStage().run(ctx)
-
-    refs = _body_refs(package)
-    part_name, root = header_footer_part(package, refs.header)
-    fields = iter_fields_in_part(package, part_name)
-    assert [field_instruction(field) for field in fields] == [
-        'STYLEREF "heading 1" \\n',
-        'STYLEREF "heading 1"',
-        "PAGE",
-    ]
-
-    for styleref in fields[:2]:
-        assert styleref.begin.get(qn("w:fldCharType")) == "begin"
-        assert styleref.begin.get(qn("w:dirty")) == "true"
-        assert styleref.separate is not None
-        assert styleref.end is not None
-    paragraph = fields[0].begin.getparent().getparent()
-    children = list(paragraph)
-    assert children.index(fields[0].begin.getparent()) < children.index(
-        fields[0].separate.getparent()
-    )
-    assert children.index(fields[0].separate.getparent()) < children.index(
-        fields[0].end.getparent()
-    )
-
-    tabs = root.find(f".//{qn('w:tabs')}")
-    assert tabs is not None
-    tab = tabs.find(qn("w:tab"))
-    assert tab is not None
-    assert tab.get(qn("w:val")) == "right"
-    assert tab.get(qn("w:pos")) == str(11906 - 1440 - 1440)
-
-
-def test_page_numbers_stage_body_header_style_ref_keeps_first_page_empty(
-    tmp_path: Path,
-) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-    PageNumbersStage().run(_ctx_with_header_style(package, "Heading 1"))
-
-    refs = _body_refs(package)
-    first_part, first_root = header_footer_part(package, refs.first_page_header)
-    assert iter_fields_in_part(package, first_part) == ()
-    assert not list(first_root.iter(qn("w:t")))
-    assert refs.footer is not None
-    assert refs.first_page_footer is not None
-
-
-def test_page_numbers_stage_body_header_style_ref_idempotent(tmp_path: Path) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-    ctx = _ctx_with_header_style(package, "Heading 1")
-
-    first = PageNumbersStage().run(ctx)
-    second = PageNumbersStage().run(ctx)
-
-    assert first.changed is True
-    assert second.changed is False
-
-
-def test_page_numbers_stage_rejects_unknown_header_style_ref(tmp_path: Path) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-    ctx = _ctx_with_header_style(package, "Heading 9")
-
-    with pytest.raises(StageError) as excinfo:
-        PageNumbersStage().run(ctx)
-
-    assert excinfo.value.code == "STAGE-HEADER-STYLE"
-    assert "Heading 9" in str(excinfo.value)
-
-
-def test_page_numbers_stage_back_matter_header_has_no_styleref(
+def test_page_numbers_stage_back_matter_header_is_page_only(
     tmp_path: Path,
 ) -> None:
     body = (
@@ -472,7 +385,7 @@ def test_page_numbers_stage_back_matter_header_has_no_styleref(
         + _paragraph("Rujukan")
     )
     package = DocumentPackage.load(_write_package(tmp_path, body, name="back-matter.docx"))
-    PageNumbersStage().run(_ctx_with_header_style(package, "Heading 1"))
+    PageNumbersStage().run(_fake_ctx(package))
 
     back = iter_sections(package)[3]
     assert back.kind == "back_matter"
@@ -484,64 +397,7 @@ def test_page_numbers_stage_back_matter_header_has_no_styleref(
     assert not any("STYLEREF" in (node.text or "") for node in root.iter(qn("w:instrText")))
 
 
-def test_body_header_explicit_break_when_heading_has_none(tmp_path: Path) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-    PageNumbersStage().run(_ctx_with_header_style(package, "Heading 1"))
-
-    body = iter_sections(package)[2]
-    refs = section_header_footer(body)
-    _part, root = header_footer_part(package, refs.header)
-    paragraph = next(paragraph for paragraph in root.iter(qn("w:p")))
-    children = list(paragraph)
-    fields = iter_fields_in_part(package, header_footer_part(package, refs.header)[0])
-    number_end = children.index(fields[0].end.getparent())
-    title_begin = children.index(fields[1].begin.getparent())
-    break_positions = [
-        index for index, child in enumerate(children) if child.find(qn("w:br")) is not None
-    ]
-    assert len(break_positions) == 1
-    assert number_end < break_positions[0] < title_begin
-
-
-def test_body_header_does_not_duplicate_heading_break(tmp_path: Path) -> None:
-    body = (
-        _paragraph("Sampul", style="CoverTitle")
-        + _break_paragraph()
-        + _paragraph("KATA PENGANTAR", style="Heading1")
-        + _break_paragraph()
-        + '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:br/>'
-        "<w:r><w:t>Pendahuluan</w:t></w:r></w:p>" + _paragraph("Isi bab")
-    )
-    package = DocumentPackage.load(_write_package(tmp_path, body, name="heading-break.docx"))
-    PageNumbersStage().run(_ctx_with_header_style(package, "Heading 1"))
-
-    body_section = iter_sections(package)[2]
-    refs = section_header_footer(body_section)
-    _part, root = header_footer_part(package, refs.header)
-    assert not list(root.iter(qn("w:br")))
-
-
-def test_page_numbers_rejects_character_header_style(tmp_path: Path) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-
-    with pytest.raises(StageError) as excinfo:
-        PageNumbersStage().run(_ctx_with_header_style(package, "VerbatimChar"))
-
-    assert excinfo.value.code == "STAGE-HEADER-STYLE"
-    assert "paragraph" in str(excinfo.value)
-
-
-def test_page_numbers_rejects_non_heading_header_style(tmp_path: Path) -> None:
-    package = DocumentPackage.load(_document_with_sections(tmp_path))
-
-    with pytest.raises(StageError) as excinfo:
-        PageNumbersStage().run(_ctx_with_header_style(package, "Plain"))
-
-    assert excinfo.value.code == "STAGE-HEADER-STYLE"
-    assert "heading" in str(excinfo.value)
-
-
-def test_body_section_with_unnumbered_heading_uses_page_only_header(
+def test_body_section_with_unnumbered_heading_keeps_page_only_header(
     tmp_path: Path,
 ) -> None:
     body = (
@@ -563,7 +419,7 @@ def test_body_section_with_unnumbered_heading_uses_page_only_header(
         NumberingSpec(body="BAB_ROMAN"),
         body_titles=("Pendahuluan", "Pembahasan"),
     )
-    ctx = _ctx_with_header_style(package, "Heading 1")
+    ctx = _fake_ctx(package)
     ctx.structure.body = [
         SimpleNamespace(title="Pendahuluan"),
         SimpleNamespace(title="Pembahasan"),

@@ -12,9 +12,9 @@ tidak boleh bernomor dan mengatur tampilan Markdown.
 
 Mekanisme ini ditetapkan oleh
 [ADR 0015](../../decisions/0015-native-heading-numbering.md) (numbering heading
-native Word). Perubahan pada `numbering.xml`, `w:numPr`, override `numId=0`,
-atau switch `STYLEREF` memerlukan ADR baru. Dokumen ini menjelaskan kontrak
-teknisnya; ADR memuat alasan dan alternatif yang ditolak.
+native Word). Perubahan pada `numbering.xml`, `w:numPr`, atau override
+`numId=0` memerlukan ADR baru. Dokumen ini menjelaskan kontrak teknisnya; ADR
+memuat alasan dan alternatif yang ditolak.
 
 ## `numbering.py`
 
@@ -92,11 +92,8 @@ hanya:
 - menyisipkan raw inline `<w:br/>` sebelum judul H1 `BAB_ROMAN`;
 - membiarkan H2-H6 dan heading `unnumbered` apa adanya.
 
-Header body memakai `STYLEREF "heading 1" 
-` untuk nomor dan satu field
-tanpa switch untuk judul. `BAB_ROMAN` memakai `w:br` dari teks H1; 
-`ARABIC_DOTTED` memakai `w:br` eksplisit di header. Section dengan heading
-unnumbered memakai header `PAGE` saja agar nomor tidak menjadi `0`.
+Header body hanya memuat field `PAGE`; tidak ada field header berjalan.
+Nomor dan judul bab tetap berasal dari numbering native dan teks heading.
 
 ## Caption dan persamaan
 
@@ -116,5 +113,5 @@ URL resminya ada di [registry referensi](../references.md).
 - [sections.md](sections.md) untuk batas section dan header/footer.
 - [paragraphs.md](paragraphs.md) untuk helper level heading.
 - [captions.md](captions.md) untuk nomor bab pada caption.
-- [fields.md](fields.md) untuk field `STYLEREF` di header.
+- [fields.md](fields.md) untuk daftar field native.
 - [../pipeline/stages.md](../pipeline/stages.md) untuk stage `numbering`.

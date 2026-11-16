@@ -177,80 +177,6 @@ def get_style_element(package: object, style_id: str) -> etree._Element:
     return style
 
 
-def _style_name(style: etree._Element) -> str | None:
-    name = style.find(W_NAME)
-    if name is None:
-        return None
-    value = name.get(_qname("val"))
-    return None if value is None else str(value)
-
-
-def _resolve_style_element(package: object, name: str) -> etree._Element:
-    requested = name.strip()
-    if not requested:
-        raise StyleError(
-            "nama style untuk STYLEREF tidak boleh kosong",
-            code="STYLE-MISSING",
-            key=name,
-        )
-    folded = requested.casefold()
-    styles = _style_elements(_styles_root(package))
-    for style in styles:
-        style_id = style.get(W_STYLE_ID)
-        if style_id and style_id.casefold() == folded:
-            return style
-    for style in styles:
-        canonical = _style_name(style)
-        if canonical and canonical.casefold() == folded:
-            return style
-    raise StyleError(
-        f"style '{name}' untuk STYLEREF tidak ditemukan di word/styles.xml",
-        code="STYLE-MISSING",
-        key=name,
-    )
-
-
-def resolve_style_name(
-    package: object,
-    name: str,
-    *,
-    paragraph_only: bool = False,
-    heading_only: bool = False,
-) -> str:
-    """Nama style kanonis untuk ``styleId`` atau nama tampilan di Word.
-
-    Pencocokan ``styleId`` lebih dulu, lalu ``w:name``; keduanya tidak peka
-    huruf besar/kecil. ``paragraph_only`` menolak character/table style, dan
-    ``heading_only`` mewajibkan ``w:outlineLvl`` agar ``STYLEREF`` tidak
-    menunjuk style non-heading. Nilai yang tidak ditemukan melempar
-    :class:`StyleError` berkode ``STYLE-MISSING``.
-    """
-
-    style = _resolve_style_element(package, name)
-    style_id = style.get(W_STYLE_ID) or name
-    declared_type = style.get(W_TYPE)
-    if paragraph_only and declared_type != "paragraph":
-        raise StyleError(
-            f"style '{name}' bertipe {declared_type!r}, bukan paragraph; "
-            "header_style_ref membutuhkan paragraph style",
-            code="STYLE-TYPE",
-            key=name,
-        )
-    if heading_only:
-        ppr = style.find(W_PPR_TAG)
-        heading_style = (ppr is not None and ppr.find(W + "outlineLvl") is not None) or (
-            style_id.startswith("Heading") and style_id[7:].isdigit()
-        )
-        if not heading_style:
-            raise StyleError(
-                f"style '{name}' bukan heading style (tidak punya w:outlineLvl); "
-                "header_style_ref membutuhkan style heading",
-                code="STYLE-TYPE",
-                key=name,
-            )
-    return _style_name(style) or style_id
-
-
 def _find_style(root: etree._Element, style_id: str) -> etree._Element | None:
     for style in _style_elements(root):
         if style.get(W_STYLE_ID) == style_id:
@@ -1070,7 +996,6 @@ __all__ = [
     "get_style_element",
     "patch_style",
     "read_style_ids",
-    "resolve_style_name",
     "set_style_numbering",
     "style_exists",
     "style_numbering",

@@ -129,7 +129,6 @@ def test_load_builtin_format() -> None:
     assert format_.figures.space_after == 0
     assert format_.figures.first_line_indent == 0
     assert format_.code.alignment == "left"
-    assert format_.page.header_style_ref == "Heading 1"
     assert format_.code.highlight["KeywordTok"].color == "007020"
     assert format_.code.highlight["KeywordTok"].bold is True
     assert format_.code.highlight["NormalTok"].bold is False
@@ -173,7 +172,6 @@ def test_data_root_uses_package_not_cwd(tmp_path: Path, monkeypatch: pytest.Monk
         "captions.table.font.family",
         "code.style",
         "code.font.family",
-        "page.header_style_ref",
         "bibliography_style.heading",
         "bibliography_style.font",
         "citation.bibliography",
@@ -487,46 +485,8 @@ def test_structure_body_unique(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# page.header_style_ref dan code.highlight
+# code.highlight
 # ---------------------------------------------------------------------------
-
-
-def test_page_header_style_ref_can_be_omitted(tmp_path: Path) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    without_header_ref = re.sub(
-        r"^  header_style_ref:.*\n",
-        "",
-        text,
-        count=1,
-        flags=re.MULTILINE,
-    )
-    format_yaml.write_text(without_header_ref, encoding="utf-8", newline="\n")
-
-    format_ = load_format("undip-msi", root=data_root)
-    assert format_.page.header_style_ref is None
-
-
-@pytest.mark.parametrize("value", ['Heading "1"', "Heading\\1"])
-def test_page_header_style_ref_rejects_field_syntax(tmp_path: Path, value: str) -> None:
-    data_root = _copy_format(tmp_path)
-    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
-    text = format_yaml.read_text(encoding="utf-8")
-    format_yaml.write_text(
-        text.replace(
-            '  header_style_ref: "Heading 1"\n',
-            f"  header_style_ref: '{value}'\n",
-        ),
-        encoding="utf-8",
-        newline="\n",
-    )
-
-    with pytest.raises(ConfigError) as error:
-        load_format("undip-msi", root=data_root)
-
-    assert error.value.code == "CFG-TYPE"
-    assert error.value.key == "page.header_style_ref"
 
 
 def test_code_highlight_omitted_defaults_empty(tmp_path: Path) -> None:

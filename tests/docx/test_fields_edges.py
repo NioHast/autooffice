@@ -568,7 +568,7 @@ def test_insert_field_dirty_marks_only_begin_marker() -> None:
     paragraph = _paragraph("")
 
     field = insert_field(
-        ["STYLEREF", '"heading 1"'],
+        ["PAGE"],
         FieldPosition(paragraph=paragraph),
         dirty=True,
     )
@@ -584,4 +584,4 @@ def test_insert_field_dirty_marks_only_begin_marker() -> None:
     end = field.end.find(qn("w:fldChar"))
     assert end is not None
     assert end.get(qn("w:dirty")) is None
-    assert field_instruction(field) == 'STYLEREF "heading 1"'
+    assert field_instruction(field) == "PAGE"

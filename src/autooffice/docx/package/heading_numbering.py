@@ -12,8 +12,7 @@ subbab di bawah H1 tak bernomor. Tidak ada run heading yang dibangun ulang;
 isi paragraf tidak disentuh.
 
 Catatan coupling: label bab hanya muncul sebagai list label karena nomor
-tidak ada di teks heading. ``STYLEREF`` di header membutuhkan switch nomor
-paragraf; lihat ``stages/page_numbers.py``.
+tidak ada di teks heading. Word yang menampilkan label tersebut.
 """
 
 import re
