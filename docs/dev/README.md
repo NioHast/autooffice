@@ -83,6 +83,7 @@ Kontrak internal lama sudah dihapus. Acuan aktif berada di
 | [visual-testing.md](visual-testing.md) | Status harness visual PPTX setelah penghapusan COM. |
 | [quality-gates.md](quality-gates.md) | Gate lokal AutoOffice, checker, dan urutan verifikasi. |
 | [f3-cleanup.md](f3-cleanup.md) | Status pembersihan legacy F3, verifikasi, dan tautan ke ADR 0011. |
+| [roadmap-simplification.md](roadmap-simplification.md) | Rencana bertahap penyederhanaan DOCX: bake style, reference, front matter, dan filter JSON. |
 | [test-quality.md](test-quality.md) | Prinsip memilih kasus test dan alat pemeriksa deterministik. |
 | [mutation-testing.md](mutation-testing.md) | Mutation testing manual modul kritis: tool, scope, perintah, runtime, dan survivor. |
 | [code-style.md](code-style.md) | Konfigurasi Ruff, mypy, dan tabel rule. |
