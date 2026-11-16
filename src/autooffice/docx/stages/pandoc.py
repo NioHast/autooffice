@@ -456,12 +456,17 @@ def build_pandoc_command(
     ``toc`` default false dan direfleksikan sebagai ``--metadata=toc=false``.
     Stage post-Pandoc yang menulis field TOC; menambahkan ``--toc`` di sini
     akan membuat daftar isi ganda. ``--lua-filter`` tidak pernah ditambahkan.
+
+    ``--syntax-highlighting=none`` mematikan token highlight Pandoc secara
+    eksplisit. Blok kode format kampus wajib monokrom; tanpa flag ini Pandoc
+    menulis ``KeywordTok``/``StringTok`` dan style turunannya.
     """
 
     command = [
         *_executable_command(executable),
         str(markdown),
         "--to=docx",
+        "--syntax-highlighting=none",
         f"--top-level-division={top_level_division}",
         f"--metadata=toc={'true' if toc else 'false'}",
     ]

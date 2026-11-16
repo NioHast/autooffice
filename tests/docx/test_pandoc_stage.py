@@ -178,6 +178,8 @@ def test_build_command_without_lua_and_toc_pandoc(tmp_path: Path) -> None:
     assert "--to=docx" in command
     assert "--top-level-division=chapter" in command
     assert "--metadata=toc=false" in command
+    assert "--syntax-highlighting=none" in command
+    assert "--no-highlight" not in command
     assert "--citeproc" in command
     assert f"--reference-doc={tmp_path / 'reference.docx'}" in command
     assert f"--bibliography={tmp_path / 'references.bib'}" in command

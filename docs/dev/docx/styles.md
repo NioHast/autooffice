@@ -27,19 +27,21 @@ di `word/numbering.xml` turunan. Level 1 memakai `BAB %1` (`upperRoman`) atau
 daftar isi tidak ikut menjadi bab. Detail ada di
 [numbering.md](numbering.md).
 
-## Style token syntax highlighting
+## Blok kode monokrom
 
-Pandoc menulis satu style karakter per token syntax highlighting (mis.
-`KeywordTok`, `StringTok`, `CommentTok`). Tanpa deklarasi di reference
-turunan, Pandoc mengimpor seluruh style token itu sendiri sehingga
-`word/styles.xml` tidak lagi ditentukan `format.yaml`. Karena itu
-`style_reference` selalu mendeklarasikan `PANDOC_HIGHLIGHT_STYLES` (31 style
-token Pandoc 3.13) dengan `basedOn` `VerbatimChar`.
+Blok kode wajib hitam-putih mengikuti format kampus. Stage `pandoc` menjalankan
+Pandoc dengan `--syntax-highlighting=none`, jadi Pandoc **tidak** menulis
+`KeywordTok`, `StringTok`, `CommentTok`, atau style token `*Tok` lain, dan
+reference turunan tidak mendeklarasikan satu pun style token tersebut.
+`word/styles.xml` hanya berisi style yang dibutuhkan pipeline; blok kode tetap
+memakai `SourceCode` dan kode sebaris tetap memakai `VerbatimChar`.
 
-Properti warna/bold/italic diambil dari `code.highlight` di `format.yaml`.
-Token tanpa entri mewarisi font dan warna `code.font` (monokrom). Bila Pandoc
-kelak menambah style baru, `tests/docx/test_style_parity.py` gagal dan
-menyebut `styleId` yang belum dideklarasikan.
+Bila kelak blok kode ingin berwarna, hapus flag tersebut dan tambahkan kembali
+31 style token Pandoc 3.13 ke reference turunan (mis. lewat `format.yaml`)
+sebelum mengaktifkan highlighting. Tanpa deklarasi itu Pandoc akan mengimpor
+style token sendiri sehingga `word/styles.xml` tidak lagi ditentukan
+`format.yaml`. Bila Pandoc menambah style baru, `tests/docx/test_style_parity.py`
+gagal dan menyebut `styleId` yang belum dideklarasikan.
 
 
 ## Referensi resmi
