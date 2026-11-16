@@ -166,7 +166,6 @@ def _ctx(
     ),
     tables: bool = True,
     figures: bool = True,
-    numbering: str = "chapter",
     page: SimpleNamespace | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
@@ -182,7 +181,6 @@ def _ctx(
                 table=SimpleNamespace(label="Tabel", separator=" "),
                 figure=SimpleNamespace(label="Gambar", separator=" "),
             ),
-            figures=SimpleNamespace(numbering=numbering),
             page=page,
         ),
         options=SimpleNamespace(),
@@ -494,24 +492,6 @@ def test_list_toc_keeps_main_toc_with_keep_existing(monkeypatch, tmp_path: Path)
     assert [call["caption"] for call in calls] == ["Tabel", "Gambar"]
     assert all(call["keep_existing"] is True for call in calls)
     assert _toc_sdts(package)[0] is main_toc
-
-
-def test_document_scope_uses_plain_seq_arabic(tmp_path: Path) -> None:
-    body = "".join(
-        [
-            _paragraph("BAB II", style="Heading1"),
-            _paragraph("Tabel 5 Judul Tabel Satu", style="TableCaption"),
-        ]
-    )
-    package = DocumentPackage.load(_write_package(tmp_path, body))
-    ListsStage().run(
-        _ctx(package, front_matter=("cover", "toc", "list_of_tables"), numbering="document")
-    )
-    table = _caption(package, "Tabel 5 Judul Tabel Satu")
-    fields = [field for field in iter_fields_in_paragraph(table) if field.kind is FieldKind.SEQ]
-    assert len(fields) == 1
-    assert field_instruction(fields[0]) == "SEQ Tabel \\* ARABIC"
-    assert paragraph_text(table) == "Tabel 5 Judul Tabel Satu"
 
 
 def test_existing_caption_field_is_not_duplicated(tmp_path: Path) -> None:

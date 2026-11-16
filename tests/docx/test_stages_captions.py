@@ -219,26 +219,6 @@ def test_old_prefix_removed_and_idempotent(docs, tmp_path):
     assert formatted.runs[-1].italic is False
 
 
-def test_document_scope_continues_counter(docs, tmp_path):
-    package = DocumentPackage.load(docs.main)
-    report = apply_captions(package, scope="document")
-    output = tmp_path / "out.docx"
-    package.save(output)
-
-    assert report.image_captions == 3
-    assert report.table_captions == 2
-    assert caption_texts(output, "ImageCaption") == [
-        "Gambar 1 Diagram alur",
-        "Gambar 2 Foto hasil",
-        "Gambar 3 Arsitektur sistem",
-    ]
-    assert caption_texts(output, "TableCaption") == [
-        "Tabel 1 Data responden",
-        "Tabel 2 Hasil pengujian",
-    ]
-    assert not any("Heading1" in warning for warning in report.warnings)
-
-
 # ---------------------------------------------------------------------------
 # 2. Caption wajib dari Pandoc dan caption di sisi yang benar
 # ---------------------------------------------------------------------------

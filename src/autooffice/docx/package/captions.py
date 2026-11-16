@@ -116,7 +116,6 @@ class CaptionSpecs:
 class FigureLayoutSpec:
     caption_alignment: str = "center"
     image_alignment: str = "center"
-    numbering: str = "chapter"
     space_before: int = 0
     space_after: int = 0
     first_line_indent: int = 0
@@ -941,7 +940,6 @@ def set_caption(
 def _heading_chapter(
     paragraph: etree._Element,
     report: CaptionReport,
-    scope: str,
     counters: dict[CaptionKind, int],
     roles: Mapping[etree._Element, ChapterRole],
 ) -> int | None:
@@ -950,9 +948,8 @@ def _heading_chapter(
         return None
     report.chapter_headings += 1
     chapter = report.chapter_headings
-    if scope == "chapter":
-        counters[CaptionKind.FIGURE] = 0
-        counters[CaptionKind.TABLE] = 0
+    counters[CaptionKind.FIGURE] = 0
+    counters[CaptionKind.TABLE] = 0
     return chapter
 
 
@@ -962,7 +959,6 @@ def _number_caption(
     *,
     current_chapter: int | None,
     counters: dict[CaptionKind, int],
-    scope: str,
     specs: CaptionSpecs,
     report: CaptionReport,
 ) -> None:
@@ -974,12 +970,12 @@ def _number_caption(
     caption_spec = specs.for_kind(kind)
     format_caption_paragraph(paragraph, kind, caption_spec)
 
-    if scope == "chapter" and current_chapter is None:
+    if current_chapter is None:
         report.skipped_no_chapter += 1
         return
 
     counters[kind] += 1
-    number = f"{current_chapter}.{counters[kind]}" if scope == "chapter" else str(counters[kind])
+    number = f"{current_chapter}.{counters[kind]}"
     prefix = f"{caption_spec.label}{caption_spec.separator}{number}"
     match_end = _prefix_end(text)
     if _prefix_overlaps_field(match_end, field_text_ranges(paragraph)):
@@ -997,18 +993,11 @@ def _number_caption(
 def renumber_captions(
     package: DocumentPackage,
     *,
-    scope: str = "chapter",
     spec: CaptionSpecs | None = None,
     body_titles: Sequence[str] = (),
     has_back_matter: bool = True,
 ) -> CaptionReport:
-    """Beri nomor caption per bab (``chapter``) atau per dokumen."""
-
-    if scope not in {"chapter", "document"}:
-        raise CaptionError(
-            f"scope caption tidak dikenal: {scope!r}",
-            code="CAPTION-SCOPE",
-        )
+    """Beri nomor caption per bab."""
 
     specs = spec or CaptionSpecs()
     report = CaptionReport()
@@ -1023,7 +1012,7 @@ def renumber_captions(
     for paragraph in _body(package).iter(W_P):
         style_id = paragraph_style_id(paragraph)
         if is_chapter_heading(style_id):
-            chapter = _heading_chapter(paragraph, report, scope, counters, roles)
+            chapter = _heading_chapter(paragraph, report, counters, roles)
             if chapter is not None:
                 current_chapter = chapter
             continue
@@ -1033,7 +1022,6 @@ def renumber_captions(
             style_id,
             current_chapter=current_chapter,
             counters=counters,
-            scope=scope,
             specs=specs,
             report=report,
         )
