@@ -19,9 +19,6 @@ slides:
     notes: |
       Catatan pembicara untuk slide pertama.
       Baris kedua tetap dipertahankan.
-    source:
-      text: "Sumber: data internal, 2026"
-      url: "https://example.com/data"
     blocks:
       - id: title
         type: text

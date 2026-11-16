@@ -5,7 +5,9 @@ mentransformasi YAML tervalidasi menjadi `DeckIR` dan `KeyManifest`; layout
 engine menambahkan `LayoutPlan`. Renderer hanya boleh menerima objek ini
 beserta `Theme`, bukan path YAML atau file token.
 
-Status: F0 contract, version 1, diamendemen ADR 0009 untuk `SlideIR.rows`.
+Status: F0 contract, version 1, diamendemen ADR 0009 untuk `SlideIR.rows` dan
+[ADR 0017](../decisions/0017-remove-caption-and-source.md) untuk penghapusan
+`SlideIR.source`.
 Sumber: AUTO_OFFICE_PLAN.md bagian 3.4, 5.1, dan 8.1;
 [docs/decisions/0009-explicit-custom-rows.md](../decisions/0009-explicit-custom-rows.md).
 
@@ -30,7 +32,7 @@ class KeyBinding:
     slide_id: str
     block_id: str | None
     leaf: str
-    kind: Literal["text", "data", "notes", "source", "media_text"]
+    kind: Literal["text", "data", "notes"]
     sync: bool
     yaml_path: tuple[str | int, ...]
     value: str | int | float
@@ -58,7 +60,6 @@ class SlideIR:
     order: int
     blocks: tuple[BlockIR, ...]
     notes: str | None
-    source: Mapping[str, str] | None
     rows: tuple[tuple[str, ...], ...] = ()
 
 
@@ -71,10 +72,6 @@ class DeckIR:
     keys: KeyManifest
 ```
 
-`source` adalah mapping, bukan field `source_text`. Bila `source` ada,
-`source["text"]` wajib dan `source["url"]` opsional; `source.text` menjadi
-key, sedangkan `source.url` bukan key.
-
 `rows` menyimpan block ID per row untuk slide `layout: custom`. Compiler
 mengisi `rows` dari authoring dan mempertahankan urutan block row-major, sehingga
 urutan ID di `rows` sama dengan urutan `blocks`. Slide preset memakai default
@@ -84,14 +81,12 @@ block tepat satu kali, sedangkan slide non-custom boleh memuat sebagian block.
 `rows` kosong berarti IR tidak membawa batas row eksplisit dan hanya dipakai
 oleh IR yang dibuat manual; hasil compiler untuk slide custom selalu terisi.
 
-`kind` hanya bernilai `text`, `data`, `notes`, `source`, atau `media_text`.
-`text` untuk teks tampil, `data` untuk angka chart, `notes` untuk catatan
-pembicara, `source` untuk teks sumber slide, dan `media_text` untuk teks media
-seperti alt atau caption.
+`kind` hanya bernilai `text`, `data`, atau `notes`. `text` untuk teks tampil,
+`data` untuk angka chart, dan `notes` untuk catatan pembicara.
 
 `order` sama dengan indeks nol-based slide di `DeckIR.slides`; validator
-menolak nilai yang tidak cocok. Mapping `meta`, `source`, dan `fields`
-dibungkus read-only saat konstruksi, misalnya dengan `MappingProxyType`.
+menolak nilai yang tidak cocok. Mapping `meta` dan `fields` dibungkus read-only
+saat konstruksi, misalnya dengan `MappingProxyType`.
 Contoh ini menunjukkan bentuk kontrak, bukan kode final.
 
 ## Invariant
@@ -106,12 +101,12 @@ Contoh ini menunjukkan bentuk kontrak, bukan kode final.
 - Semua teks tampil punya binding; teks tanpa key hanya chrome terdaftar.
 - `order` sama dengan indeks nol-based slide di `DeckIR.slides`; ID slide
   tetap stabil dan tidak dihitung dari posisi.
-- `source` memakai mapping dengan `text` wajib dan `url` opsional; tidak ada
-  field `source_text`.
+- `SlideIR` tidak memiliki field `source`; catatan sumber slide dihapus oleh
+  ADR 0017.
 - `rows` hanya berisi block ID yang ada di `blocks`, tanpa duplikat, dan
   menutup seluruh block untuk `layout: custom`; slide preset memakai `rows=()`.
 - `fields` hanya berisi field yang lolos `BlockSpec`, tanpa field geometri.
-- Mapping `meta`, `source`, dan `fields` read-only setelah konstruksi.
+- Mapping `meta` dan `fields` read-only setelah konstruksi.
 - `plain_text` sudah dinormalisasi sesuai mode teks atau preserve newline.
 - `value` menyimpan nilai sumber; `plain_text` menyimpan nilai tampilan.
 - Asset path sudah tervalidasi dan relatif terhadap root deck, tanpa file handle.

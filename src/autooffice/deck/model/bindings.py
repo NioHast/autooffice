@@ -11,7 +11,6 @@ from .schema import (
     ChartSeries,
     DeckDefinition,
     SlideDefinition,
-    SourceDefinition,
 )
 
 
@@ -31,7 +30,7 @@ def build_key_manifest(definition: DeckDefinition) -> KeyManifest:
 
 
 def build_slide_bindings(slide: SlideDefinition, *, slide_index: int) -> tuple[KeyBinding, ...]:
-    """Bentuk binding slide, notes, source, dan block di dalamnya."""
+    """Bentuk binding slide, notes, dan block di dalamnya."""
     bindings: list[KeyBinding] = []
     if slide.notes is not None:
         bindings.append(
@@ -42,14 +41,6 @@ def build_slide_bindings(slide: SlideDefinition, *, slide_index: int) -> tuple[K
                 kind="notes",
                 value=slide.notes,
                 yaml_path=("slides", slide_index, "notes"),
-            )
-        )
-    if slide.source is not None:
-        bindings.append(
-            _source_binding(
-                slide_id=slide.slide_id,
-                source=slide.source,
-                slide_index=slide_index,
             )
         )
     if slide.layout == "custom":
@@ -118,18 +109,6 @@ def block_bindings(
                     yaml_path=(*yaml_base, "items", item_index - 1),
                 )
             )
-    elif block.block_type == "image":
-        if "caption" in fields:
-            bindings.append(
-                _inline_binding(
-                    slide_id=slide_id,
-                    block_id=block.block_id,
-                    leaf="caption",
-                    kind="media_text",
-                    raw=_field_str(fields, "caption"),
-                    yaml_path=(*yaml_base, "caption"),
-                )
-            )
     elif block.block_type == "table":
         for column_index, column in enumerate(_field_str_tuple(fields, "columns"), start=1):
             bindings.append(
@@ -154,17 +133,6 @@ def block_bindings(
                         yaml_path=(*yaml_base, "rows", row_index - 1, column_index - 1),
                     )
                 )
-        if "caption" in fields:
-            bindings.append(
-                _inline_binding(
-                    slide_id=slide_id,
-                    block_id=block.block_id,
-                    leaf="caption",
-                    kind="text",
-                    raw=_field_str(fields, "caption"),
-                    yaml_path=(*yaml_base, "caption"),
-                )
-            )
     elif block.block_type == "chart":
         bindings.append(
             _plain_binding(
@@ -217,17 +185,6 @@ def block_bindings(
                         ),
                     )
                 )
-        if "caption" in fields:
-            bindings.append(
-                _inline_binding(
-                    slide_id=slide_id,
-                    block_id=block.block_id,
-                    leaf="caption",
-                    kind="media_text",
-                    raw=_field_str(fields, "caption"),
-                    yaml_path=(*yaml_base, "caption"),
-                )
-            )
     elif block.block_type == "code":
         bindings.append(
             _preserve_binding(
@@ -273,18 +230,6 @@ def block_bindings(
                     yaml_path=(*yaml_base, "attribution"),
                 )
             )
-    elif block.block_type == "diagram":
-        if "caption" in fields:
-            bindings.append(
-                _inline_binding(
-                    slide_id=slide_id,
-                    block_id=block.block_id,
-                    leaf="caption",
-                    kind="media_text",
-                    raw=_field_str(fields, "caption"),
-                    yaml_path=(*yaml_base, "caption"),
-                )
-            )
     elif block.block_type == "metric":
         bindings.append(
             _inline_binding(
@@ -306,18 +251,7 @@ def block_bindings(
                 yaml_path=(*yaml_base, "value"),
             )
         )
-        if "caption" in fields:
-            bindings.append(
-                _inline_binding(
-                    slide_id=slide_id,
-                    block_id=block.block_id,
-                    leaf="caption",
-                    kind="text",
-                    raw=_field_str(fields, "caption"),
-                    yaml_path=(*yaml_base, "caption"),
-                )
-            )
-    elif block.block_type not in {"divider", "spacer"}:
+    elif block.block_type not in {"divider", "spacer", "image", "diagram"}:
         raise KeyGrammarError(
             f"Block '{block.block_id}' memiliki type '{block.block_type}' tanpa binding."
         )
@@ -333,25 +267,6 @@ def number_text(value: int | float) -> str:
     return str(value)
 
 
-def _source_binding(
-    *,
-    slide_id: str,
-    source: SourceDefinition,
-    slide_index: int,
-) -> KeyBinding:
-    return KeyBinding(
-        key=make_key(slide_id, None, "source.text"),
-        slide_id=slide_id,
-        block_id=None,
-        leaf="source.text",
-        kind="source",
-        sync=True,
-        yaml_path=("slides", slide_index, "source", "text"),
-        value=source.text,
-        plain_text=source.text,
-    )
-
-
 def _inline_binding(
     *,
     slide_id: str,
@@ -363,8 +278,8 @@ def _inline_binding(
     sync: bool = True,
 ) -> KeyBinding:
     parsed = parse_inline(raw, field=leaf)
-    if kind not in {"text", "media_text"}:
-        raise KeyGrammarError(f"Binding inline '{leaf}' harus kind text atau media_text.")
+    if kind != "text":
+        raise KeyGrammarError(f"Binding inline '{leaf}' harus kind text.")
     return KeyBinding(
         key=make_key(slide_id, block_id, leaf),
         slide_id=slide_id,
@@ -388,8 +303,8 @@ def _plain_binding(
     value: str,
     yaml_path: tuple[str | int, ...],
 ) -> KeyBinding:
-    if kind not in {"text", "media_text"}:
-        raise KeyGrammarError(f"Binding plain '{leaf}' harus kind text atau media_text.")
+    if kind != "text":
+        raise KeyGrammarError(f"Binding plain '{leaf}' harus kind text.")
     return KeyBinding(
         key=make_key(slide_id, block_id, leaf),
         slide_id=slide_id,

@@ -360,21 +360,19 @@ def test_emphasis_column_out_of_range() -> None:
         validate_deck(_deck(slide))
 
 
-def test_source_requires_text() -> None:
-    slide = _slide(source={"url": "https://example.com"})
+def test_removed_slide_source_field_is_rejected_with_adr() -> None:
+    slide = _slide(source={"text": "Sumber internal"})
 
-    with pytest.raises(DeckSchemaError, match="text"):
+    with pytest.raises(DeckSchemaError, match=r"source.*sudah dihapus.*ADR 0017"):
         validate_deck(_deck(slide))
 
 
-@pytest.mark.parametrize(
-    "url",
-    ["ftp://example.com", "file:///tmp/x", "example.com", "https://", "https://exa mple.com"],
-)
-def test_source_url_rejects_non_http_or_unsafe(url: str) -> None:
-    slide = _slide(source={"text": "Sumber", "url": url})
+def test_removed_block_caption_field_is_rejected_with_adr() -> None:
+    slide = _slide(
+        blocks=[_block("image", "image1", path="assets/hero.png", alt="Alt", caption="Ket")]
+    )
 
-    with pytest.raises(DeckSchemaError, match=r"source\.url"):
+    with pytest.raises(DeckSchemaError, match=r"caption.*sudah dihapus.*ADR 0017"):
         validate_deck(_deck(slide))
 
 
@@ -630,7 +628,7 @@ def test_quote_without_attribution_is_valid() -> None:
     assert definition.slides[0].blocks[0].fields == {"text": "Kutipan"}
 
 
-def test_diagram_without_caption_is_valid() -> None:
+def test_diagram_fields_are_source_and_alt() -> None:
     slide = _slide(
         blocks=[
             _block(
@@ -766,34 +764,6 @@ def test_schema_error_formats_key_context() -> None:
     assert str(error) == "slides[0]: gagal (slide=s01, block=b1, key=s01.b1.text)"
 
 
-def test_custom_block_id_source_rejected() -> None:
-    slide = _custom_slide([_row(_span_block("text", "source", text="Isi"))])
-
-    with pytest.raises(DeckSchemaError, match=r"source\.text") as error:
-        validate_deck(_deck(slide))
-
-    assert "block=source" in str(error.value)
-
-
-@pytest.mark.parametrize(
-    "url",
-    ["http://[::1", "http://example.com\uff0fx"],
-)
-def test_source_url_malformed_rejected(url: str) -> None:
-    slide = _slide(source={"text": "Sumber", "url": url})
-
-    with pytest.raises(DeckSchemaError, match=r"source\.url"):
-        validate_deck(_deck(slide))
-
-
-@pytest.mark.parametrize("url", ["http://:80", "http://user@"])
-def test_source_url_requires_host(url: str) -> None:
-    slide = _slide(source={"text": "Sumber", "url": url})
-
-    with pytest.raises(DeckSchemaError, match=r"source\.url.*host"):
-        validate_deck(_deck(slide))
-
-
 def _slide_with_text_field(field: str, value: str) -> dict[str, object]:
     if field == "text":
         return _slide(blocks=[_block("text", "title", text=value)])
@@ -815,12 +785,6 @@ def _slide_with_text_field(field: str, value: str) -> dict[str, object]:
         )
     if field == "alt":
         return _slide(blocks=[_block("image", "image1", path="assets/hero.png", alt=value)])
-    if field == "caption":
-        return _slide(
-            blocks=[_block("image", "image1", path="assets/hero.png", alt="Alt", caption=value)]
-        )
-    if field == "source.text":
-        return _slide(source={"text": value})
     if field == "notes":
         return _slide(notes=value)
     if field == "code":
@@ -830,7 +794,7 @@ def _slide_with_text_field(field: str, value: str) -> dict[str, object]:
 
 @pytest.mark.parametrize(
     "field",
-    ["text", "heading", "title", "alt", "caption", "source.text", "notes", "code"],
+    ["text", "heading", "title", "alt", "notes", "code"],
 )
 @pytest.mark.parametrize("value", ["\x00", "\x01", "\u200b"])
 def test_displayed_text_rejects_control_and_invisible_characters(field: str, value: str) -> None:

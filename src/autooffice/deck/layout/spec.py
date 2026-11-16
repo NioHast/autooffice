@@ -1,7 +1,9 @@
 """Kontrak slot, layout, penempatan block, dan rencana layout."""
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from autooffice.errors import AutoOfficeError
 
@@ -9,6 +11,13 @@ LAYOUT_COLUMNS = 12
 MIN_SPAN = 1
 MAX_SPAN = LAYOUT_COLUMNS
 CHART_KINDS = ("bar", "line", "donut")
+VerticalAlign = Literal["top", "center"]
+VERTICAL_ALIGNS: tuple[VerticalAlign, ...] = ("top", "center")
+# Role header yang menempel di atas saat vertical_align="center". Role lain
+# dianggap konten dan boleh bergeser ke tengah sisa kanvas.
+HEADER_ROLES = frozenset({"display", "kicker", "label", "lead", "title"})
+# Caption boleh menemani header dalam satu row tanpa menurunkan status header.
+HEADER_COMPANION_ROLES = frozenset({"caption"})
 
 
 class LayoutError(AutoOfficeError, ValueError):
@@ -45,13 +54,19 @@ class LayoutSpec:
     anggotanya pada setiap slide. Setiap grup tidak kosong, seluruh slot ID-nya
     harus ada di ``slots``, dan satu slot hanya boleh muncul di satu grup.
     Slot di dalam grup tidak otomatis menjadi ``required``.
+
+    ``vertical_align`` mengatur komposisi vertikal setelah seluruh row diukur.
+    ``"top"`` (default) mempertahankan perilaku lama: row pertama mulai di
+    ``content_top``. ``"center"`` menempelkan row header pembuka di atas lalu
+    menggeser row konten berikutnya ke tengah sisa ruang; bila seluruh row
+    adalah header, seluruh stack yang ditengahkan.
     """
 
     layout_id: str
     slots: tuple[SlotSpec, ...]
     rows: tuple[tuple[str, ...], ...]
-    accepts_source: bool
     min_one_of: tuple[tuple[str, ...], ...] = ()
+    vertical_align: VerticalAlign = "top"
 
     def __post_init__(self) -> None:
         validate_layout_spec(self)
@@ -65,8 +80,12 @@ def validate_layout_spec(spec: LayoutSpec) -> None:
         raise LayoutSpecError(f"Layout '{spec.layout_id}' harus memiliki minimal satu row.")
     if not spec.slots:
         raise LayoutSpecError(f"Layout '{spec.layout_id}' tidak memiliki slot.")
-    if not isinstance(spec.accepts_source, bool):
-        raise LayoutSpecError(f"Layout '{spec.layout_id}' memiliki accepts_source yang bukan bool.")
+    if spec.vertical_align not in VERTICAL_ALIGNS:
+        allowed = ", ".join(VERTICAL_ALIGNS)
+        raise LayoutSpecError(
+            f"Layout '{spec.layout_id}' memiliki vertical_align "
+            f"{spec.vertical_align!r}; nilai harus salah satu dari {allowed}."
+        )
 
     slot_ids: list[str] = []
     for slot in spec.slots:
@@ -188,6 +207,55 @@ def validate_layout_spec(spec: LayoutSpec) -> None:
                 f"Jumlah span row {row_index} pada layout '{spec.layout_id}' adalah "
                 f"{total}; maksimal {LAYOUT_COLUMNS} kolom."
             )
+
+
+def is_header_row(roles: Sequence[str | None]) -> bool:
+    """Klasifikasikan row header dari role tiap slot.
+
+    Row adalah header bila minimal satu slot ber-role header dan seluruh slot
+    lain hanya ``caption`` pendamping. Row caption tunggal tetap konten. Teks
+    custom tanpa ``role`` berperilaku sebagai body, bukan header.
+    """
+    has_header = False
+    for role in roles:
+        if role in HEADER_ROLES:
+            has_header = True
+        elif role not in HEADER_COMPANION_ROLES:
+            return False
+    return has_header
+
+
+def vertical_alignment_shifts(
+    row_bottoms: Sequence[int],
+    header_rows: Sequence[bool],
+    *,
+    content_bottom_emu: int,
+    vertical_align: VerticalAlign,
+) -> tuple[int, ...]:
+    """Hitung offset vertikal per row untuk ``vertical_align="center"``.
+
+    ``row_bottoms`` adalah batas bawah setiap row hasil penempatan normal, dan
+    ``header_rows`` menandai row hasil :func:`is_header_row`. Slack dihitung
+    dari batas bawah stack ke ``content_bottom_emu``. Bila slack negatif (sudah
+    overflow), seluruh offset nol sehingga temuan overflow lama tidak berubah.
+    Row header pembuka tetap di atas; row konten setelahnya bergeser
+    ``slack // 2``. Bila seluruh row adalah header, seluruh stack yang bergeser.
+    Offset tidak pernah melewati batas bawah area konten.
+    """
+    count = len(row_bottoms)
+    if len(header_rows) != count:
+        raise LayoutSpecError("Jumlah row bottom dan status header vertical align tidak sama.")
+    if count == 0 or vertical_align == "top":
+        return (0,) * count
+    stack_bottom = max(row_bottoms)
+    slack = content_bottom_emu - stack_bottom
+    if slack <= 0:
+        return (0,) * count
+    shift = slack // 2
+    if all(header_rows):
+        return (shift,) * count
+    leading_headers = header_rows.index(False)
+    return tuple(0 if index < leading_headers else shift for index in range(count))
 
 
 @dataclass(frozen=True, slots=True)

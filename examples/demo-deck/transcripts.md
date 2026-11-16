@@ -49,10 +49,10 @@ Four metrics fill the top area. Active users are 1,248 and completion is 87 perc
 **Perkiraan durasi:** 40 detik
 
 ### Indonesia
-Dua diagram batang bisa berbagi satu halaman. Di slide ini kunjungan per kanal berjumlah 980. Organik 420 dan Referral 260. Sosial 180 dan Langsung 120. Semua batang memakai satu sumbu 0 sampai 500. Nilai tertinggi tetap menjadi batang terkuat.
+Dua diagram batang bisa berbagi satu halaman. Di slide ini kunjungan per kanal berjumlah 980. Organik 420 dan Referral 260. Sosial 180 dan Langsung 120. Semua batang memakai satu sumbu 0 sampai 450. Nilai tertinggi tetap menjadi batang terkuat.
 
 ### English
-Two bar charts can share one page. On this slide visits by channel total 980. Organic is 420 and Referral is 260. Social is 180 and Direct is 120. All bars use one axis from 0 to 500. The highest value keeps the strongest bar.
+Two bar charts can share one page. On this slide visits by channel total 980. Organic is 420 and Referral is 260. Social is 180 and Direct is 120. All bars use one axis from 0 to 450. The highest value keeps the strongest bar.
 
 ## s07. Tren yang Terbaca Tanpa Alat Bantu
 **Perkiraan durasi:** 40 detik

@@ -35,8 +35,6 @@ slides:
     layout: content
     notes: |
       Catatan pembicara slide pertama.
-    source:
-      text: "Sumber: data internal."
     blocks:
       - id: title
         type: text
@@ -60,7 +58,6 @@ slides:
         rows:
           - ["Model", "Selesai"]
           - ["Render", "Berjalan"]
-        caption: "Status terkini."
   - id: s03
     layout: bars
     blocks:
@@ -77,7 +74,6 @@ slides:
         series:
           - name: "Kunjungan"
             values: [10, 5]
-        caption: "Data contoh."
   - id: s04
     layout: image-split
     blocks:
@@ -93,7 +89,6 @@ slides:
         type: image
         path: "{image_path}"
         alt: "Meja kerja dengan laptop"
-        caption: "Meja kerja."
 """
 
 DIAGRAM_SLIDE = """  - id: s05
@@ -111,7 +106,6 @@ DIAGRAM_SLIDE = """  - id: s05
         type: diagram
         source: "{diagram_path}"
         alt: "Diagram alur proses build"
-        caption: "Alur proses."
 """
 
 CUSTOM_SLIDE = """  - id: s06
@@ -133,7 +127,6 @@ CUSTOM_SLIDE = """  - id: s06
             type: image
             path: "assets/hero.png"
             alt: "Gambar pada slide custom"
-            caption: "Gambar custom."
             span: 6
 """
 
@@ -283,16 +276,6 @@ def _fake_google_for(deck_path: Path) -> FakeGoogleServices:
                             )
                         )
                         added_tables.add(block_id)
-                    if binding.leaf == "caption":
-                        elements.append(
-                            PageElement(
-                                object_id=f"shape-{slide.slide_id}-{block_id}-caption",
-                                page_object_id=page_object_id,
-                                kind="shape",
-                                title=binding.key,
-                                text=binding.plain_text,
-                            )
-                        )
                     continue
                 if block_id in charts:
                     if block_id not in added_charts:
@@ -307,16 +290,6 @@ def _fake_google_for(deck_path: Path) -> FakeGoogleServices:
                             )
                         )
                         added_charts.add(block_id)
-                    if binding.leaf == "caption":
-                        elements.append(
-                            PageElement(
-                                object_id=f"shape-{slide.slide_id}-{block_id}-caption",
-                                page_object_id=page_object_id,
-                                kind="shape",
-                                title=binding.key,
-                                text=binding.plain_text,
-                            )
-                        )
                     continue
                 if binding.leaf == "notes":
                     notes_elements.append(

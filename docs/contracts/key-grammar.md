@@ -5,7 +5,7 @@ coverage, dan sinkronisasi Google Slides. Compiler membentuk key dari YAML,
 menyimpannya di `KeyManifest`, dan menyimpan pemetaan balik ke `yaml_path`
 melalui `KeyBinding`. Key yang sama dipakai untuk render, diff, pull, dan apply.
 
-Status: F0 contract, version 1
+Status: F0 contract, version 1; diamendemen [ADR 0017](../decisions/0017-remove-caption-and-source.md).
 Sumber: AUTO_OFFICE_PLAN.md bagian 5 (5.2 sampai 5.6).
 
 ## Bentuk data
@@ -13,7 +13,7 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 5 (5.2 sampai 5.6).
 ```text
 key          = slide_id "." path
 path         = block_id "." leaf_path | slide_leaf
-slide_leaf   = "notes" | "source.text"
+slide_leaf   = "notes"
 slide_id     = "s" 2*DIGIT
 block_id     = LOWER *(LOWER / DIGIT / "_")
 leaf_path    = leaf_segment *("." leaf_segment)
@@ -28,7 +28,6 @@ Contoh:
 ```text
 s01.title.text
 s01.notes
-s01.source.text
 s03.kpi1.value
 s04.chart1.series1.value3
 s05.table1.r2.c3
@@ -61,7 +60,6 @@ s05.table1.r2.c3
 | `slides[id=s03].blocks[id=chart1].series[0].name` | `s03.chart1.series1.name` |
 | `slides[id=s03].blocks[id=chart1].series[0].values[2]` | `s03.chart1.series1.value3` |
 | `slides[id=s03].notes` | `s03.notes` |
-| `slides[id=s03].source.text` | `s03.source.text` |
 
 Mapping ini adalah kontrak. Compiler tidak boleh mengganti nama leaf tanpa ADR.
 
@@ -72,7 +70,7 @@ Setiap key wajib punya satu binding. Field binding:
 - `key`: key datar yang unik.
 - `slide_id` dan `block_id`: pemilik key; `block_id` kosong untuk key slide.
 - `leaf`: nama leaf beserta indeks bila ada.
-- `kind`: `text`, `data`, `notes`, `source`, atau `media_text`.
+- `kind`: `text`, `data`, atau `notes`.
 - `sync`: apakah key ikut sinkronisasi teks Google Slides.
 - `yaml_path`: path YAML yang disimpan compiler, misalnya
   `["slides", 2, "blocks", 1, "value"]`.
@@ -124,9 +122,9 @@ dictionary yang tidak stabil.
   `("slides", 2, "blocks", 1, "value")`.
 - Indeks leaf tetap 1-based; `item0`, `r0.c1`, dan `series0.name` ditolak.
 - Key lebih dari 160 karakter ditolak saat pembentukan, bukan dipotong.
-- Key slide hanya `sNN.notes` dan `sNN.source.text`.
+- Key slide hanya `sNN.notes`. Field slide `source` dihapus oleh ADR 0017.
 - Chart values memakai `kind: data` dan `sync: false`; chart title dan label
-  tidak ikut sinkronisasi teks. Caption media memakai `kind: media_text`.
+  tidak ikut sinkronisasi teks. Field block `caption` dihapus oleh ADR 0017.
 - Reorder slide dan block diuji tidak mengubah key; `yaml_path` dipakai apply.
 
 ## Acceptance

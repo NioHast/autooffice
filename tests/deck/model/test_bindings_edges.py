@@ -170,7 +170,7 @@ def test_binding_field_shape_errors_are_reported(block: BlockDefinition, match: 
 
 
 def test_defensive_inline_binding_rejects_non_inline_kind() -> None:
-    """Guard internal: ``block_bindings`` selalu memilih kind text/media_text.
+    """Guard internal: ``block_bindings`` selalu memilih kind text.
 
     Pemanggil langsung tetap dilindungi agar binding inline tidak salah kind.
     """

@@ -1,4 +1,4 @@
-"""Test push/pull/diff/apply teks untuk shape, tabel, notes, dan source."""
+"""Test push/pull/diff/apply teks untuk shape, tabel, dan notes."""
 
 import json
 from collections.abc import Callable
@@ -95,7 +95,6 @@ def _remote_snapshot(
     snapshot = _with_text(snapshot, "s01.notes", "Catatan remote\nBaris kedua")
     snapshot = _with_text(snapshot, "s01.table1.h1", "Metrik remote")
     snapshot = _with_text(snapshot, "s01.table1.r1.c1", "Peserta remote")
-    snapshot = _with_text(snapshot, "s01.source.text", "Sumber remote")
     return snapshot
 
 
@@ -107,7 +106,7 @@ def _binding_text(deck_path: Path, key: str) -> str:
     raise AssertionError(f"key tidak ditemukan: {key}")
 
 
-def test_extract_text_reads_shape_table_notes_and_source(
+def test_extract_text_reads_shape_table_and_notes(
     make_snapshot: Callable[..., PresentationSnapshot],
 ) -> None:
     pulled = extract_text(make_snapshot())
@@ -119,7 +118,6 @@ def test_extract_text_reads_shape_table_notes_and_source(
     assert entries["s01.notes"].text == (
         "Catatan awal untuk slide pertama.\nBaris kedua tetap dipertahankan."
     )
-    assert entries["s01.source.text"].text == "Sumber: data internal, 2026"
 
 
 def test_extract_rejects_shape_marker_moved_to_another_slide(
@@ -230,7 +228,6 @@ def test_diff_detects_all_synced_text_classes(
     assert changes["s01.notes"].to_value == "Catatan remote\nBaris kedua"
     assert changes["s01.table1.h1"].to_value == "Metrik remote"
     assert changes["s01.table1.r1.c1"].to_value == "Peserta remote"
-    assert changes["s01.source.text"].to_value == "Sumber remote"
     assert diff.missing == ()
 
 
@@ -302,7 +299,6 @@ def test_push_text_updates_all_remote_text_classes(
     assert entries["s01.notes"].text.startswith("Catatan awal")
     assert entries["s01.table1.h1"].text == "Metrik"
     assert entries["s01.table1.r1.c1"].text == "Peserta"
-    assert entries["s01.source.text"].text == "Sumber: data internal, 2026"
 
 
 def test_push_text_accepts_autooffice_table_marker_prefix(

@@ -7,7 +7,11 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.text import PP_ALIGN
 from pptx.oxml.ns import qn
 
-from autooffice.deck.layout.measure import measure_text
+from autooffice.deck.layout.measure import (
+    measure_text,
+    table_cell_padding_emu,
+    table_column_widths,
+)
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.deck.render.pptx import PptxRenderer
 from autooffice.deck.render.pptx.shapes import Box, PptxRenderError
@@ -78,14 +82,19 @@ def test_table_borders_and_fills_come_from_theme(minimal_case, theme) -> None:
     table = _table_shape(result).table
     header = table.cell(0, 0)
     body = table.cell(1, 0)
-    tc_pr = header._tc.get_or_add_tcPr()
+    header_tc_pr = header._tc.get_or_add_tcPr()
+    body_tc_pr = body._tc.get_or_add_tcPr()
 
     assert header.fill.fore_color.rgb == _rgb(theme.colors.accent)
     assert body.fill.fore_color.rgb == _rgb(theme.colors.surface)
-    assert tc_pr.find(qn("a:lnL")) is not None
-    assert tc_pr.find(qn("a:lnR")) is not None
-    assert tc_pr.find(qn("a:lnT")) is not None
-    assert tc_pr.find(qn("a:lnB")) is not None
+    assert header_tc_pr.find(qn("a:lnT")) is not None
+    assert header_tc_pr.find(qn("a:lnB")) is not None
+    assert header_tc_pr.find(qn("a:lnL")) is None
+    assert header_tc_pr.find(qn("a:lnR")) is None
+    assert body_tc_pr.find(qn("a:lnB")) is not None
+    assert body_tc_pr.find(qn("a:lnT")) is None
+    assert body_tc_pr.find(qn("a:lnL")) is None
+    assert body_tc_pr.find(qn("a:lnR")) is None
 
 
 def test_numeric_cells_are_right_aligned(minimal_case, theme) -> None:
@@ -114,22 +123,27 @@ def test_table_row_heights_follow_measured_content(theme) -> None:
 
     shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
     table = shapes[0].table
-    inner = box.inset(theme.spacing.card_padding_emu)
-    column_width = inner.width // 2
-    cell_width = column_width - 2 * theme.spacing.sm_emu
+    padding = table_cell_padding_emu(theme)
+    column_widths = table_column_widths(
+        ("Kolom A", "Kolom B"),
+        (("panjang " * 25, "x"),),
+        table_width_emu=box.width,
+        theme=theme,
+    )
+    cell_width = column_widths[0] - 2 * padding
     body_size_pt = max(theme.typography.body_pt, theme.typography.minimum_pt)
     tall_content = measure_text(
         "panjang " * 25,
         available_width_emu=cell_width,
         theme=theme,
         font_size_pt=body_size_pt,
-        weight=400,
+        weight=theme.typography.weights[0],
     ).height_emu
 
     header_height = table.rows[0].height
     body_height = table.rows[1].height
     assert body_height != header_height
-    assert body_height >= tall_content + 2 * theme.spacing.sm_emu
+    assert body_height >= tall_content + 2 * padding
     assert shapes[0].top + sum(row.height for row in table.rows) <= box.bottom
 
 
@@ -147,72 +161,65 @@ def test_table_rejects_content_taller_than_box(theme) -> None:
         render_table_block(new_slide(), block, box, theme, slide_id="s01")
 
 
-def test_table_with_caption_fits_exact_box_and_keeps_caption_gap(theme) -> None:
+def test_table_fits_exact_box(theme) -> None:
+    columns = ("A", "B")
+    rows = (("1", "2"), ("3", "4"))
     block = BlockIR(
         "t1",
         "table",
         None,
         None,
         {
-            "columns": ("A", "B"),
-            "rows": (("1", "2"), ("3", "4")),
-            "caption": "Status lane",
+            "columns": columns,
+            "rows": rows,
         },
     )
-    padding = theme.spacing.card_padding_emu
     width = 4_000_000
-    inner_width = width - 2 * padding
-    column_width = inner_width // 2
-    cell_width = column_width - 2 * theme.spacing.sm_emu
+    padding = table_cell_padding_emu(theme)
+    column_widths = table_column_widths(
+        columns,
+        rows,
+        table_width_emu=width,
+        theme=theme,
+    )
+    cell_widths = [column_width - 2 * padding for column_width in column_widths]
     body_size_pt = max(theme.typography.body_pt, theme.typography.minimum_pt)
 
     def row_content(values: tuple[str, ...], weight: int) -> int:
         return max(
             measure_text(
                 value,
-                available_width_emu=cell_width,
+                available_width_emu=cell_widths[index],
                 theme=theme,
                 font_size_pt=body_size_pt,
                 weight=weight,
             ).height_emu
-            for value in values
+            for index, value in enumerate(values)
         )
 
-    margin = 2 * theme.spacing.sm_emu
+    margin = 2 * padding
     table_height = (
-        row_content(("A", "B"), 600)
+        row_content(columns, theme.typography.weights[1])
         + margin
-        + row_content(("1", "2"), 400)
+        + row_content(rows[0], theme.typography.weights[0])
         + margin
-        + row_content(("3", "4"), 400)
+        + row_content(rows[1], theme.typography.weights[0])
         + margin
     )
-    caption_height = measure_text(
-        "Status lane",
-        available_width_emu=inner_width,
-        theme=theme,
-        font_size_pt=body_size_pt,
-        weight=400,
-    ).height_emu
-    gap = theme.spacing.sm_emu
     box = Box(
         left=0,
         top=0,
         width=width,
-        height=2 * padding + table_height + gap + caption_height,
+        height=table_height,
     )
 
     shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
-    frame, caption = shapes
-    inner = box.inset(padding)
 
-    assert frame.top == inner.top
+    assert len(shapes) == 1
+    frame = shapes[0]
+    assert frame.top == box.top
     assert sum(row.height for row in frame.table.rows) == table_height
-    assert frame.top + frame.height == inner.top + table_height
-    assert caption.top == frame.top + frame.height + gap
-    assert caption.top + caption.height == inner.bottom
-    assert frame.top + frame.height <= box.bottom
-    assert caption.top + caption.height <= box.bottom
+    assert frame.top + frame.height == box.top + table_height
 
 
 @pytest.mark.parametrize(
@@ -256,7 +263,6 @@ def test_strict_numeric_values_align_right(theme, value: str) -> None:
 def test_emphasis_column_measures_emphasized_header_and_body(theme) -> None:
     header = "review eksperimen delta tambahan hasil"
     body = "arsitektur column arsitektur kontrak measurement arsitektur"
-    caption = "Status emphasis"
     block = BlockIR(
         "t1",
         "table",
@@ -265,16 +271,20 @@ def test_emphasis_column_measures_emphasized_header_and_body(theme) -> None:
         {
             "columns": ("A", header),
             "rows": (("1", body), ("2", body)),
-            "caption": caption,
             "emphasis_column": 2,
         },
     )
-    padding = theme.spacing.card_padding_emu
+    padding = table_cell_padding_emu(theme)
     width = 4_000_000
-    inner_width = width - 2 * padding
-    cell_width = inner_width // 2 - 2 * theme.spacing.sm_emu
+    column_widths = table_column_widths(
+        ("A", header),
+        (("1", body), ("2", body)),
+        table_width_emu=width,
+        theme=theme,
+        emphasis_column=2,
+    )
+    cell_width = column_widths[1] - 2 * padding
     font_size_pt = max(theme.typography.body_pt, theme.typography.minimum_pt)
-    margin = 2 * theme.spacing.sm_emu
 
     def measure(text: str, weight: int):
         return measure_text(
@@ -285,37 +295,28 @@ def test_emphasis_column_measures_emphasized_header_and_body(theme) -> None:
             weight=weight,
         )
 
-    header_emphasis = measure(header, 700)
-    body_emphasis = measure(body, 600)
-    assert header_emphasis.line_count == measure(header, 600).line_count
-    assert body_emphasis.line_count > measure(body, 400).line_count
+    header_emphasis = measure(header, theme.typography.weights[2])
+    body_emphasis = measure(body, theme.typography.weights[1])
+    assert header_emphasis.width_emu >= measure(header, theme.typography.weights[1]).width_emu
+    assert body_emphasis.width_emu >= measure(body, theme.typography.weights[0]).width_emu
 
-    caption_height = measure_text(
-        caption,
-        available_width_emu=inner_width,
-        theme=theme,
-        font_size_pt=font_size_pt,
-        weight=400,
-    ).height_emu
-    gap = theme.spacing.sm_emu
-    table_height = header_emphasis.height_emu + margin
-    table_height += 2 * (body_emphasis.height_emu + margin)
+    table_height = header_emphasis.height_emu + 2 * padding
+    table_height += 2 * (body_emphasis.height_emu + 2 * padding)
     box = Box(
         left=0,
         top=0,
         width=width,
-        height=2 * padding + table_height + gap + caption_height,
+        height=table_height,
     )
 
     shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
-    frame, caption_shape = shapes
+    frame = shapes[0]
     rows = frame.table.rows
 
-    assert rows[0].height >= header_emphasis.height_emu + margin
-    assert rows[1].height >= body_emphasis.height_emu + margin
-    assert rows[2].height >= body_emphasis.height_emu + margin
+    assert rows[0].height >= header_emphasis.height_emu + 2 * padding
+    assert rows[1].height >= body_emphasis.height_emu + 2 * padding
+    assert rows[2].height >= body_emphasis.height_emu + 2 * padding
     assert sum(row.height for row in rows) == table_height
-    assert caption_shape.top == frame.top + frame.height + gap
 
 
 def test_emphasis_column_changes_fill_and_weight(theme) -> None:
@@ -349,6 +350,91 @@ def test_emphasis_column_changes_fill_and_weight(theme) -> None:
     assert emphasis_run.font.bold is True
     assert plain_run.font.name == "Arial"
     assert plain_run.font.bold is False
+
+
+def test_table_columns_are_content_aware_with_min_and_max(theme) -> None:
+    block = BlockIR(
+        "t1",
+        "table",
+        None,
+        None,
+        {
+            "columns": ("ID", "Nama", "Keterangan", "Nilai"),
+            "rows": (("1", "A", "deskripsi panjang " * 3, "10"),),
+        },
+    )
+    box = Box(left=0, top=0, width=4_000_000, height=8_000_000)
+
+    shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
+    widths = [column.width for column in shapes[0].table.columns]
+    minimum = 40 * 9525
+    maximum = round(box.width * 0.4)
+
+    assert sum(widths) == box.width
+    assert widths[2] > widths[0]
+    assert widths[0] >= minimum
+    assert max(widths) <= maximum
+
+
+def test_numeric_header_alignment_matches_numeric_body(theme) -> None:
+    block = BlockIR(
+        "t1",
+        "table",
+        None,
+        None,
+        {"columns": ("Nama", "Nilai"), "rows": (("A", "1"), ("B", "2"))},
+    )
+    box = Box(left=0, top=0, width=4_000_000, height=3_000_000)
+
+    shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
+    table = shapes[0].table
+
+    assert table.cell(0, 0).text_frame.paragraphs[0].alignment == PP_ALIGN.LEFT
+    assert table.cell(0, 1).text_frame.paragraphs[0].alignment == PP_ALIGN.RIGHT
+    assert table.cell(1, 1).text_frame.paragraphs[0].alignment == PP_ALIGN.RIGHT
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("007", PP_ALIGN.LEFT),
+        ("0012", PP_ALIGN.LEFT),
+        ("0", PP_ALIGN.RIGHT),
+    ],
+)
+def test_leading_zero_identifiers_align_as_text(theme, value: str, expected: PP_ALIGN) -> None:
+    block = BlockIR(
+        "t1",
+        "table",
+        None,
+        None,
+        {"columns": ("ID",), "rows": ((value,),)},
+    )
+    box = Box(left=0, top=0, width=4_000_000, height=3_000_000)
+
+    shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
+
+    assert shapes[0].table.cell(1, 0).text_frame.paragraphs[0].alignment == expected
+
+
+def test_table_cell_padding_uses_md_token(theme) -> None:
+    block = BlockIR(
+        "t1",
+        "table",
+        None,
+        None,
+        {"columns": ("A",), "rows": (("1",),)},
+    )
+    box = Box(left=0, top=0, width=4_000_000, height=3_000_000)
+
+    shapes = render_table_block(new_slide(), block, box, theme, slide_id="s01")
+    cell = shapes[0].table.cell(0, 0)
+    padding = theme.spacing.md_emu
+
+    assert cell.margin_left == padding
+    assert cell.margin_right == padding
+    assert cell.margin_top == padding
+    assert cell.margin_bottom == padding
 
 
 def _latin_typeface(run) -> str:

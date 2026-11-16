@@ -204,7 +204,6 @@ def test_required_slots_are_fillable(case: PresetCase) -> None:
         order=0,
         blocks=blocks,
         notes=None,
-        source=None,
     )
 
     assignments = validate_slide(slide, case.layout)
@@ -250,7 +249,6 @@ def test_min_one_of_accepts_a_single_group_member(
         order=0,
         blocks=blocks,
         notes=None,
-        source=None,
     )
 
     assignments = validate_slide(slide, layout)
@@ -263,10 +261,6 @@ def test_core_presets_use_no_callout_block() -> None:
         for slot in case.layout.slots:
             assert set(slot.block_types) <= ALLOWED_BLOCK_TYPES
             assert "callout" not in slot.block_types
-
-
-def test_core_presets_accept_source() -> None:
-    assert all(case.layout.accepts_source for case in CASES)
 
 
 def test_registry_discovers_all_core_presets() -> None:

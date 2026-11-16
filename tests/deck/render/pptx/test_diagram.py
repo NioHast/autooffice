@@ -17,8 +17,6 @@ from autooffice.deck.media.plantuml import PLANTUML_ENV_VAR, PlantUmlError
 from autooffice.deck.model.deck_ir import (
     BlockIR,
     DeckIR,
-    KeyBinding,
-    KeyKind,
     KeyManifest,
     SlideIR,
 )
@@ -101,56 +99,27 @@ def _fake_plantuml(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, Path, Th
     return calls
 
 
-def _binding(
-    key: str,
-    *,
-    block_id: str,
-    leaf: str,
-    kind: KeyKind = "text",
-) -> KeyBinding:
-    return KeyBinding(
-        key=key,
-        slide_id="s01",
-        block_id=block_id,
-        leaf=leaf,
-        kind=kind,
-        sync=True,
-        yaml_path=("slides", 0, "blocks", 0, leaf),
-        value="nilai",
-        plain_text="nilai",
-    )
-
-
 def _diagram_case(
     *,
     alt: str = "Diagram alur build",
-    caption: str = "Alur build",
     source: str = "diagrams/flow.puml",
-    with_caption_key: bool = True,
 ) -> tuple[DeckIR, LayoutPlan]:
-    fields: dict[str, object] = {
-        "source": source,
-        "alt": alt,
-    }
-    if caption:
-        fields["caption"] = caption
-    block = BlockIR("process", "diagram", None, None, fields)
-    bindings: list[KeyBinding] = []
-    if caption and with_caption_key:
-        bindings.append(
-            _binding(
-                "s01.process.caption",
-                block_id="process",
-                leaf="caption",
-                kind="media_text",
-            )
-        )
+    block = BlockIR(
+        "process",
+        "diagram",
+        None,
+        None,
+        {
+            "source": source,
+            "alt": alt,
+        },
+    )
     deck = DeckIR(
         schema="autooffice.deck/v1",
         meta={"title": "Diagram Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "diagram", 0, (block,), None, None),),
-        keys=KeyManifest(tuple(bindings)),
+        slides=(SlideIR("s01", "diagram", 0, (block,), None),),
+        keys=KeyManifest(()),
     )
     layout = LayoutPlan(
         (
@@ -191,7 +160,7 @@ def _write_diagram(workspace: Path) -> Path:
     return source
 
 
-def test_diagram_block_inserts_picture_caption_and_coverage(
+def test_diagram_block_inserts_picture_and_coverage(
     workspace: Path,
     theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
@@ -210,8 +179,6 @@ def test_diagram_block_inserts_picture_caption_and_coverage(
     assert node is not None
     assert node.get("title") == "s01.process"
     assert node.get("descr") == "Diagram alur build"
-    caption = shapes["autooffice:key:s01.process.caption"]
-    assert caption.text_frame.text == "Alur build"
     assert result.coverage.ok is True
     assert result.coverage.missing_alt == ()
     cache_dir = workspace / "cache" / "plantuml"
@@ -258,22 +225,33 @@ def test_diagram_renders_real_plantuml_into_cache(
     assert "-secure" in render_call
 
 
-def test_diagram_without_caption_has_only_picture(
+def test_diagram_block_has_picture_and_hairline_frame(
     workspace: Path,
     theme: Theme,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fake_plantuml(monkeypatch)
     _write_diagram(workspace)
-    deck, layout = _diagram_case(caption="")
+    deck, layout = _diagram_case()
 
     result = _render(deck, layout, workspace, theme)
     presentation = Presentation(str(result.artifact_path))
     shapes = list(presentation.slides[0].shapes)
+    pictures = [shape for shape in shapes if shape.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    frames = [shape for shape in shapes if shape.name == "chrome:diagram-frame:s01.process"]
 
-    assert len(shapes) == 1
-    assert shapes[0].name == "autooffice:diagram:s01.process"
-    assert shapes[0].shape_type == MSO_SHAPE_TYPE.PICTURE
+    assert len(pictures) == 1
+    assert pictures[0].name == "autooffice:diagram:s01.process"
+    assert len(frames) == 1
+    picture = pictures[0]
+    frame = frames[0]
+    assert (frame.left, frame.top, frame.width, frame.height) == (
+        picture.left,
+        picture.top,
+        picture.width,
+        picture.height,
+    )
+    assert frame.line.color.rgb == _rgb(theme.colors.border)
     assert result.coverage.ok is True
     assert (workspace / "cache" / "plantuml" / "s01.process.png").is_file()
 
@@ -311,22 +289,6 @@ def test_diagram_missing_alt_fails_coverage(
         _render(deck, layout, workspace, theme)
 
     assert error.value.report.missing_alt == ("s01.process",)
-    assert not (workspace / "diagram-deck.pptx").exists()
-
-
-def test_diagram_missing_caption_key_fails_coverage(
-    workspace: Path,
-    theme: Theme,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _fake_plantuml(monkeypatch)
-    _write_diagram(workspace)
-    deck, layout = _diagram_case(with_caption_key=False)
-
-    with pytest.raises(CoverageError) as error:
-        _render(deck, layout, workspace, theme)
-
-    assert error.value.report.unkeyed_visible == ("s01.process.caption",)
     assert not (workspace / "diagram-deck.pptx").exists()
 
 
@@ -382,3 +344,9 @@ def test_minimal_deck_does_not_need_plantuml(
 
     assert result.artifact_path.is_file()
     assert result.coverage.ok is True
+
+
+def _rgb(color: str) -> object:
+    from pptx.dml.color import RGBColor
+
+    return RGBColor.from_string(color[1:])

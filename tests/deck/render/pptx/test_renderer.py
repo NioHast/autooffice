@@ -146,7 +146,7 @@ def test_all_text_uses_word_wrap_no_shrink_and_minimum_size(minimal_case, theme)
                     )
 
 
-def test_table_cells_and_source_have_key_metadata(minimal_case, theme) -> None:
+def test_table_cells_have_key_metadata(minimal_case, theme) -> None:
     result = _render(minimal_case, theme)
     presentation = Presentation(str(result.artifact_path))
     table_shape = next(
@@ -159,16 +159,6 @@ def test_table_cells_and_source_have_key_metadata(minimal_case, theme) -> None:
     assert _cell_key(table.cell(0, 0)) == "s01.table1.h1"
     assert _cell_key(table.cell(1, 2)) == "s01.table1.r1.c3"
     assert _cell_key(table.cell(2, 3 - 1)) == "s01.table1.r2.c3"
-    source = next(
-        shape
-        for shape in presentation.slides[0].shapes
-        if shape.name == "autooffice:key:s01.source.text"
-    )
-    source_node = source._element.find(
-        ".//{http://schemas.openxmlformats.org/presentationml/2006/main}cNvPr"
-    )
-    assert source_node is not None
-    assert source_node.get("title") == "s01.source.text"
 
 
 def test_default_theme_emits_arial_bullet_typeface(minimal_case, theme) -> None:

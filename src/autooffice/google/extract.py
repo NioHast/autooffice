@@ -23,7 +23,7 @@ from .slides import (
     table_namespace,
 )
 
-TextKind = Literal["text", "table_cell", "notes", "source"]
+TextKind = Literal["text", "table_cell", "notes"]
 _PRESENTATION_PATTERNS = (
     re.compile(r"/presentation/d/e/([A-Za-z0-9_-]+)"),
     re.compile(r"/presentation/(?:u/\d+/)?d/([A-Za-z0-9_-]+)"),
@@ -77,7 +77,7 @@ class PulledText:
 
 
 def extract_text(presentation: PresentationSnapshot) -> PulledText:
-    """Ekstrak shape berkey, sel tabel native, notes, dan source."""
+    """Ekstrak shape berkey, sel tabel native, dan notes."""
     entries: list[TextEntry] = []
     unkeyed = 0
     for slide in presentation.slides:
@@ -116,9 +116,7 @@ def extract_text(presentation: PresentationSnapshot) -> PulledText:
                     f"milik '{actual_slide_id}', bukan '{parsed.slide_id}'."
                 )
             kind: TextKind = "notes" if is_notes else "text"
-            if not is_notes and parsed.leaf == "source.text":
-                kind = "source"
-            elif not is_notes and parsed.leaf == "notes":
+            if not is_notes and parsed.leaf == "notes":
                 kind = "notes"
             entries.append(
                 TextEntry(

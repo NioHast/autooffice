@@ -54,5 +54,5 @@ LAYOUT = LayoutSpec(
         ("lead",),
         ("point1", "point2", "point3"),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

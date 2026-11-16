@@ -64,7 +64,6 @@ def build_deck(
                 order=order,
                 blocks=tuple(blocks),
                 notes=notes,
-                source=None,
             )
         )
     return DeckIR(

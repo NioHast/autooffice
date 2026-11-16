@@ -22,7 +22,6 @@ def _preset_source(layout_id: str) -> str:
         "    slots=(SlotSpec(slot_id='title', required=True, "
         "block_types=('text',), role='title'),),\n"
         "    rows=(('title',),),\n"
-        "    accepts_source=False,\n"
         ")\n"
     )
 

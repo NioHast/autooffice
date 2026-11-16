@@ -13,7 +13,11 @@ from pptx.slide import Slide
 from pptx.table import _Cell
 from pptx.util import Emu
 
-from autooffice.deck.layout.measure import measure_text
+from autooffice.deck.layout.measure import (
+    measure_text,
+    table_cell_padding_emu,
+    table_column_widths,
+)
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.design.theme import Theme
 
@@ -25,14 +29,13 @@ from .shapes import (
     add_extension_keys,
     apply_paragraph_style,
     apply_run_style,
-    field_optional_text,
     field_rows,
     field_sequence,
     record_render_warning,
     rgb,
     set_namespace_marker,
 )
-from .textbox import TextStyle, add_keyed_text, body_style
+from .textbox import TextStyle
 
 # Angka ketat: tanda opsional, kelompok ribuan tiga digit dengan pemisah yang
 # konsisten, desimal opsional memakai pemisah berbeda dari ribuan, persen
@@ -88,62 +91,52 @@ def render_table_block(
         )
 
     namespace = f"{slide_id}.{block.block_id}"
-    inner = box.inset(theme.spacing.card_padding_emu)
+    typography = theme.typography
     header_style = TextStyle(
-        size_pt=max(theme.typography.body_pt, theme.typography.minimum_pt),
-        weight=600,
+        size_pt=max(typography.body_pt, typography.minimum_pt),
+        weight=typography.weights[1],
         color=theme.colors.accent_ink,
-        family=theme.typography.family,
-        line_height=theme.typography.line_height,
+        family=typography.family,
+        line_height=typography.line_height,
+        tracking_em=typography.tracking_em,
     )
     body_text_style = TextStyle(
-        size_pt=max(theme.typography.body_pt, theme.typography.minimum_pt),
-        weight=400,
+        size_pt=max(typography.body_pt, typography.minimum_pt),
+        weight=typography.weights[0],
         color=theme.colors.ink,
-        family=theme.typography.family,
-        line_height=theme.typography.line_height,
+        family=typography.family,
+        line_height=typography.line_height,
+        tracking_em=typography.tracking_em,
     )
-    caption_style = body_style(theme, weight=400, color=theme.colors.muted)
-    caption = field_optional_text(block.fields, "caption")
-    caption_height = 0
-    gap = 0
-    if caption:
-        caption_height = measure_text(
-            caption,
-            available_width_emu=inner.width,
-            theme=theme,
-            font_size_pt=caption_style.size_pt,
-            weight=caption_style.weight,
-        ).height_emu
-        gap = theme.spacing.sm_emu
-    table_height = inner.height - caption_height - gap
-    if table_height <= 0:
-        raise PptxRenderError(f"Block table '{block.block_id}' tidak memiliki ruang untuk tabel.")
-    table_box = Box(
-        left=inner.left,
-        top=inner.top,
-        width=inner.width,
-        height=table_height,
-    )
+    table_box = box
     emphasis = _emphasis_column(block.fields, column_count=len(columns))
     header_emphasis_style = TextStyle(
         size_pt=header_style.size_pt,
-        weight=700,
+        weight=typography.weights[2],
         color=header_style.color,
         family=header_style.family,
         line_height=header_style.line_height,
+        tracking_em=header_style.tracking_em,
     )
     body_emphasis_style = TextStyle(
         size_pt=body_text_style.size_pt,
-        weight=600,
+        weight=typography.weights[1],
         color=body_text_style.color,
         family=body_text_style.family,
         line_height=body_text_style.line_height,
+        tracking_em=body_text_style.tracking_em,
+    )
+    column_widths = table_column_widths(
+        columns,
+        rows,
+        table_width_emu=table_box.width,
+        theme=theme,
+        emphasis_column=emphasis,
     )
     row_content_heights = _measure_row_content_heights(
         columns,
         rows,
-        table_width=table_box.width,
+        column_widths=column_widths,
         theme=theme,
         header_style=header_style,
         body_style=body_text_style,
@@ -153,7 +146,7 @@ def render_table_block(
     )
     row_heights = _allocate_row_heights(
         row_content_heights,
-        margin_emu=2 * theme.spacing.sm_emu,
+        margin_emu=2 * table_cell_padding_emu(theme),
         available_height_emu=table_box.height,
         block_id=block.block_id,
     )
@@ -172,10 +165,11 @@ def render_table_block(
     table.last_row = False
     table.last_col = False
     _remove_table_style(frame)
-    _distribute_columns(frame, table_box.width)
+    _distribute_columns(frame, column_widths)
     _distribute_rows(frame, row_heights)
     alt = ", ".join(columns)
     set_namespace_marker(frame, TABLE_MARKER, namespace, description=alt)
+    numeric_columns = _numeric_columns(rows, column_count=len(columns))
 
     for column_index, header in enumerate(columns, start=1):
         cell = table.cell(0, column_index - 1)
@@ -186,7 +180,8 @@ def render_table_block(
             style=header_emphasis_style if emphasized else header_style,
             theme=theme,
             fill=theme.colors.accent_deep if emphasized else theme.colors.accent,
-            numeric=False,
+            numeric=numeric_columns[column_index - 1],
+            header=True,
             key=f"{namespace}.h{column_index}",
         )
     for row_index, row in enumerate(rows, start=1):
@@ -201,27 +196,10 @@ def render_table_block(
                 theme=theme,
                 fill=theme.colors.accent_soft if emphasized else fill,
                 numeric=_looks_numeric(value),
+                header=False,
                 key=f"{namespace}.r{row_index}.c{column_index}",
             )
-    shapes: list[BaseShape] = [frame]
-    if caption:
-        caption_box = Box(
-            left=inner.left,
-            top=inner.bottom - caption_height,
-            width=inner.width,
-            height=caption_height,
-        )
-        shapes.append(
-            add_keyed_text(
-                slide,
-                caption_box,
-                key=f"{namespace}.caption",
-                text=caption,
-                style=caption_style,
-                theme=theme,
-            )
-        )
-    return tuple(shapes)
+    return (frame,)
 
 
 def _remove_table_style(frame: GraphicFrame) -> None:
@@ -233,13 +211,17 @@ def _remove_table_style(frame: GraphicFrame) -> None:
         tbl_pr.remove(style_id)
 
 
-def _distribute_columns(frame: GraphicFrame, width_emu: int) -> None:
+def _distribute_columns(frame: GraphicFrame, widths_emu: tuple[int, ...]) -> None:
     table = frame.table
-    column_count = len(table.columns)
-    base = width_emu // column_count
-    for index in range(column_count):
-        extra = width_emu - base * column_count if index == column_count - 1 else 0
-        table.columns[index].width = Emu(base + extra)
+    if len(widths_emu) != len(table.columns):
+        raise PptxRenderError(
+            f"Jumlah lebar kolom {len(widths_emu)} tidak cocok dengan tabel "
+            f"{len(table.columns)} kolom."
+        )
+    for index, width in enumerate(widths_emu):
+        if width <= 0:
+            raise PptxRenderError(f"Lebar kolom tabel ke-{index + 1} harus positif.")
+        table.columns[index].width = Emu(width)
 
 
 def _distribute_rows(frame: GraphicFrame, row_heights: tuple[int, ...]) -> None:
@@ -259,7 +241,7 @@ def _measure_row_content_heights(
     columns: tuple[str, ...],
     rows: tuple[tuple[str, ...], ...],
     *,
-    table_width: int,
+    column_widths: tuple[int, ...],
     theme: Theme,
     header_style: TextStyle,
     body_style: TextStyle,
@@ -267,15 +249,9 @@ def _measure_row_content_heights(
     header_emphasis_style: TextStyle,
     body_emphasis_style: TextStyle,
 ) -> tuple[int, ...]:
-    """Ukur tinggi konten setiap baris dengan lebar sel yang sama saat render.
-
-    Sel pada kolom emphasis diukur memakai bobot font yang benar-benar dipakai
-    renderer (700 untuk header, 600 untuk body), supaya baris tidak kekurangan
-    tinggi saat bobot tebal membungkus lebih banyak.
-    """
-    column_count = len(columns)
-    column_width = max(1, table_width // column_count)
-    cell_width = max(1, column_width - 2 * theme.spacing.sm_emu)
+    """Ukur tinggi konten setiap baris dengan lebar kolom nyata saat render."""
+    padding = table_cell_padding_emu(theme)
+    cell_widths = tuple(max(1, width - 2 * padding) for width in column_widths)
 
     def measure(
         row: tuple[str, ...],
@@ -285,12 +261,17 @@ def _measure_row_content_heights(
         return max(
             measure_text(
                 cell,
-                available_width_emu=cell_width,
+                available_width_emu=cell_widths[column_index - 1],
                 theme=theme,
                 font_size_pt=(
                     emphasis_style.size_pt if emphasis_column == column_index else style.size_pt
                 ),
                 weight=(emphasis_style.weight if emphasis_column == column_index else style.weight),
+                tracking_em=(
+                    emphasis_style.tracking_em
+                    if emphasis_column == column_index
+                    else style.tracking_em
+                ),
             ).height_emu
             for column_index, cell in enumerate(row, start=1)
         )
@@ -351,16 +332,18 @@ def _style_cell(
     theme: Theme,
     fill: str,
     numeric: bool,
+    header: bool,
     key: str,
 ) -> None:
     text_frame = cell.text_frame
     text_frame.word_wrap = True
     text_frame.auto_size = MSO_AUTO_SIZE.NONE
     cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-    cell.margin_left = Emu(theme.spacing.sm_emu)
-    cell.margin_right = Emu(theme.spacing.sm_emu)
-    cell.margin_top = Emu(theme.spacing.sm_emu)
-    cell.margin_bottom = Emu(theme.spacing.sm_emu)
+    padding = table_cell_padding_emu(theme)
+    cell.margin_left = Emu(padding)
+    cell.margin_right = Emu(padding)
+    cell.margin_top = Emu(padding)
+    cell.margin_bottom = Emu(padding)
     paragraph = text_frame.paragraphs[0]
     paragraph.text = text
     apply_paragraph_style(
@@ -376,36 +359,55 @@ def _style_cell(
             size_pt=style.size_pt,
             weight=style.weight,
             color=style.color,
-            tracking_em=theme.typography.tracking_em,
+            tracking_em=style.tracking_em,
         )
         if warning is not None:
             record_render_warning(warning)
     cell.fill.solid()  # type: ignore[no-untyped-call]
     cell.fill.fore_color.rgb = rgb(fill)
-    _set_cell_borders(cell._tc.get_or_add_tcPr(), theme)
+    _set_cell_borders(cell._tc.get_or_add_tcPr(), theme, header=header)
     set_table_cell_key(cell, key)
 
 
-def _set_cell_borders(tc_pr: etree._Element, theme: Theme) -> None:
+def _numeric_columns(
+    rows: tuple[tuple[str, ...], ...],
+    *,
+    column_count: int,
+) -> tuple[bool, ...]:
+    """Tandai kolom yang seluruh sel body non-kosongnya angka."""
+    result: list[bool] = []
+    for column_index in range(column_count):
+        values = [
+            row[column_index]
+            for row in rows
+            if column_index < len(row) and row[column_index].strip()
+        ]
+        result.append(bool(values) and all(_looks_numeric(value) for value in values))
+    return tuple(result)
+
+
+def _set_cell_borders(tc_pr: etree._Element, theme: Theme, *, header: bool) -> None:
+    """Hapus grid internal dan sisakan garis horizontal yang terbaca."""
     for tag in ("a:lnL", "a:lnR", "a:lnT", "a:lnB"):
         existing = tc_pr.find(qn(tag))
         if existing is not None:
             tc_pr.remove(existing)
-    for side in ("lnB", "lnT", "lnR", "lnL"):
-        line = _border_line(side, theme)
-        tc_pr.insert(0, line)
+    color = theme.colors.accent_deep if header else theme.colors.border
+    tc_pr.insert(0, _border_line("lnB", theme, color=color))
+    if header:
+        tc_pr.insert(0, _border_line("lnT", theme, color=color))
 
 
-def _border_line(side: str, theme: Theme) -> etree._Element:
+def _border_line(side: str, theme: Theme, *, color: str) -> etree._Element:
     line = OxmlElement(f"a:{side}")
     line.set("w", str(theme.spacing.divider_emu))
     line.set("cap", "flat")
     line.set("cmpd", "sng")
     line.set("algn", "ctr")
     fill = OxmlElement("a:solidFill")
-    color = OxmlElement("a:srgbClr")
-    color.set("val", theme.colors.border[1:].upper())
-    fill.append(color)
+    color_element = OxmlElement("a:srgbClr")
+    color_element.set("val", color[1:].upper())
+    fill.append(color_element)
     line.append(fill)
     dash = OxmlElement("a:prstDash")
     dash.set("val", "solid")
@@ -414,5 +416,11 @@ def _border_line(side: str, theme: Theme) -> etree._Element:
 
 
 def _looks_numeric(text: str) -> bool:
-    """Angka ketat agar sel teks seperti versi atau rentang tidak rata kanan."""
-    return _NUMERIC_PATTERN.fullmatch(text.strip()) is not None
+    """Angka ketat; ID berawalan nol diperlakukan sebagai teks."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    unsigned = stripped.lstrip("+-")
+    if unsigned.isdigit() and len(unsigned) > 1 and unsigned.startswith("0"):
+        return False
+    return _NUMERIC_PATTERN.fullmatch(stripped) is not None

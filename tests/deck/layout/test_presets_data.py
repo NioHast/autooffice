@@ -105,11 +105,6 @@ def test_row_spans_fit_twelve_column_grid(layout: LayoutSpec) -> None:
         assert total <= 12
 
 
-@pytest.mark.parametrize("layout", DATA_LAYOUTS, ids=lambda layout: layout.layout_id)
-def test_data_layouts_accept_source(layout: LayoutSpec) -> None:
-    assert layout.accepts_source is True
-
-
 def test_registry_discovers_all_data_presets() -> None:
     registry = {layout.layout_id: layout for layout in discover_layouts()}
     assert set(EXPECTED_SLOTS) <= set(registry)

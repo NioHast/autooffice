@@ -90,7 +90,7 @@ def table_bindings(block_id: str, columns: int, rows: int) -> list[KeyBinding]:
 
 @pytest.fixture
 def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
-    """Deck dua slide berisi text, bullets, table, image, notes, dan source."""
+    """Deck dua slide berisi text, bullets, table, image, dan notes."""
     blocks = (
         BlockIR("title", "text", None, "title", {"text": "Judul deck"}),
         BlockIR("body", "bullets", None, None, {"items": ("Satu", "Dua"), "ordered": False}),
@@ -105,7 +105,6 @@ def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
                     ("Model", "Skema", "Selesai"),
                     ("PPTX", "Native", "42"),
                 ),
-                "caption": "Status lane",
             },
         ),
         BlockIR(
@@ -117,7 +116,6 @@ def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
                 "path": hero_image,
                 "alt": "Tim meninjau arsitektur",
                 "fit": "cover",
-                "caption": "Sesi desain",
             },
         ),
     )
@@ -126,8 +124,6 @@ def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
         binding("s01.body.item1.text", block_id="body", leaf="item1.text"),
         binding("s01.body.item2.text", block_id="body", leaf="item2.text"),
         *table_bindings("table1", 3, 2),
-        binding("s01.table1.caption", block_id="table1", leaf="caption"),
-        binding("s01.image1.caption", block_id="image1", leaf="caption", kind="media_text"),
         KeyBinding(
             key="s01.notes",
             slide_id="s01",
@@ -138,17 +134,6 @@ def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
             yaml_path=("slides", 0, "notes"),
             value="Catatan pembicara",
             plain_text="Catatan pembicara",
-        ),
-        KeyBinding(
-            key="s01.source.text",
-            slide_id="s01",
-            block_id=None,
-            leaf="source.text",
-            kind="source",
-            sync=True,
-            yaml_path=("slides", 0, "source", "text"),
-            value="Sumber: data internal",
-            plain_text="Sumber: data internal",
         ),
         KeyBinding(
             key="s02.title.text",
@@ -169,14 +154,12 @@ def minimal_case(workspace: Path, hero_image: str) -> RenderCase:
             0,
             blocks,
             "Catatan pembicara untuk slide satu.",
-            {"text": "Sumber: data internal, 2026", "url": "https://example.com/data"},
         ),
         SlideIR(
             "s02",
             "content",
             1,
             (BlockIR("title", "text", None, "title", {"text": "Slide dua"}),),
-            None,
             None,
         ),
     )
@@ -223,7 +206,6 @@ def chart_case(workspace: Path) -> RenderCase:
             "alt": "Grafik garis adopsi naik setiap kuartal",
             "categories": ("Q1", "Q2"),
             "series": (ChartSeries("2025", (1, 2)), ChartSeries("2026", (3, 4))),
-            "caption": "Target internal",
         },
     )
     leaves = (
@@ -236,7 +218,6 @@ def chart_case(workspace: Path) -> RenderCase:
         "series2.name",
         "series2.value1",
         "series2.value2",
-        "caption",
     )
     bindings = [
         binding(
@@ -251,7 +232,7 @@ def chart_case(workspace: Path) -> RenderCase:
         schema="autooffice.deck/v1",
         meta={"title": "Chart Deck", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "line", 0, (block,), None, None),),
+        slides=(SlideIR("s01", "line", 0, (block,), None),),
         keys=KeyManifest(tuple(bindings)),
     )
     layout = LayoutPlan(
@@ -274,7 +255,7 @@ def missing_manifest_case(workspace: Path) -> RenderCase:
         schema="autooffice.deck/v1",
         meta={"title": "Missing Manifest", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (block,), None, None),),
+        slides=(SlideIR("s01", "content", 0, (block,), None),),
         keys=KeyManifest(()),
     )
     layout = LayoutPlan(
@@ -303,7 +284,7 @@ def missing_alt_case(workspace: Path, hero_image: str) -> RenderCase:
         schema="autooffice.deck/v1",
         meta={"title": "Missing Alt", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (block,), None, None),),
+        slides=(SlideIR("s01", "content", 0, (block,), None),),
         keys=KeyManifest(()),
     )
     layout = LayoutPlan(

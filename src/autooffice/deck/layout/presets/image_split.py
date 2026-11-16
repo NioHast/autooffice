@@ -1,7 +1,4 @@
-"""Preset layout ``image-split``: teks di samping satu gambar.
-
-Caption gambar adalah field block ``image``, bukan slot terpisah.
-"""
+"""Preset layout ``image-split``: teks di samping satu gambar."""
 
 from autooffice.deck.layout.spec import LayoutSpec, SlotSpec
 
@@ -41,5 +38,5 @@ LAYOUT = LayoutSpec(
         ("lead",),
         ("body", "image1"),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

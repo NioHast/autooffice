@@ -58,8 +58,6 @@ def _deck_dict(
         }
         if draw(st.booleans()):
             slide["notes"] = draw(_NOTES)
-        if draw(st.booleans()):
-            slide["source"] = {"text": draw(_TEXT)}
         slides.append(slide)
     return {
         "schema": "autooffice.deck/v1",

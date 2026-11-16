@@ -29,7 +29,6 @@ DEMO_SPEC = LayoutSpec(
         SlotSpec(slot_id="note", required=False, block_types=("text",), role=None, span=6),
     ),
     rows=(("title",), ("body", "note")),
-    accepts_source=True,
 )
 
 
@@ -76,14 +75,13 @@ def block_factory() -> Callable[..., BlockIR]:
 
 @pytest.fixture
 def slide_factory() -> Callable[..., SlideIR]:
-    """Factory SlideIR dengan source dan notes opsional."""
+    """Factory SlideIR dengan notes opsional."""
 
     def factory(
         blocks: Sequence[BlockIR],
         *,
         layout: str = "demo",
         slide_id: str = "s01",
-        source: Mapping[str, str] | None = None,
         notes: str | None = None,
         rows: Sequence[Sequence[str]] = (),
     ) -> SlideIR:
@@ -93,7 +91,6 @@ def slide_factory() -> Callable[..., SlideIR]:
             order=0,
             blocks=tuple(blocks),
             notes=notes,
-            source=source,
             rows=tuple(tuple(row) for row in rows),
         )
 

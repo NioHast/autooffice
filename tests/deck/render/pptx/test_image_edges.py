@@ -1,4 +1,4 @@
-"""Tes cabang edge gambar: path, crop, dimensi, caption, dan WebP rusak."""
+"""Tes cabang edge gambar: path, crop, dimensi, dan WebP rusak."""
 
 from pathlib import Path
 
@@ -7,10 +7,6 @@ from _edge_helpers import new_slide
 
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.deck.render.pptx import image as image_module
-from autooffice.deck.render.pptx.diagram import _media_boxes as diagram_media_boxes
-from autooffice.deck.render.pptx.image import (
-    _media_boxes as image_media_boxes,
-)
 from autooffice.deck.render.pptx.image import (
     contain_geometry,
     cover_crop,
@@ -219,21 +215,6 @@ def test_render_image_block_rejects_unknown_fit(workspace: Path, theme, hero_ima
             slide_id="s01",
             workspace=workspace,
         )
-
-
-@pytest.mark.parametrize(
-    ("media_boxes", "message"),
-    [
-        (image_media_boxes, "Kotak gambar tidak menyisakan ruang media"),
-        (diagram_media_boxes, "Kotak diagram tidak menyisakan ruang media"),
-    ],
-    ids=["image", "diagram"],
-)
-def test_media_boxes_reject_caption_without_media_room(media_boxes, message, theme) -> None:
-    box = Box(left=0, top=0, width=1_000_000, height=1000)
-
-    with pytest.raises(PptxRenderError, match=message):
-        media_boxes(box, "Caption yang panjang sekali", theme)
 
 
 def test_render_image_block_reports_unreadable_webp(workspace: Path, theme) -> None:

@@ -13,6 +13,8 @@ from autooffice.deck.layout.measure import (
     measure_block,
     measure_code_text,
     measure_text,
+    table_cell_padding_emu,
+    table_column_widths,
 )
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.design.fonts import FONT_DIR
@@ -87,18 +89,18 @@ def test_negative_tracking_is_applied(theme: Theme) -> None:
     assert tight.width_emu < normal.width_emu
 
 
-def test_text_block_height_includes_padding(
+def test_text_block_height_has_no_phantom_padding(
     block_factory: Callable[..., BlockIR], theme: Theme
 ) -> None:
     block = block_factory("body", "text", fields={"text": "Satu baris"}, role="body")
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
     text = measure_text(
         "Satu baris",
-        available_width_emu=WIDTH - 2 * theme.spacing.card_padding_emu,
+        available_width_emu=WIDTH,
         theme=theme,
     )
 
-    assert measurement.height_emu == text.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == text.height_emu
     assert measurement.overflow_width_emu == 0
 
 
@@ -178,29 +180,6 @@ def test_media_height_is_capped_to_max_height(
     assert capped.overflow_height_emu == 0
 
 
-def test_media_caption_shrinks_media_inside_max_height(
-    block_factory: Callable[..., BlockIR], theme: Theme
-) -> None:
-    block = block_factory(
-        "image1",
-        "image",
-        fields={"path": "assets/hero.png", "caption": "Sumber foto"},
-    )
-    max_height = 1_000_000
-    natural = measure_block(block, width_emu=WIDTH, theme=theme)
-    measurement = measure_block(
-        block,
-        width_emu=WIDTH,
-        theme=theme,
-        max_height_emu=max_height,
-    )
-
-    assert natural.height_emu > max_height
-    assert measurement.height_emu == max_height
-    assert measurement.line_count == 1
-    assert measurement.overflow_height_emu == 0
-
-
 def test_media_height_never_drops_below_minimum(
     block_factory: Callable[..., BlockIR], theme: Theme
 ) -> None:
@@ -217,34 +196,13 @@ def test_media_height_never_drops_below_minimum(
     assert measurement.overflow_height_emu == theme.spacing.md_emu - max_height
 
 
-def test_media_caption_that_cannot_fit_reports_height_overflow(
-    block_factory: Callable[..., BlockIR], theme: Theme
-) -> None:
-    block = block_factory(
-        "image1",
-        "image",
-        fields={"path": "assets/hero.png", "caption": "Sumber foto"},
-    )
-    caption_height = measure_text(
-        "Sumber foto",
-        available_width_emu=WIDTH,
-        theme=theme,
-    ).height_emu
-    max_height = theme.spacing.md_emu + theme.spacing.sm_emu
-    measurement = measure_block(
-        block,
-        width_emu=WIDTH,
-        theme=theme,
-        max_height_emu=max_height,
-    )
-
-    assert measurement.height_emu == (theme.spacing.md_emu + theme.spacing.sm_emu + caption_height)
-    assert measurement.overflow_height_emu == caption_height
-
-
 def test_zero_measurement_width_is_rejected(theme: Theme) -> None:
     with pytest.raises(MeasurementError, match="positif"):
         measure_text("Halo", available_width_emu=0, theme=theme)
+
+
+def _content_width(width: int = WIDTH) -> int:
+    return width
 
 
 def _inner_width(theme: Theme, width: int = WIDTH) -> int:
@@ -252,15 +210,15 @@ def _inner_width(theme: Theme, width: int = WIDTH) -> int:
 
 
 @pytest.mark.parametrize(
-    ("role", "size_token", "weight"),
+    ("role", "size_token", "weight", "tracking_token"),
     [
-        ("display", "title_pt", 800),
-        ("title", "title_pt", 700),
-        ("lead", "body_pt", 600),
-        ("body", "body_pt", 400),
-        ("caption", "minimum_pt", 400),
-        ("label", "minimum_pt", 600),
-        ("kicker", "minimum_pt", 700),
+        ("display", "display_pt", 800, "tracking_em"),
+        ("title", "title_pt", 700, "tracking_em"),
+        ("lead", "lead_pt", 600, "tracking_em"),
+        ("body", "body_pt", 400, "tracking_em"),
+        ("caption", "caption_pt", 400, "tracking_em"),
+        ("label", "label_pt", 600, "tracking_em"),
+        ("kicker", "caption_pt", 700, "kicker_tracking_em"),
     ],
 )
 def test_text_role_matches_renderer_size_and_weight(
@@ -269,18 +227,20 @@ def test_text_role_matches_renderer_size_and_weight(
     role: str,
     size_token: str,
     weight: int,
+    tracking_token: str,
 ) -> None:
     block = block_factory("body", "text", fields={"text": "Halo dunia"}, role=role)
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
     expected = measure_text(
         "Halo dunia",
-        available_width_emu=_inner_width(theme),
+        available_width_emu=_content_width(),
         theme=theme,
         font_size_pt=getattr(theme.typography, size_token),
         weight=weight,
+        tracking_em=getattr(theme.typography, tracking_token),
     )
 
-    assert measurement.height_emu == expected.height_emu + 2 * theme.spacing.card_padding_emu
+    assert measurement.height_emu == expected.height_emu
     assert measurement.width_emu == expected.width_emu
 
 
@@ -317,34 +277,61 @@ def test_role_weight_affects_measured_width(
 
 
 @pytest.mark.parametrize(
-    ("lighter_role", "heavier_role"),
+    ("size_pt", "lighter_weight", "heavier_weight"),
     [
-        ("label", "kicker"),
-        ("title", "display"),
+        (30.0, 600, 700),
+        (12.5, 700, 800),
     ],
 )
-def test_bold_role_weights_share_arial_bold_metrics(
-    block_factory: Callable[..., BlockIR],
+def test_bold_weight_tiers_share_arial_bold_metrics(
     theme: Theme,
-    lighter_role: str,
-    heavier_role: str,
+    size_pt: float,
+    lighter_weight: int,
+    heavier_weight: int,
 ) -> None:
-    lighter = block_factory(
-        "lighter",
-        "text",
-        fields={"text": "Halo dunia"},
-        role=lighter_role,
+    lighter = measure_text(
+        "Halo dunia",
+        available_width_emu=WIDTH,
+        theme=theme,
+        font_size_pt=size_pt,
+        weight=lighter_weight,
     )
-    heavier = block_factory(
-        "heavier",
-        "text",
-        fields={"text": "Halo dunia"},
-        role=heavier_role,
+    heavier = measure_text(
+        "Halo dunia",
+        available_width_emu=WIDTH,
+        theme=theme,
+        font_size_pt=size_pt,
+        weight=heavier_weight,
     )
 
-    assert measure_block(lighter, width_emu=WIDTH, theme=theme) == measure_block(
-        heavier, width_emu=WIDTH, theme=theme
+    assert lighter == heavier
+
+
+def test_role_typography_distinguishes_cover_title(theme: Theme) -> None:
+    cover = measure.role_typography(theme, "title", layout_id="cover")
+    content = measure.role_typography(theme, "title")
+
+    assert cover.size_pt == theme.typography.cover_title_pt
+    assert content.size_pt == theme.typography.title_pt
+
+
+def test_role_typography_weights_come_from_theme_tuple(theme: Theme) -> None:
+    custom = replace(
+        theme,
+        typography=replace(theme.typography, weights=(300, 500, 650, 900)),
     )
+
+    assert measure.role_typography(custom, "display").weight == 900
+    assert measure.role_typography(custom, "title").weight == 650
+    assert measure.role_typography(custom, "lead").weight == 500
+    assert measure.role_typography(custom, "body").weight == 300
+
+
+def test_kicker_uses_positive_tracking(theme: Theme) -> None:
+    kicker = measure.role_typography(theme, "kicker")
+
+    assert kicker.tracking_em > 0
+    assert kicker.size_pt == theme.typography.caption_pt
 
 
 def test_code_filename_height_includes_gap(
@@ -368,8 +355,8 @@ def test_code_filename_height_includes_gap(
         filename,
         available_width_emu=_inner_width(theme),
         theme=theme,
-        font_size_pt=max(theme.typography.body_pt, theme.typography.minimum_pt),
-        weight=600,
+        font_size_pt=max(theme.code.filename_pt, theme.typography.minimum_pt),
+        weight=theme.typography.weights[1],
     )
 
     assert measurement.height_emu == (
@@ -432,7 +419,6 @@ def test_table_emphasis_column_uses_emphasized_weights(
 ) -> None:
     header = "review eksperimen delta tambahan hasil"
     body = "arsitektur column arsitektur kontrak measurement arsitektur"
-    caption = "Status emphasis"
     width = 4_000_000
     block = block_factory(
         "table1",
@@ -440,12 +426,19 @@ def test_table_emphasis_column_uses_emphasized_weights(
         fields={
             "columns": ("A", header),
             "rows": (("1", body), ("2", body)),
-            "caption": caption,
             "emphasis_column": 2,
         },
     )
-    inner = width - 2 * theme.spacing.card_padding_emu
-    cell_width = inner // 2 - 2 * theme.spacing.sm_emu
+    inner = width
+    padding = table_cell_padding_emu(theme)
+    column_widths = table_column_widths(
+        ("A", header),
+        (("1", body), ("2", body)),
+        table_width_emu=inner,
+        theme=theme,
+        emphasis_column=2,
+    )
+    cell_width = column_widths[1] - 2 * padding
     size_pt = max(theme.typography.body_pt, theme.typography.minimum_pt)
 
     def measure(text: str, weight: int) -> TextMeasurement:
@@ -457,65 +450,53 @@ def test_table_emphasis_column_uses_emphasized_weights(
             weight=weight,
         )
 
-    header_emphasis = measure(header, 700)
-    body_emphasis = measure(body, 600)
-    assert header_emphasis.line_count == measure(header, 600).line_count
-    assert body_emphasis.line_count > measure(body, 400).line_count
-    caption_measurement = measure_text(
-        caption,
-        available_width_emu=inner,
-        theme=theme,
-        font_size_pt=size_pt,
-        weight=400,
-    )
-    margin = 2 * theme.spacing.sm_emu
+    header_emphasis = measure(header, theme.typography.weights[2])
+    body_emphasis = measure(body, theme.typography.weights[1])
+    assert header_emphasis.width_emu >= measure(header, theme.typography.weights[1]).width_emu
+    assert body_emphasis.width_emu >= measure(body, theme.typography.weights[0]).width_emu
+    margin = 2 * padding
 
     measurement = measure_block(block, width_emu=width, theme=theme)
 
-    expected_height = (
-        2 * theme.spacing.card_padding_emu
-        + caption_measurement.height_emu
-        + theme.spacing.sm_emu
-        + header_emphasis.height_emu
-        + margin
-        + 2 * (body_emphasis.height_emu + margin)
-    )
+    expected_height = header_emphasis.height_emu + margin + 2 * (body_emphasis.height_emu + margin)
     assert measurement.height_emu == expected_height
 
 
-def test_table_height_includes_cell_margins_and_caption_gap(
+def test_table_height_includes_cell_margins(
     block_factory: Callable[..., BlockIR],
     theme: Theme,
 ) -> None:
     columns = ("A", "B")
     rows = (("1", "2"), ("3", "4"))
-    caption = "Tabel angka"
     block = block_factory(
         "table1",
         "table",
-        fields={"columns": columns, "rows": rows, "caption": caption},
+        fields={"columns": columns, "rows": rows},
     )
 
     measurement = measure_block(block, width_emu=WIDTH, theme=theme)
-    inner = _inner_width(theme)
-    cell_width = max(1, inner // len(columns) - 2 * theme.spacing.sm_emu)
-    header = measure_text(
-        "A",
-        available_width_emu=cell_width,
+    padding = table_cell_padding_emu(theme)
+    column_widths = table_column_widths(
+        columns,
+        rows,
+        table_width_emu=WIDTH,
         theme=theme,
-        weight=600,
     )
-    cell = measure_text("1", available_width_emu=cell_width, theme=theme)
-    caption_measurement = measure_text(caption, available_width_emu=inner, theme=theme)
+    cell_widths = [column_width - 2 * padding for column_width in column_widths]
+    header = measure_text(
+        columns[0],
+        available_width_emu=cell_widths[0],
+        theme=theme,
+        weight=theme.typography.weights[1],
+    )
+    cell = measure_text(
+        rows[0][0],
+        available_width_emu=cell_widths[0],
+        theme=theme,
+        weight=theme.typography.weights[0],
+    )
 
-    expected_height = (
-        caption_measurement.height_emu
-        + theme.spacing.sm_emu
-        + header.height_emu
-        + 2 * theme.spacing.sm_emu
-        + 2 * (cell.height_emu + 2 * theme.spacing.sm_emu)
-        + 2 * theme.spacing.card_padding_emu
-    )
+    expected_height = header.height_emu + 2 * padding + 2 * (cell.height_emu + 2 * padding)
 
     assert measurement.height_emu == expected_height
 

@@ -91,6 +91,10 @@ def test_load_tokens_rejects_non_string_key(
         ("chart.series", ["#111111", "#222222"], "tepat 4 warna"),
         ("typography.weights", [400, 600], "empat bilangan bulat"),
         ("typography.weights", [400, 600, 700, 1000], "100-900"),
+        ("typography.display_pt", 0, "lebih besar dari nol"),
+        ("typography.kicker_tracking_em", 0, "lebih besar dari nol"),
+        ("code.filename_pt", 0, "lebih besar dari nol"),
+        ("code.filename_pt", _MISSING, "kehilangan kunci"),
     ],
     ids=[
         "empty-schema",
@@ -108,6 +112,10 @@ def test_load_tokens_rejects_non_string_key(
         "series-wrong-length",
         "weights-wrong-length",
         "weight-out-of-range",
+        "non-positive-display-size",
+        "non-positive-kicker-tracking",
+        "non-positive-code-filename",
+        "missing-code-filename",
     ],
 )
 def test_load_tokens_rejects_invalid_data(

@@ -2,11 +2,22 @@
 
 Kontrak ini membekukan bentuk berkas `deck.yaml` sebagai satu-satunya input
 authoring deck. Ia menetapkan top-level, `meta`, `theme`, `defaults`, slide,
-block, path aset, `notes`, `source`, dan inline Markdown. Tabel field lengkap
+block, path aset, `notes`, dan inline Markdown. Tabel field lengkap
 tidak diulang di sini; rujukan utamanya adalah plan bagian 4.3 sampai 4.12.
 
-Status: F0 contract, version 1
+Status: F0 contract, version 1; diamendemen [ADR 0017](../decisions/0017-remove-caption-and-source.md).
 Sumber: AUTO_OFFICE_PLAN.md bagian 4 (4.1 sampai 4.12 dan 4.14).
+
+## Daftar Isi
+
+- [Input dan output](#input-dan-output)
+- [Bentuk top-level](#bentuk-top-level)
+- [Slide dan block](#slide-dan-block)
+- [Path dan teks](#path-dan-teks)
+- [Invariant](#invariant)
+- [Contoh minimal](#contoh-minimal)
+- [Catatan implementasi F1-MODEL](#catatan-implementasi-f1-model)
+- [Acceptance](#acceptance)
 
 ## Input dan output
 
@@ -32,15 +43,15 @@ ID Google, atau state build.
 
 - Slide memakai `id` berpola `^s[0-9]{2,}$`, eksplisit, unik, dan tidak
   di-renumber saat reorder.
-- Field slide: `layout`, `notes`, `source`, dan tepat salah satu dari `blocks`
-  atau `rows`. `layout: custom` wajib memakai `rows`; preset wajib memakai
+- Field slide: `layout`, `notes`, dan tepat salah satu dari `blocks` atau
+  `rows`. `layout: custom` wajib memakai `rows`; preset wajib memakai
   `blocks`.
 - `layout` default `content` dari `defaults.layout`.
 - Block memakai `id` berpola `^[a-z][a-z0-9_]*$`, maksimal 32 karakter, dan
   unik per slide.
 - `span` hanya untuk `layout: custom`, bilangan bulat 1 sampai 12.
-- `source.text` wajib bila `source` ada dan merupakan key. `source.url`
-  opsional dan bukan key.
+- Field slide `source` sudah dihapus (ADR 0017) dan ditolak dengan pesan
+  eksplisit. Catatan sumber tidak lagi menjadi bagian schema.
 - `notes` adalah plain text, bukan bagian visual, tetapi tetap key dan ikut
   sinkronisasi teks.
 
@@ -64,6 +75,8 @@ ID Google, atau state build.
 - Semua ID stabil dan unik sesuai lingkupnya.
 - `blocks` dan `rows` saling eksklusif.
 - Hanya 11 block type yang diterima; daftarnya di [block-spec.md](block-spec.md).
+- Field `caption` pada block sudah dihapus (ADR 0017) dan ditolak dengan pesan
+  eksplisit.
 - `span` dilarang pada preset dan wajib pada custom.
 - Semua nilai tampil adalah string setelah inline Markdown; nilai chart adalah angka.
 - Semua path aset harus ada saat `check` dan `build`.
@@ -95,8 +108,6 @@ slides:
     layout: content
     notes: |
       Catatan pembicara untuk slide pertama.
-    source:
-      text: "Sumber: data internal, 2026"
     blocks:
       - id: title
         type: text
@@ -118,7 +129,7 @@ slides:
   `padding`, dan sejenisnya) ditolak di semua objek. Ini penegasan invariant
   yang sudah dibekukan, bukan field baru.
 - Path aset harus relatif, memakai `/`, tanpa segmen kosong, `.`, `..`,
-  backslash, drive letter, UNC, atau URL. `source.url` tetap hanya http/https.
+  backslash, drive letter, UNC, atau URL remote.
 - `meta.language` dinormalisasi ke `id` atau `en`; nilai lain ditolak.
 - `notes` dan `code` memakai mode preserve-newline; field inline memakai
   normalisasi inline. `code` tidak diparse sebagai Markdown.
@@ -145,6 +156,7 @@ Catatan F1-MODEL: test bentuk tetap di `tests/contract/**`; test perilaku ada di
 | Field geometri dan style inline ditolak. | `tests/deck/model/test_schema.py` |
 | Path absolut, `..`, dan URL remote ditolak. | `tests/deck/model/test_schema.py` |
 | Inline Markdown di luar daftar ditolak. | `tests/deck/model/test_markdown.py` |
+| Field `source` pada slide dan `caption` pada block ditolak dengan rujukan ADR 0017. | `tests/deck/model/test_schema.py` |
 | Contoh minimal lolos load dan compile. | `tests/deck/model/test_loader.py`, `test_compiler.py` |
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

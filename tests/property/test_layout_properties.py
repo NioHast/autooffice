@@ -18,7 +18,7 @@ from autooffice.deck.layout.grid import (
     SpanError,
     validate_row_spans,
 )
-from autooffice.deck.layout.measure import measure_block, measure_text
+from autooffice.deck.layout.measure import measure_block
 from autooffice.deck.model import BlockIR, SlideIR, compile_deck, loads_deck
 from autooffice.design.theme import resolve_theme
 
@@ -72,7 +72,6 @@ def _custom_slide(spans: tuple[int, ...]) -> SlideIR:
         order=0,
         blocks=blocks,
         notes=None,
-        source=None,
         rows=(tuple(block.block_id for block in blocks),),
     )
 
@@ -127,7 +126,6 @@ def test_row_heights_are_deterministic(
         order=0,
         blocks=blocks,
         notes=None,
-        source=None,
         rows=tuple(tuple(block_id for block_id, _, _ in row) for row in rows),
     )
 
@@ -210,10 +208,9 @@ def test_custom_rows_match_compiled_ir(
 
 
 _MEDIA_TYPE = st.sampled_from(("image", "chart", "diagram"))
-_CAPTION = st.one_of(st.none(), _TEXT)
 
 
-def _media_block(block_type: str, caption: str | None) -> BlockIR:
+def _media_block(block_type: str) -> BlockIR:
     fields: dict[str, object]
     if block_type == "image":
         fields = {"path": "assets/gambar.png", "alt": "Ilustrasi"}
@@ -227,8 +224,6 @@ def _media_block(block_type: str, caption: str | None) -> BlockIR:
             "categories": ("A", "B"),
             "series": (),
         }
-    if caption is not None:
-        fields["caption"] = caption
     return BlockIR(
         block_id="media1",
         block_type=block_type,
@@ -243,30 +238,22 @@ def _media_block(block_type: str, caption: str | None) -> BlockIR:
     block_type=_MEDIA_TYPE,
     width=st.integers(1, 8_000_000),
     max_height=st.integers(0, 8_000_000),
-    caption=_CAPTION,
 )
 def test_media_contain_respects_available_height(
     block_type: str,
     width: int,
     max_height: int,
-    caption: str | None,
 ) -> None:
     measurement = measure_block(
-        _media_block(block_type, caption),
+        _media_block(block_type),
         width_emu=width,
         theme=_THEME,
         max_height_emu=max_height,
     )
     minimum_media_height = _THEME.spacing.md_emu
-    caption_height = (
-        measure_text(caption, available_width_emu=width, theme=_THEME).height_emu
-        if caption is not None
-        else 0
-    )
-    caption_gap = _THEME.spacing.sm_emu if caption is not None else 0
-    minimum_total = minimum_media_height + caption_gap + caption_height
+    minimum_total = minimum_media_height
     natural_media_height = max(minimum_media_height, width * 9 // 16)
-    natural_total = natural_media_height + caption_gap + caption_height
+    natural_total = natural_media_height
 
     # Invarian contain, bukan salinan rumus overflow internal.
     assert measurement.width_emu >= width
@@ -274,7 +261,7 @@ def test_media_contain_respects_available_height(
     assert measurement.height_emu <= natural_total
     if max_height >= natural_total:
         assert measurement.height_emu == natural_total
-        if caption is None and width * 9 // 16 >= minimum_media_height:
+        if width * 9 // 16 >= minimum_media_height:
             assert measurement.height_emu * 16 == pytest.approx(width * 9, abs=16)
     elif max_height >= minimum_total:
         assert measurement.height_emu == max_height

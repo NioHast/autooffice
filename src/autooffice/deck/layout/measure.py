@@ -24,22 +24,21 @@ from autooffice.design.fonts import font_path
 from autooffice.design.theme import Theme
 
 _EMU_PER_POINT = 12700
+_EMU_PER_PIXEL = 9525
 _FONT_PIXEL_SIZE = 128
 # Batas atas cache pengukuran; teks yang sama sering diukur berulang antar
 # slide, tetapi jumlah entri tetap dibatasi supaya deck besar tidak menahan
 # memori tanpa batas.
 _MEASURE_CACHE_MAXSIZE = 8192
-_TITLE_ROLES = frozenset({"display", "title"})
-_SMALL_ROLES = frozenset({"caption", "label", "kicker"})
-_ROLE_WEIGHTS = {
-    "display": 800,
-    "title": 700,
-    "lead": 600,
-    "body": 400,
-    "caption": 400,
-    "label": 600,
-    "kicker": 700,
-}
+# Lebar minimum kolom tabel 40 px dan maksimum 40% lebar tabel. Nilai px
+# dikonversi ke EMU agar pengukuran dan renderer memakai satuan yang sama.
+_TABLE_COLUMN_MIN_EMU = 40 * _EMU_PER_PIXEL
+_TABLE_COLUMN_MAX_FRACTION = 0.4
+# Lebar pengukuran alami kolom: cukup besar agar teks tidak terbungkus lebih
+# dulu sebelum lebar alaminya dibandingkan dengan batas 40%.
+_TABLE_NATURAL_WIDTH_EMU = 100_000_000
+
+_ROLE_NAMES = frozenset({"display", "title", "lead", "body", "caption", "label", "kicker"})
 _FONT_BY_WEIGHT: tuple[tuple[int, str], ...] = (
     (400, "LiberationSans-Regular.ttf"),
     (700, "LiberationSans-Bold.ttf"),
@@ -70,6 +69,15 @@ class TextMeasurement:
     height_emu: int
     line_count: int
     overflow_width_emu: int
+
+
+@dataclass(frozen=True, slots=True)
+class RoleTypography:
+    """Ukuran, bobot, dan tracking satu role teks dari token theme."""
+
+    size_pt: float
+    weight: int
+    tracking_em: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -342,7 +350,7 @@ def measure_block(
             line_count=0,
             overflow_width_emu=0,
         )
-    size_pt, weight = _body_style(theme)
+    body = body_typography(theme)
     parts = [
         _TextPart(
             "label",
@@ -350,10 +358,11 @@ def measure_block(
                 _as_text(block.fields.get("text"))
                 or _as_text(block.fields.get("label"))
                 or _as_text(block.fields.get("value")),
-                available_width_emu=_inner_width(width_emu, theme),
+                available_width_emu=_inner_width(width_emu),
                 theme=theme,
-                font_size_pt=size_pt,
-                weight=weight,
+                font_size_pt=body.size_pt,
+                weight=body.weight,
+                tracking_em=body.tracking_em,
             ),
         )
     ]
@@ -376,11 +385,11 @@ def minimum_block_height(
 
 
 def _measure_text_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
+    inner = _inner_width(width_emu)
     parts: list[_TextPart] = []
     heading = _as_text(block.fields.get("heading"))
     if heading:
-        heading_size_pt, heading_weight = _body_style(theme, weight=600)
+        heading_style = body_typography(theme, weight=theme.typography.weights[1])
         parts.append(
             _TextPart(
                 "heading",
@@ -388,12 +397,13 @@ def _measure_text_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
                     heading,
                     available_width_emu=inner,
                     theme=theme,
-                    font_size_pt=heading_size_pt,
-                    weight=heading_weight,
+                    font_size_pt=heading_style.size_pt,
+                    weight=heading_style.weight,
+                    tracking_em=heading_style.tracking_em,
                 ),
             )
         )
-    size_pt, weight = _role_style(theme, block.role)
+    role_style = role_typography(theme, block.role)
     parts.append(
         _TextPart(
             "text",
@@ -401,8 +411,9 @@ def _measure_text_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
                 _as_text(block.fields.get("text")),
                 available_width_emu=inner,
                 theme=theme,
-                font_size_pt=size_pt,
-                weight=weight,
+                font_size_pt=role_style.size_pt,
+                weight=role_style.weight,
+                tracking_em=role_style.tracking_em,
             ),
         )
     )
@@ -410,9 +421,11 @@ def _measure_text_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
 
 
 def _measure_bullets_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
-    item_width = max(1, inner - theme.spacing.md_emu)
-    size_pt, weight = _body_style(theme)
+    inner = _inner_width(width_emu)
+    indent = theme.spacing.card_padding_emu
+    item_gap = theme.spacing.sm_emu
+    item_width = max(1, inner - indent)
+    body = body_typography(theme)
     items = _as_text_tuple(block.fields.get("items"))
     parts = [
         _TextPart(
@@ -421,8 +434,9 @@ def _measure_bullets_block(block: BlockIR, *, width_emu: int, theme: Theme) -> B
                 item,
                 available_width_emu=item_width,
                 theme=theme,
-                font_size_pt=size_pt,
-                weight=weight,
+                font_size_pt=body.size_pt,
+                weight=body.weight,
+                tracking_em=body.tracking_em,
             ),
         )
         for index, item in enumerate(items, start=1)
@@ -435,17 +449,30 @@ def _measure_bullets_block(block: BlockIR, *, width_emu: int, theme: Theme) -> B
                     "",
                     available_width_emu=item_width,
                     theme=theme,
-                    font_size_pt=size_pt,
-                    weight=weight,
+                    font_size_pt=body.size_pt,
+                    weight=body.weight,
+                    tracking_em=body.tracking_em,
                 ),
             )
         )
-    return _measure_parts(parts, theme=theme)
+    combined = _combine_parts(parts)
+    gap_height = item_gap * (len(parts) - 1)
+    measurement = TextMeasurement(
+        width_emu=combined.width_emu,
+        height_emu=combined.height_emu + gap_height,
+        line_count=combined.line_count,
+        overflow_width_emu=combined.overflow_width_emu,
+    )
+    return _with_padding(
+        measurement,
+        width_leaf=_overflow_width_leaf(parts),
+        height_leaf=_height_leaf(parts),
+    )
 
 
 def _measure_quote_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
-    size_pt, weight = _body_style(theme)
+    inner = _inner_width(width_emu, padding_emu=theme.card.padding_emu)
+    body = body_typography(theme)
     parts = [
         _TextPart(
             "text",
@@ -453,14 +480,15 @@ def _measure_quote_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Blo
                 _as_text(block.fields.get("text")),
                 available_width_emu=inner,
                 theme=theme,
-                font_size_pt=size_pt,
-                weight=weight,
+                font_size_pt=body.size_pt,
+                weight=body.weight,
+                tracking_em=body.tracking_em,
             ),
         )
     ]
     attribution = _as_text(block.fields.get("attribution"))
     if attribution:
-        attribution_size_pt, attribution_weight = _body_style(theme, weight=600)
+        attribution_style = body_typography(theme, weight=theme.typography.weights[1])
         parts.append(
             _TextPart(
                 "attribution",
@@ -468,16 +496,18 @@ def _measure_quote_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Blo
                     attribution,
                     available_width_emu=inner,
                     theme=theme,
-                    font_size_pt=attribution_size_pt,
-                    weight=attribution_weight,
+                    font_size_pt=attribution_style.size_pt,
+                    weight=attribution_style.weight,
+                    tracking_em=attribution_style.tracking_em,
                 ),
             )
         )
-    return _measure_parts(parts, theme=theme)
+    return _measure_parts(parts, theme=theme, padding_emu=theme.card.padding_emu)
 
 
 def _measure_metric_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
+    inner = _inner_width(width_emu, padding_emu=theme.card.padding_emu)
+    typography = theme.typography
     parts: list[_TextPart] = []
     value = _as_text(block.fields.get("value"))
     if value:
@@ -488,14 +518,14 @@ def _measure_metric_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bl
                     value,
                     available_width_emu=inner,
                     theme=theme,
-                    font_size_pt=max(theme.typography.title_pt, theme.typography.minimum_pt),
-                    weight=800,
+                    font_size_pt=max(typography.metric_pt, typography.minimum_pt),
+                    weight=typography.weights[3],
+                    tracking_em=typography.tracking_em,
                 ),
             )
         )
     label = _as_text(block.fields.get("label"))
     if label:
-        label_size_pt, label_weight = _body_style(theme, weight=600)
         parts.append(
             _TextPart(
                 "label",
@@ -503,44 +533,31 @@ def _measure_metric_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bl
                     label,
                     available_width_emu=inner,
                     theme=theme,
-                    font_size_pt=label_size_pt,
-                    weight=label_weight,
-                ),
-            )
-        )
-    caption = _as_text(block.fields.get("caption"))
-    if caption:
-        caption_size_pt, caption_weight = _body_style(theme)
-        parts.append(
-            _TextPart(
-                "caption",
-                measure_text(
-                    caption,
-                    available_width_emu=inner,
-                    theme=theme,
-                    font_size_pt=caption_size_pt,
-                    weight=caption_weight,
+                    font_size_pt=max(typography.label_pt, typography.minimum_pt),
+                    weight=typography.weights[1],
+                    tracking_em=typography.tracking_em,
                 ),
             )
         )
     if not parts:
-        size_pt, weight = _body_style(theme)
+        body = body_typography(theme)
         value_part = _TextPart(
             "value",
             measure_text(
                 "",
                 available_width_emu=inner,
                 theme=theme,
-                font_size_pt=size_pt,
-                weight=weight,
+                font_size_pt=body.size_pt,
+                weight=body.weight,
+                tracking_em=body.tracking_em,
             ),
         )
-        return _with_padding(_combine_parts([value_part]), theme)
-    return _measure_parts(parts, theme=theme)
+        return _with_padding(_combine_parts([value_part]), padding_emu=theme.card.padding_emu)
+    return _measure_parts(parts, theme=theme, padding_emu=theme.card.padding_emu)
 
 
 def _measure_code_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
+    inner = _inner_width(width_emu, padding_emu=theme.spacing.card_padding_emu)
     code = _as_text(block.fields.get("code"))
     # Renderer memakai default ``True`` saat field line_numbers tidak ada.
     code_width = code_text_width(
@@ -562,7 +579,6 @@ def _measure_code_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
     filename = _as_text(block.fields.get("filename"))
     filename_gap = 0
     if filename:
-        filename_size_pt, filename_weight = _body_style(theme, weight=600)
         parts.insert(
             0,
             _TextPart(
@@ -571,8 +587,9 @@ def _measure_code_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
                     filename,
                     available_width_emu=inner,
                     theme=theme,
-                    font_size_pt=filename_size_pt,
-                    weight=filename_weight,
+                    font_size_pt=max(theme.code.filename_pt, theme.typography.minimum_pt),
+                    weight=theme.typography.weights[1],
+                    tracking_em=theme.typography.tracking_em,
                 ),
             ),
         )
@@ -587,78 +604,178 @@ def _measure_code_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Bloc
         )
     return _with_padding(
         combined,
-        theme,
+        padding_emu=theme.spacing.card_padding_emu,
         width_leaf=_overflow_width_leaf(parts),
         height_leaf=_height_leaf(parts),
     )
 
 
+def table_cell_padding_emu(theme: Theme) -> int:
+    """Padding sel tabel per sisi dalam EMU (token ``spacing.md``)."""
+    return theme.spacing.md_emu
+
+
+def table_column_widths(
+    columns: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    *,
+    table_width_emu: int,
+    theme: Theme,
+    emphasis_column: int | None = None,
+) -> tuple[int, ...]:
+    """Hitung lebar kolom tabel yang sadar konten dan selalu presisi total.
+
+    Lebar alami tiap kolom adalah teks terlebar ditambah padding kiri-kanan.
+    Nilai dijepit ke minimum 40 px dan maksimum 40% lebar tabel, lalu sisa
+    lebar dibagi rata ke kolom yang belum mencapai batas maksimum. Bila semua
+    kolom sudah mencapai batas, sisa dibagi rata agar tabel tetap memenuhi
+    lebar slot.
+    """
+    column_count = max(len(columns), max((len(row) for row in rows), default=0))
+    if column_count <= 0:
+        return ()
+    if table_width_emu <= 0:
+        raise MeasurementError("Lebar tabel harus positif.")
+    padding = 2 * table_cell_padding_emu(theme)
+    minimum = min(_TABLE_COLUMN_MIN_EMU, max(1, table_width_emu // column_count))
+    maximum = max(minimum, round(table_width_emu * _TABLE_COLUMN_MAX_FRACTION))
+    header_style = body_typography(theme, weight=theme.typography.weights[1])
+    body_style = body_typography(theme)
+    natural: list[int] = []
+    for column_index in range(column_count):
+        widths: list[int] = []
+        if column_index < len(columns):
+            widths.append(
+                measure_text(
+                    columns[column_index],
+                    available_width_emu=_TABLE_NATURAL_WIDTH_EMU,
+                    theme=theme,
+                    font_size_pt=header_style.size_pt,
+                    weight=(
+                        theme.typography.weights[2]
+                        if emphasis_column == column_index + 1
+                        else header_style.weight
+                    ),
+                    tracking_em=header_style.tracking_em,
+                ).width_emu
+            )
+        for row in rows:
+            if column_index < len(row):
+                widths.append(
+                    measure_text(
+                        row[column_index],
+                        available_width_emu=_TABLE_NATURAL_WIDTH_EMU,
+                        theme=theme,
+                        font_size_pt=body_style.size_pt,
+                        weight=(
+                            theme.typography.weights[1]
+                            if emphasis_column == column_index + 1
+                            else body_style.weight
+                        ),
+                        tracking_em=body_style.tracking_em,
+                    ).width_emu
+                )
+        natural.append(max(widths, default=0) + padding)
+
+    weights = [max(width, minimum) for width in natural]
+    total = sum(weights)
+    allocated = [
+        min(max(round(table_width_emu * weight / total), minimum), maximum) for weight in weights
+    ]
+    remaining = table_width_emu - sum(allocated)
+    if remaining < 0:
+        scale = table_width_emu / sum(allocated)
+        allocated = [max(1, round(width * scale)) for width in allocated]
+        remaining = table_width_emu - sum(allocated)
+    while remaining > 0:
+        below_maximum = [index for index, width in enumerate(allocated) if width < maximum]
+        recipients = below_maximum or list(range(column_count))
+        share = max(1, remaining // len(recipients))
+        for index in recipients:
+            if remaining <= 0:
+                break
+            room = maximum - allocated[index] if below_maximum else remaining
+            addition = min(share, remaining, room)
+            if addition <= 0:
+                continue
+            allocated[index] += addition
+            remaining -= addition
+    if remaining != 0:
+        allocated[-1] += remaining
+    return tuple(allocated)
+
+
 def _measure_table_block(block: BlockIR, *, width_emu: int, theme: Theme) -> BlockMeasurement:
-    inner = _inner_width(width_emu, theme)
+    inner = _inner_width(width_emu)
     columns = _as_text_tuple(block.fields.get("columns"))
     rows = _as_text_rows(block.fields.get("rows"))
-    caption = _as_text(block.fields.get("caption"))
-
-    caption_part: _TextPart | None = None
-    if caption:
-        caption_size_pt, caption_weight = _body_style(theme)
-        caption_part = _TextPart(
-            "caption",
-            measure_text(
-                caption,
-                available_width_emu=inner,
-                theme=theme,
-                font_size_pt=caption_size_pt,
-                weight=caption_weight,
-            ),
-        )
+    cell_padding = table_cell_padding_emu(theme)
+    row_margin = 2 * cell_padding
 
     cell_parts: list[_TextPart] = []
     table_height = 0
     table_width = 0
     table_lines = 0
     table_overflow = 0
-    table_margin = 2 * theme.spacing.sm_emu
     row_column_count = max((len(row) for row in rows), default=0)
     column_count = max(len(columns), row_column_count)
     if column_count > 0:
-        column_width = max(1, inner // column_count)
-        cell_width = max(1, column_width - 2 * theme.spacing.sm_emu)
         emphasis_column = _emphasis_column(block.fields, column_count=column_count)
-        header_size_pt, header_weight = _body_style(theme, weight=600)
+        column_widths = table_column_widths(
+            columns,
+            rows,
+            table_width_emu=inner,
+            theme=theme,
+            emphasis_column=emphasis_column,
+        )
+        cell_widths = tuple(max(1, width - 2 * cell_padding) for width in column_widths)
+        header_style = body_typography(theme, weight=theme.typography.weights[1])
+        body_style = body_typography(theme)
         if columns:
             header_parts = [
                 _TextPart(
                     f"h{column_index}",
                     measure_text(
                         cell,
-                        available_width_emu=cell_width,
+                        available_width_emu=cell_widths[column_index - 1],
                         theme=theme,
-                        font_size_pt=header_size_pt,
-                        weight=700 if emphasis_column == column_index else header_weight,
+                        font_size_pt=header_style.size_pt,
+                        weight=(
+                            theme.typography.weights[2]
+                            if emphasis_column == column_index
+                            else header_style.weight
+                        ),
+                        tracking_em=header_style.tracking_em,
                     ),
                 )
                 for column_index, cell in enumerate(columns, start=1)
             ]
             cell_parts.extend(header_parts)
-            table_height += max(item.measurement.height_emu for item in header_parts) + table_margin
-            table_width = max(table_width, max(item.measurement.width_emu for item in header_parts))
+            table_height += max(item.measurement.height_emu for item in header_parts) + row_margin
+            table_width = max(
+                table_width,
+                max(item.measurement.width_emu + 2 * cell_padding for item in header_parts),
+            )
             table_lines += sum(item.measurement.line_count for item in header_parts)
             table_overflow = max(
                 table_overflow,
                 max(item.measurement.overflow_width_emu for item in header_parts),
             )
-        body_size_pt, body_weight = _body_style(theme)
         for row_index, row in enumerate(rows, start=1):
             row_parts = [
                 _TextPart(
                     f"r{row_index}.c{column_index}",
                     measure_text(
                         cell,
-                        available_width_emu=cell_width,
+                        available_width_emu=cell_widths[column_index - 1],
                         theme=theme,
-                        font_size_pt=body_size_pt,
-                        weight=600 if emphasis_column == column_index else body_weight,
+                        font_size_pt=body_style.size_pt,
+                        weight=(
+                            theme.typography.weights[1]
+                            if emphasis_column == column_index
+                            else body_style.weight
+                        ),
+                        tracking_em=body_style.tracking_em,
                     ),
                 )
                 for column_index, cell in enumerate(row, start=1)
@@ -666,39 +783,36 @@ def _measure_table_block(block: BlockIR, *, width_emu: int, theme: Theme) -> Blo
             if not row_parts:
                 continue
             cell_parts.extend(row_parts)
-            table_height += max(item.measurement.height_emu for item in row_parts) + table_margin
-            table_width = max(table_width, max(item.measurement.width_emu for item in row_parts))
+            table_height += max(item.measurement.height_emu for item in row_parts) + row_margin
+            table_width = max(
+                table_width,
+                max(item.measurement.width_emu + 2 * cell_padding for item in row_parts),
+            )
             table_lines += sum(item.measurement.line_count for item in row_parts)
             table_overflow = max(
                 table_overflow,
                 max(item.measurement.overflow_width_emu for item in row_parts),
             )
 
-    if caption_part is None and not cell_parts:
+    if not cell_parts:
         return _with_padding(
-            TextMeasurement(width_emu=0, height_emu=0, line_count=0, overflow_width_emu=0),
-            theme,
+            TextMeasurement(width_emu=0, height_emu=0, line_count=0, overflow_width_emu=0)
         )
 
-    caption_height = 0 if caption_part is None else caption_part.measurement.height_emu
-    gap = theme.spacing.sm_emu if caption_part is not None and cell_parts else 0
-    all_parts = tuple(part for part in (caption_part, *cell_parts) if part is not None)
-    width = max((part.measurement.width_emu for part in all_parts), default=0)
+    width = max((part.measurement.width_emu for part in cell_parts), default=0)
     overflow_width = max(
-        (part.measurement.overflow_width_emu for part in all_parts),
+        (part.measurement.overflow_width_emu for part in cell_parts),
         default=0,
     )
-    line_count = (0 if caption_part is None else caption_part.measurement.line_count) + table_lines
     return _with_padding(
         TextMeasurement(
             width_emu=width,
-            height_emu=caption_height + gap + table_height,
-            line_count=line_count,
+            height_emu=table_height,
+            line_count=table_lines,
             overflow_width_emu=overflow_width,
         ),
-        theme,
-        width_leaf=_overflow_width_leaf(all_parts),
-        height_leaf=_height_leaf(cell_parts) or ("caption" if caption_part is not None else None),
+        width_leaf=_overflow_width_leaf(cell_parts),
+        height_leaf=_height_leaf(cell_parts),
     )
 
 
@@ -709,62 +823,30 @@ def _measure_media_block(
     theme: Theme,
     max_height_emu: int | None = None,
 ) -> BlockMeasurement:
-    natural_media_height = max(theme.spacing.md_emu, width_emu * 9 // 16)
-    caption = _as_text(block.fields.get("caption"))
-    caption_measurement: TextMeasurement | None = None
-    if caption:
-        caption_size_pt, caption_weight = _body_style(theme)
-        caption_measurement = measure_text(
-            caption,
-            available_width_emu=width_emu,
-            theme=theme,
-            font_size_pt=caption_size_pt,
-            weight=caption_weight,
-        )
-    caption_gap = theme.spacing.sm_emu if caption_measurement is not None else 0
-    caption_height = 0 if caption_measurement is None else caption_measurement.height_emu
-
-    media_height = natural_media_height
-    overflow_height = 0
-    if max_height_emu is not None:
+    minimum_media_height = theme.spacing.md_emu
+    natural_height = max(minimum_media_height, width_emu * 9 // 16)
+    if max_height_emu is None:
+        media_height = natural_height
+        overflow_height = 0
+    else:
         available_height = max(0, max_height_emu)
-        media_budget = available_height - caption_gap - caption_height
-        media_height = min(
-            natural_media_height,
-            max(theme.spacing.md_emu, media_budget),
-        )
-        overflow_height = max(
-            0,
-            media_height + caption_gap + caption_height - available_height,
-        )
-
-    height_emu = media_height + caption_gap + caption_height
-    if caption_measurement is None:
-        return BlockMeasurement(
-            width_emu=width_emu,
-            height_emu=height_emu,
-            line_count=0,
-            overflow_width_emu=0,
-            overflow_height_emu=overflow_height,
-            overflow_height_leaf=None,
-            height_leaf=None,
-        )
+        media_height = min(natural_height, max(minimum_media_height, available_height))
+        overflow_height = max(0, media_height - available_height)
     return BlockMeasurement(
-        width_emu=max(width_emu, caption_measurement.width_emu),
-        height_emu=height_emu,
-        line_count=caption_measurement.line_count,
-        overflow_width_emu=caption_measurement.overflow_width_emu,
+        width_emu=width_emu,
+        height_emu=media_height,
+        line_count=0,
+        overflow_width_emu=0,
         overflow_height_emu=overflow_height,
-        overflow_width_leaf="caption" if caption_measurement.overflow_width_emu > 0 else None,
-        overflow_height_leaf="caption" if overflow_height > 0 else None,
-        height_leaf="caption",
     )
 
 
-def _measure_parts(parts: Sequence[_TextPart], *, theme: Theme) -> BlockMeasurement:
+def _measure_parts(
+    parts: Sequence[_TextPart], *, theme: Theme, padding_emu: int = 0
+) -> BlockMeasurement:
     return _with_padding(
         _combine_parts(parts),
-        theme,
+        padding_emu=padding_emu,
         width_leaf=_overflow_width_leaf(parts),
         height_leaf=_height_leaf(parts),
     )
@@ -805,15 +887,14 @@ def _combine_text(measurements: Sequence[TextMeasurement]) -> TextMeasurement:
 
 def _with_padding(
     measurement: TextMeasurement,
-    theme: Theme,
     *,
+    padding_emu: int = 0,
     width_leaf: str | None = None,
     height_leaf: str | None = None,
 ) -> BlockMeasurement:
-    padding = theme.spacing.card_padding_emu
     return BlockMeasurement(
         width_emu=measurement.width_emu,
-        height_emu=measurement.height_emu + 2 * padding,
+        height_emu=measurement.height_emu + 2 * padding_emu,
         line_count=measurement.line_count,
         overflow_width_emu=measurement.overflow_width_emu,
         overflow_width_leaf=width_leaf,
@@ -821,8 +902,8 @@ def _with_padding(
     )
 
 
-def _inner_width(width_emu: int, theme: Theme) -> int:
-    return max(1, width_emu - 2 * theme.spacing.card_padding_emu)
+def _inner_width(width_emu: int, *, padding_emu: int = 0) -> int:
+    return max(1, width_emu - 2 * padding_emu)
 
 
 def _emphasis_column(fields: Mapping[str, object], *, column_count: int) -> int | None:
@@ -835,19 +916,64 @@ def _emphasis_column(fields: Mapping[str, object], *, column_count: int) -> int 
     return None
 
 
-def _role_style(theme: Theme, role: str | None) -> tuple[float, int]:
-    active_role = role if role in _ROLE_WEIGHTS else "body"
-    if active_role in _TITLE_ROLES:
-        size_pt = theme.typography.title_pt
-    elif active_role in _SMALL_ROLES:
-        size_pt = theme.typography.minimum_pt
+def role_typography(
+    theme: Theme,
+    role: str | None,
+    *,
+    layout_id: str | None = None,
+) -> RoleTypography:
+    """Petakan role teks ke ukuran, bobot, dan tracking token.
+
+    ``layout_id`` opsional membedakan judul cover dari judul konten. Layout
+    yang tidak memiliki konteks ini tetap memakai ``title_pt`` supaya
+    pengukuran dan render tidak berbeda tanpa bukti geometri.
+    """
+    typography = theme.typography
+    active_role = role if role in _ROLE_NAMES else "body"
+    weights = typography.weights
+    if active_role == "display":
+        size_pt = typography.display_pt
+        weight = weights[3]
+        tracking_em = typography.tracking_em
+    elif active_role == "title":
+        size_pt = typography.cover_title_pt if layout_id == "cover" else typography.title_pt
+        weight = weights[2]
+        tracking_em = typography.tracking_em
+    elif active_role == "lead":
+        size_pt = typography.lead_pt
+        weight = weights[1]
+        tracking_em = typography.tracking_em
+    elif active_role == "caption":
+        size_pt = typography.caption_pt
+        weight = weights[0]
+        tracking_em = typography.tracking_em
+    elif active_role == "label":
+        size_pt = typography.label_pt
+        weight = weights[1]
+        tracking_em = typography.tracking_em
+    elif active_role == "kicker":
+        size_pt = typography.caption_pt
+        weight = weights[2]
+        tracking_em = typography.kicker_tracking_em
     else:
-        size_pt = theme.typography.body_pt
-    return max(size_pt, theme.typography.minimum_pt), _ROLE_WEIGHTS[active_role]
+        size_pt = typography.body_pt
+        weight = weights[0]
+        tracking_em = typography.tracking_em
+    return RoleTypography(
+        size_pt=max(size_pt, typography.minimum_pt),
+        weight=weight,
+        tracking_em=tracking_em,
+    )
 
 
-def _body_style(theme: Theme, *, weight: int = 400) -> tuple[float, int]:
-    return max(theme.typography.body_pt, theme.typography.minimum_pt), weight
+def body_typography(theme: Theme, *, weight: int | None = None) -> RoleTypography:
+    """Tipografi body dengan bobot opsional dari tuple token weights."""
+    typography = theme.typography
+    return RoleTypography(
+        size_pt=max(typography.body_pt, typography.minimum_pt),
+        weight=typography.weights[0] if weight is None else weight,
+        tracking_em=typography.tracking_em,
+    )
 
 
 def _code_chunks(line: str, capacity: int) -> tuple[str, ...]:

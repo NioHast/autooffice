@@ -5,17 +5,22 @@ menjadi `LayoutPlan`. Geometri dihitung dari grid 12 kolom dan token desain,
 bukan dari angka authoring. Author hanya memilih layout, urutan block, dan
 `span` untuk `custom`; posisi absolut tidak pernah menjadi input.
 
-Status: F0 contract, version 1, diamendemen ADR 0007, ADR 0008, ADR 0009, dan
-ADR 0012. F1-LAYOUT menambahkan klarifikasi discovery, penempatan row preset,
-source, dan gate overflow. Amandemen pasca-F0 menambahkan `SlotSpec.span` untuk
-preset asimetris, `LayoutSpec.min_one_of` untuk grup slot minimal satu,
-`SlideIR.rows` untuk batas row custom eksplisit, dan `SlotSpec.chart_kind`
-untuk mengikat kind chart pada slot preset.
+Status: F0 contract, version 1, diamendemen ADR 0007, ADR 0008, ADR 0009,
+ADR 0012, ADR 0016, dan
+[ADR 0017](../decisions/0017-remove-caption-and-source.md). F1-LAYOUT menambahkan klarifikasi discovery,
+penempatan row preset dan gate overflow. Amandemen pasca-F0
+menambahkan `SlotSpec.span` untuk preset asimetris, `LayoutSpec.min_one_of`
+untuk grup slot minimal satu, `SlideIR.rows` untuk batas row custom eksplisit,
+dan `SlotSpec.chart_kind` untuk mengikat kind chart pada slot preset. Lane
+visual final menambahkan `LayoutSpec.vertical_align` untuk komposisi vertikal
+row preset; layout custom memakai parameter `vertical_align` dengan kebijakan
+yang sama.
 Sumber: AUTO_OFFICE_PLAN.md bagian 6 dan 7 (7.1 sampai 7.8);
 [docs/decisions/0007-slot-span.md](../decisions/0007-slot-span.md);
 [docs/decisions/0008-min-one-of.md](../decisions/0008-min-one-of.md);
 [docs/decisions/0009-explicit-custom-rows.md](../decisions/0009-explicit-custom-rows.md);
-[docs/decisions/0012-chart-kind-preset.md](../decisions/0012-chart-kind-preset.md).
+[docs/decisions/0012-chart-kind-preset.md](../decisions/0012-chart-kind-preset.md);
+[docs/decisions/0016-visual-system-alignment.md](../decisions/0016-visual-system-alignment.md).
 
 ## Daftar Isi
 
@@ -27,6 +32,7 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 6 dan 7 (7.1 sampai 7.8);
 - [Registry dan discovery](#registry-dan-discovery)
 - [Kanvas dan grid](#kanvas-dan-grid)
 - [Rows dan tinggi](#rows-dan-tinggi)
+- [Komposisi vertikal (vertical_align)](#komposisi-vertikal-vertical_align)
 - [Overflow](#overflow)
 - [Invariant](#invariant)
 - [Acceptance](#acceptance)
@@ -42,6 +48,9 @@ Sumber: AUTO_OFFICE_PLAN.md bagian 6 dan 7 (7.1 sampai 7.8);
 
 ```python
 from dataclasses import dataclass
+from typing import Literal
+
+VerticalAlign = Literal["top", "center"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,8 +68,8 @@ class LayoutSpec:
     layout_id: str
     slots: tuple[SlotSpec, ...]
     rows: tuple[tuple[str, ...], ...]
-    accepts_source: bool
     min_one_of: tuple[tuple[str, ...], ...] = ()
+    vertical_align: VerticalAlign = "top"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,8 +107,6 @@ class LayoutPlan:
 - `rows` bukan salinan `SlotSpec` dan bukan rows author untuk
   `layout: custom`. Rows author dikompilasi ke `SlideIR.rows`; layout engine
   membaca batas row custom dari IR, bukan dari `deck.yaml` atau heuristik span.
-- `accepts_source` menentukan apakah layout merender field slide `source`.
-  `source` bukan slot.
 
 ## Kind chart per slot
 
@@ -205,9 +212,8 @@ Klarifikasi penempatan preset F1-LAYOUT:
   kolom di kanan row dibiarkan kosong. Span tidak dibagi ulang.
 - Setiap `PlacedBlock` memakai tinggi row, yaitu tinggi konten natural
   tertinggi pada row tersebut. Tidak ada tinggi absolut.
-- `source` bukan slot dan tidak menghasilkan `PlacedBlock`. Bila
-  `accepts_source` bernilai `False`, source yang ada ditolak agar tidak hilang
-  diam-diam.
+- Field slide `source` sudah dihapus (ADR 0017), sehingga layout tidak lagi
+  memiliki `accepts_source` dan tidak ada kotak sumber.
 
 Klarifikasi custom F1-LAYOUT/F2-CUSTOM-GRID:
 
@@ -228,10 +234,69 @@ Klarifikasi custom F1-LAYOUT/F2-CUSTOM-GRID:
 - Tinggi row custom mengikuti block tertinggi pada row itu. Media tetap memakai
   mode contain dan tinggi area yang tersedia; tinggi natural 16:9 bukan tinggi
   tetap.
-- `source` dan `notes` tetap boleh ada pada slide custom. Keduanya bukan block,
+- `notes` tetap boleh ada pada slide custom. Notes bukan block,
   tidak menghasilkan `PlacedBlock`, dan tidak mengubah geometri rows.
 - `plan_deck` merencanakan slide custom tanpa entri registry preset dan tanpa
   melempar `UnknownLayoutError`.
+
+## Komposisi vertikal (vertical_align)
+
+`vertical_align` mengatur komposisi vertikal setelah tinggi seluruh row diukur.
+Nilainya `"top"` atau `"center"`; default `"top"`. Nilai lain ditolak saat
+`LayoutSpec` dibuat dengan `LayoutSpecError`.
+
+- `"top"` mempertahankan perilaku lama: tidak ada offset. Row pertama mulai di
+  `content_top`, dan setiap row berikutnya mengikuti `row_gap` dari row
+  sebelumnya.
+- `"center"` memakai row header pembuka sebagai jangkar. Klasifikasi header
+  dilakukan per slot dengan `is_header_row`: row adalah header bila minimal
+  satu slot ber-role `display`, `kicker`, `label`, `lead`, atau `title`, dan
+  seluruh slot lain hanya `caption` pendamping (konstanta `HEADER_ROLES` dan
+  `HEADER_COMPANION_ROLES`). Caption tidak menurunkan status header, sehingga
+  row `author` + `role` pada `cover` tetap header saat slot caption opsional
+  hadir; row caption tunggal dan row `title` + `body` tetap konten. Row header
+  pembuka, yaitu row header dari row pertama sampai row non-header pertama,
+  tidak digeser. Row setelahnya bergeser `slack // 2`, dengan
+  `slack = content_bottom - batas bawah seluruh stack`.
+- Bila seluruh row adalah header, seluruh stack yang bergeser `slack // 2`;
+  tidak ada jangkar header yang tertinggal.
+- Bila `slack <= 0`, artinya stack sudah menyentuh atau melewati batas bawah
+  area konten, seluruh offset bernilai nol. `"center"` tidak pernah menarik
+  stack yang sudah overflow ke atas.
+- Pergeseran hanya mengubah `top_emu` setiap `PlacedBlock`. Lebar, tinggi,
+  geometry contain media, dan aspect ratio tidak berubah.
+
+Aturan overflow dihitung sebelum pergeseran. `_plan_slide` mengukur dan
+menempatkan seluruh row, mencatat temuan `lebar` dan `tinggi`, lalu baru
+menghitung offset `vertical_align`. Karena itu:
+
+- `overflow_keys` dan `OverflowFinding` untuk `"center"` sama dengan `"top"`
+  pada input yang sama;
+- pergeseran tidak boleh menghasilkan overflow baru: offset maksimum adalah
+  setengah slack, sehingga batas bawah stack setelah pergeseran tetap
+  `<= content_bottom`;
+- `vertical_align` tidak dipakai untuk menyembunyikan atau memperbaiki
+  overflow; build tetap gagal bila ada temuan.
+
+Kebijakan preset:
+
+| Kelompok | Preset | Nilai |
+| --- | --- | --- |
+| Semua preset bawaan | `background`, `bars`, `closing`, `code`, `comparison`, `content`, `cover`, `diagram`, `donut`, `flow`, `image-full`, `image-grid`, `image-split`, `kpi`, `line`, `matrix`, `section`, `table`, `toc` | `center` |
+
+Semua preset memakai `center` supaya row konten tidak menumpuk di atas saat
+stack lebih pendek dari area konten. Chart `bars`, `line`, dan `donut` juga
+memakai `center`: media chart 16:9 tidak memenuhi tinggi area konten, sehingga
+`top` meninggalkan slack bawah sekitar 926.307 EMU (97,25 px) pada deck demo.
+Centering menurunkan slack itu menjadi 463.154 EMU (48,63 px) tanpa mengecilkan
+media.
+
+Layout `custom` tidak memakai `LayoutSpec` preset. `plan_deck` merencanakan
+slide custom dengan `CUSTOM_VERTICAL_ALIGN = "center"` agar aturan komposisi
+sama dengan preset; pemanggil API langsung `plan_custom_slide` tetap memakai
+default `"top"`. Pada custom, klasifikasi header memakai role block dan aturan
+slot yang sama dengan preset. Teks tanpa `role` dianggap body, bukan header;
+judul custom yang harus dipin wajib menulis `role: title`.
 
 ## Overflow
 
@@ -269,6 +334,8 @@ Klarifikasi F1-LAYOUT:
   urutan row, `span`, atau `required` suatu slot.
 - `chart_kind` hanya menyatakan kind chart yang sah untuk slot chart preset;
   ia tidak mengubah tipe block yang diterima slot atau urutan row.
+- `vertical_align` hanya menggeser `top_emu` row setelah overflow dihitung; ia
+  tidak mengubah lebar, tinggi, aspect ratio, urutan row, atau status overflow.
 - Field `x`, `y`, `left`, `top`, `right`, `bottom`, `width`, `height`,
   `position`, `absolute`, `anchor`, `translate`, `rotate`, `z`, dan `z_index`
   ditolak di semua objek authoring.
@@ -300,6 +367,9 @@ Catatan F0: test bentuk ada di `tests/contract/test_contract_shapes.py` dan `tes
 | Hasil layout identik untuk input yang sama. | `tests/deck/layout/test_plan.py` |
 | Discovery preset deterministik; package tanpa preset ditolak. | `tests/deck/layout/test_registry.py` |
 | Batas row custom berasal dari `SlideIR.rows`; IR tanpa rows ditolak. | `tests/deck/layout/test_custom.py` |
+| `vertical_align` default `top`, header dipin, konten ditengahkan, dan overflow tidak berubah. | `tests/deck/layout/test_vertical_align.py` |
+| Row campuran `label` + `caption` tetap header; teks custom tanpa `role` dianggap konten. | `tests/deck/layout/test_vertical_align.py` |
+| Chart `bars`, `line`, dan `donut` menghitung slack dan ditengahkan tanpa mengecilkan media. | `tests/deck/layout/test_vertical_align.py` |
 | Golden layout memeriksa posisi slot dan `span`. | `tests/golden/test_layout_*.py` (planned) |
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)

@@ -5,7 +5,7 @@ menggambar `DeckIR` dan `LayoutPlan` menjadi presentasi native dengan
 `python-pptx`; ia tidak membaca YAML, tidak membaca file token, dan tidak
 menciptakan teks. Staging Google Slides memakai renderer yang sama.
 
-Status: F0 contract, version 1
+Status: F0 contract, version 1; diamendemen [ADR 0017](../decisions/0017-remove-caption-and-source.md).
 Sumber: AUTO_OFFICE_PLAN.md bagian 8.1 dan 8.3.
 
 ## Daftar Isi
@@ -45,10 +45,7 @@ class CoverageReport:
     @property
     def ok(self) -> bool:
         return not (
-            self.missing_keys
-            or self.duplicate_keys
-            or self.unkeyed_visible
-            or self.missing_alt
+            self.missing_keys or self.duplicate_keys or self.unkeyed_visible or self.missing_alt
         )
 
 
@@ -71,8 +68,7 @@ class RenderResult:
 
 
 class DeckRenderer(Protocol):
-    def render(self, request: RenderRequest) -> RenderResult:
-        ...
+    def render(self, request: RenderRequest) -> RenderResult: ...
 ```
 
 - Input: `DeckIR`, `LayoutPlan`, `Theme`, `OutputTarget`, dan `workspace`.
@@ -165,7 +161,6 @@ substitusi font.
 | Image/diagram | Nama `autooffice:image:<slide>.<block>` atau `autooffice:diagram:<slide>.<block>`, alt manusia di `descr`. | Crop native `contain`/`cover`; WebP dinormalisasi ke PNG sebelum embed. Diagram dirender PlantUML menjadi PNG; lihat [plantuml.md](plantuml.md). |
 | Chart | Chart native `bar`/`line`/`donut` untuk target `pptx`; staging `slides` memakai placeholder `autooffice:chart:<slide>.<block>` dengan key chart di extension `cNvPr`. | Chart native wajib untuk deliverable; placeholder hanya untuk staging Slides dan diganti linked chart Google. `RenderResult.warnings` menyebut placeholder hanya pada target `slides`. |
 | Font | Token typography memakai `Arial`; layout diukur dengan Liberation Sans yang dibundel untuk pengukuran. | Tidak ada embedding font atau panggilan Office COM. Substitusi font di lingkungan tanpa Arial dapat mengubah bentuk glyph, bukan geometri layout. |
-| Source | `sNN.source.text` dirender di margin bawah karena `LayoutPlan` F1 belum membawa kotak source. | Key dan posisi source tetap milik layout; renderer tidak mengubah teks. |
 | Coverage | Key asing dilaporkan lewat `unkeyed_visible` karena `CoverageReport` F0 tidak punya field `extra`. | Bentuk `CoverageReport` tidak berubah. |
 | Workspace | Path gambar relatif diselesaikan terhadap `RenderRequest.workspace`. | Tidak membaca YAML atau file token. |
 
@@ -180,6 +175,7 @@ atomik setelah coverage lulus; bila coverage gagal, file final tidak dibuat.
   `request.target`.
 - Renderer tidak membaca YAML dan tidak membaca file token dari disk.
 - Renderer tidak menciptakan teks; semua teks berasal dari IR atau chrome terdaftar.
+- Renderer tidak membuat shape caption media atau catatan sumber slide. Field\n  block `caption` dan field slide `source` dihapus oleh ADR 0017; keterangan\n  ditulis sebagai block `text` dengan `role: caption`.
 - Renderer tidak menulis output final sebelum coverage lulus.
 - Renderer tidak menelan error, tidak memakai template eksternal, dan tidak
   melakukan fallback ke HTML, LibreOffice, atau screenshot.

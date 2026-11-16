@@ -57,6 +57,6 @@ LAYOUT = LayoutSpec(
         ("kpi1", "kpi2", "kpi3", "kpi4"),
         ("note",),
     ),
-    accepts_source=True,
+    vertical_align="center",
     min_one_of=(("kpi1", "kpi2", "kpi3", "kpi4"),),
 )

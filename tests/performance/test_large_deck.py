@@ -67,7 +67,6 @@ def _slide_yaml(index: int) -> str:
             rows:
               - ["Slide", "{index}"]
               - ["Key", "21"]
-            caption: "Tabel ringkas"
       - blocks:
           - id: chart1
             type: chart
@@ -85,7 +84,6 @@ def _slide_yaml(index: int) -> str:
             span: 5
             path: "assets/pixel.png"
             alt: "Gambar referensi kecil"
-            caption: "Gambar referensi"
 """
 
 

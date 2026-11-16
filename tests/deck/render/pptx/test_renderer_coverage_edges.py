@@ -51,8 +51,8 @@ def test_collect_coverage_marks_key_rendered_on_wrong_slide() -> None:
         meta={"title": "Cross Slide", "author": "AutoOffice"},
         theme_name="indigo",
         slides=(
-            SlideIR("s01", "content", 0, (block,), None, None),
-            SlideIR("s02", "content", 1, (), None, None),
+            SlideIR("s01", "content", 0, (block,), None),
+            SlideIR("s02", "content", 1, (), None),
         ),
         keys=KeyManifest((binding("s01.title.text"),)),
     )
@@ -76,7 +76,7 @@ def test_collect_coverage_reads_key_marker_on_picture(workspace, hero_image) -> 
         schema="autooffice.deck/v1",
         meta={"title": "Orphan Key", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (), None, None),),
+        slides=(SlideIR("s01", "content", 0, (), None),),
         keys=KeyManifest((binding("s01.orphan", block_id="orphan", leaf="text"),)),
     )
 
@@ -100,7 +100,7 @@ def test_collect_coverage_ignores_empty_key_marker(workspace, hero_image) -> Non
         schema="autooffice.deck/v1",
         meta={"title": "Empty Key Marker", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (), None, None),),
+        slides=(SlideIR("s01", "content", 0, (), None),),
         keys=KeyManifest(()),
     )
 
@@ -119,7 +119,7 @@ def test_collect_coverage_marks_unkeyed_table_cell() -> None:
         schema="autooffice.deck/v1",
         meta={"title": "Raw Table", "author": "AutoOffice"},
         theme_name="indigo",
-        slides=(SlideIR("s01", "content", 0, (), None, None),),
+        slides=(SlideIR("s01", "content", 0, (), None),),
         keys=KeyManifest(()),
     )
 

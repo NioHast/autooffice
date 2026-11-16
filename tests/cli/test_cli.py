@@ -55,7 +55,7 @@ def test_version_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as error:
         main(["--version"])
     assert error.value.code == 0
-    assert "autooffice 2.1.0" in capsys.readouterr().out
+    assert "autooffice 3.0.0" in capsys.readouterr().out
 
 
 def test_no_command_prints_help_and_returns_zero(capsys: pytest.CaptureFixture[str]) -> None:

@@ -8,13 +8,14 @@ ke kanan. Tidak ada posisi absolut, nested row, shrinking, atau tinggi tetap.
 """
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import cast
 
 from autooffice.deck.blocks.registry import block_names
 from autooffice.deck.layout.grid import (
     Grid,
     RowItem,
+    RowPlacement,
     SpanError,
     place_row,
     validate_row_spans,
@@ -25,11 +26,23 @@ from autooffice.deck.layout.measure import (
     measure_block,
     minimum_block_height,
 )
-from autooffice.deck.layout.spec import LayoutError, PlacedBlock, SlideLayout
+from autooffice.deck.layout.spec import (
+    VERTICAL_ALIGNS,
+    LayoutError,
+    PlacedBlock,
+    SlideLayout,
+    VerticalAlign,
+    is_header_row,
+    vertical_alignment_shifts,
+)
 from autooffice.deck.model.deck_ir import BlockIR, SlideIR
 from autooffice.design.theme import Theme
 
 CUSTOM_LAYOUT = "custom"
+# Custom tidak memakai LayoutSpec preset, jadi komposisi vertikalnya ditetapkan
+# di sini. Deck planning memakai center agar rows custom ikut aturan komposisi
+# yang sama dengan preset; pemanggil API langsung tetap default "top".
+CUSTOM_VERTICAL_ALIGN: VerticalAlign = "center"
 
 # Salinan kontrak schema: layout tidak mengimpor schema karena schema membaca
 # registry layout. Pemeriksaan ini menjaga IR yang dibuat di luar compiler.
@@ -54,17 +67,14 @@ GEOMETRY_FIELDS = frozenset(
 )
 SLOT_FIELDS = frozenset({"slot", "slot_id"})
 VALID_BLOCK_TYPES = frozenset(block_names())
-_CAPTION_LEAF = "caption"
 _LEAF_CANDIDATES: Mapping[str, tuple[str, ...]] = {
     "text": ("text", "heading"),
     "bullets": ("item1.text",),
     "quote": ("text", "attribution"),
-    "metric": ("value", "label", "caption"),
+    "metric": ("value", "label"),
     "code": ("code",),
-    "table": ("caption", "r1.c1", "h1"),
-    "chart": ("title", "caption"),
-    "image": ("caption",),
-    "diagram": ("caption",),
+    "table": ("r1.c1", "h1"),
+    "chart": ("title",),
 }
 
 KeyForBlock = Callable[[BlockIR, str | None], str]
@@ -99,6 +109,7 @@ def plan_custom_slide(
     rows: Sequence[Sequence[BlockIR]] | None = None,
     grid: Grid | None = None,
     key_for_block: KeyForBlock | None = None,
+    vertical_align: VerticalAlign = "top",
 ) -> SlideLayout:
     """Tempatkan satu slide custom tanpa melempar overflow.
 
@@ -112,6 +123,7 @@ def plan_custom_slide(
         rows=rows,
         grid=grid,
         key_for_block=key_for_block,
+        vertical_align=vertical_align,
     ).layout
 
 
@@ -122,11 +134,18 @@ def plan_custom_slide_with_findings(
     rows: Sequence[Sequence[BlockIR]] | None = None,
     grid: Grid | None = None,
     key_for_block: KeyForBlock | None = None,
+    vertical_align: VerticalAlign = "top",
 ) -> CustomPlan:
     """Validasi, ukur, dan tempatkan seluruh row custom."""
     if slide.layout != CUSTOM_LAYOUT:
         raise CustomLayoutError(
             f"Slide '{slide.slide_id}' memakai layout '{slide.layout}', bukan '{CUSTOM_LAYOUT}'."
+        )
+    if vertical_align not in VERTICAL_ALIGNS:
+        allowed = ", ".join(VERTICAL_ALIGNS)
+        raise CustomLayoutError(
+            f"Slide '{slide.slide_id}' memiliki vertical_align {vertical_align!r}; "
+            f"nilai harus salah satu dari {allowed}."
         )
     active_grid = Grid.from_theme(theme) if grid is None else grid
     explicit_rows = rows if rows is not None else _rows_from_ir(slide)
@@ -137,6 +156,8 @@ def plan_custom_slide_with_findings(
 
     boxes: list[PlacedBlock] = []
     overflows: list[CustomOverflow] = []
+    row_placements: list[RowPlacement] = []
+    row_headers: list[bool] = []
     top_emu = active_grid.content_top_emu
     for row_index, row in enumerate(custom_rows):
         reserved_height_emu = _reserved_custom_height(
@@ -166,7 +187,8 @@ def plan_custom_slide_with_findings(
                 )
             )
         placement = place_row(active_grid, items, top_emu=top_emu)
-        boxes.extend(placement.boxes)
+        row_placements.append(placement)
+        row_headers.append(_header_row(row))
         height_findings: set[str] = set()
         for box in placement.boxes:
             block = blocks_by_id[box.block_id]
@@ -213,6 +235,17 @@ def plan_custom_slide_with_findings(
                 )
         top_emu = placement.bottom_emu + active_grid.row_gap_emu
 
+    shifts = vertical_alignment_shifts(
+        tuple(placement.bottom_emu for placement in row_placements),
+        tuple(row_headers),
+        content_bottom_emu=active_grid.content_bottom_emu,
+        vertical_align=vertical_align,
+    )
+    for placement, shift in zip(row_placements, shifts, strict=True):
+        boxes.extend(
+            replace(box, top_emu=box.top_emu + shift) if shift else box for box in placement.boxes
+        )
+
     overflow_keys = _overflow_keys(overflows)
     return CustomPlan(
         layout=SlideLayout(
@@ -222,6 +255,11 @@ def plan_custom_slide_with_findings(
         ),
         overflows=tuple(overflows),
     )
+
+
+def _header_row(row: Sequence[BlockIR]) -> bool:
+    """True bila klasifikasi role block menjadikan row custom ini header."""
+    return is_header_row(tuple(block.role for block in row))
 
 
 def _reserved_custom_height(
@@ -424,7 +462,7 @@ def _default_key(slide_id: str, block: BlockIR, leaf: str | None) -> str:
 
 def _leaf_candidates(block: BlockIR) -> tuple[str, ...]:
     if block.block_type in {"image", "diagram"}:
-        return (_CAPTION_LEAF,) if block.fields.get(_CAPTION_LEAF) else ()
+        return ()
     return _LEAF_CANDIDATES.get(block.block_type, ("text",))
 
 
@@ -438,6 +476,7 @@ def _overflow_keys(overflows: Sequence[CustomOverflow]) -> tuple[str, ...]:
 
 __all__ = [
     "CUSTOM_LAYOUT",
+    "CUSTOM_VERTICAL_ALIGN",
     "GEOMETRY_FIELDS",
     "SLOT_FIELDS",
     "VALID_BLOCK_TYPES",

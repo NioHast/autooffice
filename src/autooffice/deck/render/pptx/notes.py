@@ -2,16 +2,17 @@
 
 from pptx.enum.text import MSO_AUTO_SIZE
 from pptx.slide import Slide
-from pptx.util import Emu, Pt
+from pptx.util import Emu
 
+from autooffice.deck.layout.measure import role_typography
 from autooffice.design.theme import Theme
 
 from .shapes import (
     PptxRenderError,
     apply_paragraph_style,
+    apply_run_style,
     key_from_shape,
-    primary_typeface,
-    rgb,
+    record_render_warning,
     set_keyed_shape,
 )
 
@@ -31,19 +32,24 @@ def set_notes(slide: Slide, notes: str, *, slide_id: str, theme: Theme) -> bool:
     text_frame.margin_top = Emu(0)
     text_frame.margin_bottom = Emu(0)
     text_frame.text = notes
-    font_size_pt = max(theme.typography.body_pt, theme.typography.minimum_pt)
+    body = role_typography(theme, "body")
     for paragraph in text_frame.paragraphs:
         apply_paragraph_style(
             paragraph,
             line_height=theme.typography.line_height,
-            font_size_pt=font_size_pt,
+            font_size_pt=body.size_pt,
         )
         for run in paragraph.runs:
-            run.font.name = primary_typeface(theme.typography.family)
-            run.font.size = Pt(font_size_pt)
-            run.font.bold = False
-            run.font.italic = False
-            run.font.color.rgb = rgb(theme.colors.ink)
+            warning = apply_run_style(
+                run,
+                family=theme.typography.family,
+                size_pt=body.size_pt,
+                weight=body.weight,
+                color=theme.colors.ink,
+                tracking_em=body.tracking_em,
+            )
+            if warning is not None:
+                record_render_warning(warning)
     placeholder = notes_slide.notes_placeholder
     if placeholder is not None:
         set_keyed_shape(placeholder, f"{slide_id}.notes", description="Catatan pembicara")

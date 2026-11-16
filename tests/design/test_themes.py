@@ -8,6 +8,7 @@ import pytest
 
 from autooffice.design import DesignTokenError, resolve_theme
 from autooffice.design.theme import (
+    CardTokens,
     ChartPalette,
     CodeTokens,
     GridTokens,
@@ -104,11 +105,18 @@ def test_theme_resolves_geometry_typography_and_code_tokens() -> None:
     assert theme.typography == Typography(
         family="Arial",
         weights=(400, 600, 700, 800),
+        display_pt=44.0,
+        cover_title_pt=43.5,
         title_pt=30.0,
+        lead_pt=18.0,
         body_pt=16.5,
+        metric_pt=42.0,
+        caption_pt=12.5,
+        label_pt=14.0,
         minimum_pt=10.0,
         line_height=1.2,
         tracking_em=-0.01,
+        kicker_tracking_em=0.08,
     )
     assert theme.grid == GridTokens(
         columns=12,
@@ -129,6 +137,7 @@ def test_theme_resolves_geometry_typography_and_code_tokens() -> None:
         divider_emu=12700,
     )
     assert theme.radius == RadiusTokens(sm_emu=45720, md_emu=91440, lg_emu=182880)
+    assert theme.card == CardTokens(fill="#E5E7EB", padding_emu=228600, radius_emu=91440)
     assert theme.shadow == ShadowTokens(
         card="0 1 2 0 rgba(17, 24, 39, 0.08)",
         overlay="0 8 24 0 rgba(17, 24, 39, 0.16)",
@@ -136,7 +145,8 @@ def test_theme_resolves_geometry_typography_and_code_tokens() -> None:
     )
     assert theme.code == CodeTokens(
         family="ui-monospace, 'Cascadia Mono', Consolas, monospace",
-        size_pt=10.5,
+        size_pt=12.0,
+        filename_pt=12.5,
         line_height=1.35,
     )
     assert theme.chart == ChartPalette(
@@ -165,6 +175,22 @@ def test_status_palette_matches_accessible_contract_values() -> None:
         "warning": "#B45309",
         "danger": "#BE123C",
     }
+
+
+def test_typography_and_code_tiers_resolve_from_tokens() -> None:
+    theme = resolve_theme("indigo")
+
+    assert theme.typography.display_pt == 44.0
+    assert theme.typography.cover_title_pt == 43.5
+    assert theme.typography.title_pt == 30.0
+    assert theme.typography.lead_pt == 18.0
+    assert theme.typography.body_pt == 16.5
+    assert theme.typography.metric_pt == 42.0
+    assert theme.typography.caption_pt == 12.5
+    assert theme.typography.label_pt == 14.0
+    assert theme.typography.kicker_tracking_em > 0
+    assert theme.code.size_pt == 12.0
+    assert theme.code.filename_pt == 12.5
 
 
 def test_theme_changes_color_but_not_geometry() -> None:
@@ -229,6 +255,7 @@ def test_resolved_theme_keeps_contract_shape() -> None:
         "grid",
         "spacing",
         "radius",
+        "card",
         "shadow",
         "code",
     }

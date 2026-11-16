@@ -27,7 +27,6 @@ def _custom_slide(block: BlockIR) -> SlideIR:
         order=0,
         blocks=(block,),
         notes=None,
-        source=None,
         rows=((block.block_id,),),
     )
 

@@ -245,9 +245,9 @@ def test_field_text_rejects_missing_or_non_string(value: object) -> None:
 
 
 def test_field_optional_text_returns_empty_for_non_string() -> None:
-    assert field_optional_text({"caption": 3}, "caption") == ""
-    assert field_optional_text({}, "caption") == ""
-    assert field_optional_text({"caption": "isi"}, "caption") == "isi"
+    assert field_optional_text({"label": 3}, "label") == ""
+    assert field_optional_text({}, "label") == ""
+    assert field_optional_text({"label": "isi"}, "label") == "isi"
 
 
 def test_field_sequence_rejects_non_sequence() -> None:

@@ -142,17 +142,6 @@ def make_snapshot(
                             ),
                         )
                     )
-                caption = block.fields.get("caption")
-                if isinstance(caption, str) and caption:
-                    elements.append(
-                        PageElement(
-                            object_id=f"caption-{slide.slide_id}-{block.block_id}",
-                            page_object_id=page_object_id,
-                            kind="shape",
-                            title=f"{slide.slide_id}.{block.block_id}.caption",
-                            text=caption,
-                        )
-                    )
             notes_elements: list[PageElement] = []
             if slide.notes:
                 notes_elements.append(
@@ -162,16 +151,6 @@ def make_snapshot(
                         kind="shape",
                         title=f"{slide.slide_id}.notes",
                         text=slide.notes,
-                    )
-                )
-            if slide.source:
-                elements.append(
-                    PageElement(
-                        object_id=f"source-{slide.slide_id}",
-                        page_object_id=page_object_id,
-                        kind="shape",
-                        title=f"{slide.slide_id}.source.text",
-                        text=slide.source["text"],
                     )
                 )
             slides.append(

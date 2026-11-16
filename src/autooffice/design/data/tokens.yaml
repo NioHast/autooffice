@@ -20,15 +20,24 @@ colors:
     warning: "#B45309"
     danger: "#BE123C"
 
-# Ukuran px sumber deck-studio: judul 40 px, body 22 px.
+# Ukuran px sumber deck-studio: cover 58 px, judul 40 px, lead 24 px,
+# body 22 px, KPI 56 px. cover_title_pt dipakai role title saat layout cover
+# memberi konteks layout; layout lain tetap memakai title_pt.
 typography:
   family: "Arial"
   weights: [400, 600, 700, 800]
+  display_pt: 44.0
+  cover_title_pt: 43.5
   title_pt: 30.0
+  lead_pt: 18.0
   body_pt: 16.5
+  metric_pt: 42.0
+  caption_pt: 12.5
+  label_pt: 14.0
   minimum_pt: 10.0
   line_height: 1.2
   tracking_em: -0.01
+  kicker_tracking_em: 0.08
 
 # Kanvas 16:9 1280 x 720 px; 1 px = 9525 EMU.
 grid:
@@ -54,6 +63,14 @@ radius:
   md_emu: 91440
   lg_emu: 182880
 
+# Card konten hanya untuk block metric dan quote. fill dipilih dari pengukuran
+# kontras terhadap background #FAFAFA: #E5E7EB = 1,19:1, satu-satunya kandidat
+# yang lolos target >= 1,10. Border tak terlihat dan shadow tidak dipakai.
+card:
+  fill: "#E5E7EB"
+  padding_emu: 228600
+  radius_emu: 91440
+
 shadow:
   card: "0 1 2 0 rgba(17, 24, 39, 0.08)"
   overlay: "0 8 24 0 rgba(17, 24, 39, 0.16)"
@@ -68,5 +85,6 @@ chart:
 
 code:
   family: "ui-monospace, 'Cascadia Mono', Consolas, monospace"
-  size_pt: 10.5
+  size_pt: 12.0
+  filename_pt: 12.5
   line_height: 1.35

@@ -47,9 +47,13 @@ def test_make_key_for_block() -> None:
     assert make_key("s03", "kpi1", "value") == "s03.kpi1.value"
 
 
-def test_make_key_for_slide_notes_and_source() -> None:
+def test_make_key_for_slide_notes() -> None:
     assert make_key("s01", None, "notes") == "s01.notes"
-    assert make_key("s01", None, "source.text") == "s01.source.text"
+
+
+def test_make_key_rejects_removed_slide_source_leaf() -> None:
+    with pytest.raises(KeyGrammarError, match="hanya notes"):
+        make_key("s01", None, "source.text")
 
 
 @pytest.mark.parametrize("slide_id", ["s1", "x01", "s01a", "", "S01"])
@@ -83,18 +87,14 @@ def test_key_length_limit_rejected() -> None:
 def test_validate_key_accepts_block_and_slide_keys() -> None:
     assert validate_key("s04.chart1.series1.value3") == "s04.chart1.series1.value3"
     assert validate_key("s01.notes") == "s01.notes"
-    assert validate_key("s01.source.text") == "s01.source.text"
 
 
 def test_parse_key_slide_and_block() -> None:
     notes = parse_key("s01.notes")
-    source = parse_key("s01.source.text")
     block = parse_key("s05.table1.r2.c3")
 
     assert notes.block_id is None
     assert notes.leaf == "notes"
-    assert source.block_id is None
-    assert source.leaf == "source.text"
     assert block.block_id == "table1"
     assert block.leaf == "r2.c3"
 
@@ -121,12 +121,13 @@ def test_key_registry_rejects_key_owner_mismatch() -> None:
         registry.add(binding)
 
 
-def test_key_registry_rejects_block_id_that_parses_as_slide_source() -> None:
+def test_key_registry_accepts_block_id_source() -> None:
     registry = KeyRegistry()
     binding = _binding("s01.source.text", block_id="source", leaf="text")
 
-    with pytest.raises(KeyGrammarError, match="block_id"):
-        registry.add(binding)
+    registry.add(binding)
+
+    assert registry.manifest().keys() == ("s01.source.text",)
 
 
 def test_key_registry_rejects_duplicate_yaml_path() -> None:

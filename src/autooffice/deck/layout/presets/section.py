@@ -32,5 +32,5 @@ LAYOUT = LayoutSpec(
         ("title",),
         ("subtitle",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

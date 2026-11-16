@@ -25,8 +25,6 @@ slides:
     notes: |
       Buka dengan alasan konsolidasi. Satu model isi dipakai untuk semua target.
       Deck ini menjadi bukti penerimaan AutoOffice.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: kicker
         type: text
@@ -52,7 +50,6 @@ slides:
         type: metric
         label: "Block type"
         value: "11"
-        caption: "tercakup"
 
   - id: s02
     layout: toc
@@ -86,8 +83,6 @@ slides:
     notes: |
       Kanvas terang menjadi dasar semua layout.
       Aksen hanya menandai titik yang perlu dibaca lebih dulu.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -132,8 +127,6 @@ slides:
     layout: kpi
     notes: |
       Tekankan bahwa angka hanya contoh. Setiap metrik punya label dan satuan.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -147,22 +140,18 @@ slides:
         type: metric
         label: "Pengguna aktif"
         value: "1.248"
-        caption: "bulan ini"
       - id: kpi2
         type: metric
         label: "Penyelesaian"
         value: "87%"
-        caption: "tepat waktu"
       - id: kpi3
         type: metric
         label: "Rata-rata proses"
         value: "12"
-        caption: "hari"
       - id: kpi4
         type: metric
         label: "Kepuasan"
         value: "4,8"
-        caption: "dari 5"
       - id: note
         type: text
         role: caption
@@ -171,10 +160,8 @@ slides:
   - id: s06
     layout: bars
     notes: |
-      Semua batang memakai satu sumbu dari 0 sampai 500.
+      Semua batang memakai satu sumbu dari 0 sampai 450.
       Nilai tertinggi tetap menjadi batang terkuat.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -194,7 +181,6 @@ slides:
           - name: "Kunjungan"
             values: [420, 260, 180, 120]
         unit: "kunjungan"
-        caption: "Satu sumbu dari 0 sampai 500."
       - id: note
         type: text
         role: caption
@@ -205,8 +191,6 @@ slides:
     notes: |
       Grafik ini menunjukkan tren delapan bulan.
       Penurunan kecil di Maret dan Juni tetap terlihat.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -228,7 +212,6 @@ slides:
           - name: "2026"
             values: [70, 82, 79, 96, 104, 99, 116, 126]
         unit: "tiket"
-        caption: "Garis 2026 tetap di atas garis 2025."
       - id: note
         type: text
         role: caption
@@ -239,8 +222,6 @@ slides:
     notes: |
       Donat memakai satu seri dan empat kategori berwarna.
       Angka di tengah menegaskan total 100 persen.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -260,7 +241,6 @@ slides:
           - name: "Porsi"
             values: [45, 30, 15, 10]
         unit: "persen"
-        caption: "Angka dibulatkan ke persen bulat."
       - id: legend
         type: bullets
         items:
@@ -273,8 +253,6 @@ slides:
     notes: |
       Status dan angka harus dibaca bersama.
       Empat modul belum selesai pada contoh ini.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -293,7 +271,6 @@ slides:
           - ["03", "Notifikasi", "Tim Platform", "Berjalan", "45%"]
           - ["04", "Laporan", "Tim Analitik", "Rencana", "20%"]
           - ["05", "Pengaturan", "Tim Operasi", "Rencana", "0%"]
-        caption: "Rata-rata progres 47 persen."
       - id: note
         type: text
         role: caption
@@ -304,8 +281,6 @@ slides:
     notes: |
       Kolom Tumbuh menjadi titik tengah yang sering dipilih.
       Semua nilai pada tabel adalah contoh.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -325,7 +300,6 @@ slides:
           - ["Tim", "2 orang", "4 orang", "6 orang"]
           - ["Risiko", "Rendah", "Sedang", "Tinggi"]
         emphasis_column: 3
-        caption: "Kolom Tumbuh disorot sebagai titik tengah."
       - id: note
         type: text
         role: caption
@@ -336,8 +310,6 @@ slides:
     notes: |
       Matriks memetakan dampak dan upaya.
       Checklist rilis memakai badge empat dari lima.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -441,8 +413,6 @@ slides:
     notes: |
       Kode memakai bahasa SQL dan nomor baris.
       Kutipan lengkap ada di slide custom berikutnya.
-    source:
-      text: "Sumber: kit komponen internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -476,8 +446,6 @@ slides:
     notes: |
       Flowchart memakai notasi standar.
       Hanya ada satu jalur mundur ke formulir.
-    source:
-      text: "Sumber: contoh internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -491,15 +459,12 @@ slides:
         type: diagram
         source: "diagrams/01-flowchart.puml"
         alt: "Diagram alur pengajuan cuti dari mulai sampai selesai"
-        caption: "Gambar 1. Flowchart pengajuan cuti."
 
   - id: s16
     layout: image-split
     notes: |
       Gambar memberi jeda visual pada tempo presentasi.
       Teks tetap pendek dan terbaca.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -517,15 +482,12 @@ slides:
         type: image
         path: "assets/workspace.jpg"
         alt: "Meja kerja dengan laptop, ponsel, buku catatan, dan kopi"
-        caption: "Meja kerja dengan cahaya alami."
 
   - id: s17
     layout: image-full
     notes: |
       Satu kalimat menjadi inti halaman ini.
       Gambar memenuhi sisa area konten.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -535,15 +497,12 @@ slides:
         type: image
         path: "assets/nature.jpg"
         alt: "Danau dan hutan hijau di bawah langit cerah"
-        caption: "Danau dan hutan hijau di bawah langit cerah."
 
   - id: s18
     layout: image-grid
     notes: |
       Tiga gambar memakai rasio dan jarak yang sama.
       Caption pendek menjaga konteks tiap gambar.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -557,17 +516,14 @@ slides:
         type: image
         path: "assets/workspace.jpg"
         alt: "Meja kerja dengan laptop dan kopi"
-        caption: "Ruang kerja"
       - id: image2
         type: image
         path: "assets/nature.jpg"
         alt: "Danau dan hutan hijau"
-        caption: "Alam terbuka"
       - id: image3
         type: image
         path: "assets/city.jpg"
         alt: "Rumah putih di lereng bukit"
-        caption: "Sudut kota"
 
   - id: s19
     layout: custom
@@ -619,19 +575,16 @@ slides:
             type: metric
             label: "Block type"
             value: "11"
-            caption: "semua hadir"
             span: 4
           - id: metric2
             type: metric
             label: "Layout"
             value: "20"
-            caption: "preset dan custom"
             span: 4
           - id: metric3
             type: metric
             label: "Slide"
             value: "24"
-            caption: "siap diperiksa"
             span: 4
       - blocks:
           - id: coverage
@@ -651,8 +604,6 @@ slides:
     notes: |
       Sequence membaca pesan dari atas ke bawah.
       Dua jalur login perlu diuji.
-    source:
-      text: "Sumber: contoh internal AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -666,15 +617,12 @@ slides:
         type: diagram
         source: "diagrams/05-sequence.puml"
         alt: "Diagram sequence login pengguna dengan cabang berhasil dan gagal"
-        caption: "Gambar 2. Sequence login pengguna."
 
   - id: s22
     layout: image-split
     notes: |
       Gambar arsitektur dipakai sebagai jeda visual.
       Pesan tetap satu kalimat.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: title
         type: text
@@ -692,15 +640,12 @@ slides:
         type: image
         path: "assets/architecture.jpg"
         alt: "Istana di atas lembah hutan"
-        caption: "Istana di atas lembah hutan."
 
   - id: s23
     layout: content
     notes: |
-      Sebutkan bahwa lane custom dan PPTX diagram belum tersedia.
-      Jangan klaim build penuh sudah lulus.
-    source:
-      text: "Sumber: acceptance AutoOffice, 2026"
+      Sebutkan bukti check yang sudah lulus untuk lane custom dan diagram.
+      Tutup dengan known gap: PDF diekspor manual.
     blocks:
       - id: title
         type: text
@@ -720,15 +665,13 @@ slides:
       - id: note
         type: text
         role: caption
-        text: "Custom grid masih menunggu integrasi F2."
+        text: "Known gap: PDF diekspor manual dari PowerPoint."
 
   - id: s24
     layout: closing
     notes: |
       Tutup dengan tiga langkah pakai ulang.
       Semua komponen tetap memakai token yang sama.
-    source:
-      text: "Sumber: demo deck-studio AutoOffice, 2026"
     blocks:
       - id: title
         type: text

@@ -9,7 +9,7 @@ from .deck_ir import BlockIR, DeckIR
 from .schema import ChartSeries
 
 COVERAGE_SCHEMA = "autooffice.coverage/v1"
-_VISIBLE_KINDS = frozenset({"text", "source", "media_text"})
+_VISIBLE_KINDS = frozenset({"text"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,10 +112,8 @@ def build_coverage_plan(deck: DeckIR) -> CoveragePlan:
     data_keys = tuple(binding.key for binding in bindings if binding.kind == "data")
 
     declarations: dict[str, set[str]] = {}
-    slide_leaves_by_slide: dict[str, set[str]] = {}
     for binding in bindings:
         if binding.block_id is None:
-            slide_leaves_by_slide.setdefault(binding.slide_id, set()).add(binding.leaf)
             continue
         namespace = f"{binding.slide_id}.{binding.block_id}"
         declarations.setdefault(namespace, set()).add(binding.leaf)
@@ -124,11 +122,6 @@ def build_coverage_plan(deck: DeckIR) -> CoveragePlan:
     missing_alt: list[str] = []
     charts: list[ChartCoverage] = []
     for slide in deck.slides:
-        slide_leaves: set[str] | frozenset[str] = slide_leaves_by_slide.get(
-            slide.slide_id, frozenset()
-        )
-        if slide.source is not None and "source.text" not in slide_leaves:
-            unkeyed_visible.append(f"{slide.slide_id}.source")
         for block in slide.blocks:
             namespace = f"{slide.slide_id}.{block.block_id}"
             expected = set(_expected_leaves(block))
@@ -175,7 +168,7 @@ def _expected_leaves(block: BlockIR) -> tuple[str, ...]:
             f"item{index}.text" for index in range(1, len(_sequence(fields.get("items"))) + 1)
         )
     if block.block_type == "image":
-        return ("caption",) if "caption" in fields else ()
+        return ()
     if block.block_type == "table":
         columns = _sequence(fields.get("columns"))
         rows = _sequence(fields.get("rows"))
@@ -183,8 +176,6 @@ def _expected_leaves(block: BlockIR) -> tuple[str, ...]:
         for row_index, row in enumerate(rows, start=1):
             for column_index in range(1, len(_sequence(row)) + 1):
                 leaves.append(f"r{row_index}.c{column_index}")
-        if "caption" in fields:
-            leaves.append("caption")
         return tuple(leaves)
     if block.block_type == "chart":
         leaves = ["title"]
@@ -196,8 +187,6 @@ def _expected_leaves(block: BlockIR) -> tuple[str, ...]:
             leaves.extend(
                 f"series{series_index}.value{value_index}" for value_index in range(1, series + 1)
             )
-        if "caption" in fields:
-            leaves.append("caption")
         return tuple(leaves)
     if block.block_type == "code":
         leaves = ["code"]
@@ -210,12 +199,9 @@ def _expected_leaves(block: BlockIR) -> tuple[str, ...]:
             leaves.append("attribution")
         return tuple(leaves)
     if block.block_type == "diagram":
-        return ("caption",) if "caption" in fields else ()
+        return ()
     if block.block_type == "metric":
-        leaves = ["label", "value"]
-        if "caption" in fields:
-            leaves.append("caption")
-        return tuple(leaves)
+        return ("label", "value")
     return ()
 
 

@@ -2,10 +2,7 @@
 
 from pathlib import Path
 
-import pytest
-
 from autooffice.deck.model import (
-    DeckSchemaError,
     compile_deck,
     compile_deck_file,
     load_deck,
@@ -22,7 +19,6 @@ def _signature(deck) -> tuple[object, ...]:
             slide.layout,
             slide.order,
             slide.notes,
-            tuple(sorted(slide.source.items())) if slide.source is not None else None,
             slide.rows,
             tuple(
                 (block.block_id, block.block_type, block.span, block.role, block.fields)
@@ -81,15 +77,12 @@ def test_compile_preset_slides_keep_empty_rows(fixture_dir: Path) -> None:
     assert tuple(slide.rows for slide in deck.slides) == ((),)
 
 
-def test_compile_preserves_source_and_notes(fixture_dir: Path) -> None:
+def test_compile_preserves_notes(fixture_dir: Path) -> None:
     slide = compile_deck(load_deck(fixture_dir / "minimal.yaml")).slides[0]
 
     assert slide.notes == (
         "Catatan pembicara untuk slide pertama.\nBaris kedua tetap dipertahankan."
     )
-    assert slide.source is not None
-    assert slide.source["text"] == "Sumber: data internal, 2026"
-    assert slide.source["url"] == "https://example.com/data"
 
 
 def test_meta_language_is_normalized_in_ir(fixture_dir: Path) -> None:
@@ -104,36 +97,20 @@ def test_slide_order_matches_compiled_index(fixture_dir: Path) -> None:
     assert tuple(slide.order for slide in deck.slides) == (0,)
 
 
-def test_compiler_rejects_block_id_source_collision() -> None:
+def test_block_id_source_is_allowed_without_slide_source() -> None:
     text = """\
 schema: autooffice.deck/v1
-meta: {title: "Duplicate", author: "Tim"}
+meta: {title: "Source id", author: "Tim"}
 slides:
   - id: s01
     layout: content
-    source: {text: "Sumber"}
     blocks:
       - {id: source, type: text, text: "Teks"}
 """
 
-    with pytest.raises(DeckSchemaError, match=r"source\.text"):
-        compile_deck(loads_deck(text))
+    deck = compile_deck(loads_deck(text))
 
-
-def test_compiler_rejects_custom_block_id_source_collision() -> None:
-    text = """\
-schema: autooffice.deck/v1
-meta: {title: "Custom", author: "Tim"}
-slides:
-  - id: s01
-    layout: custom
-    rows:
-      - blocks:
-          - {id: source, type: text, text: "Teks", span: 12}
-"""
-
-    with pytest.raises(DeckSchemaError, match=r"source\.text"):
-        compile_deck(loads_deck(text))
+    assert deck.slides[0].blocks[0].block_id == "source"
 
 
 def test_model_modules_do_not_import_renderer_google_pptx_or_com() -> None:

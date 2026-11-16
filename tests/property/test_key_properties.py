@@ -102,8 +102,6 @@ def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, 
                 [draw(_TEXT) for _ in range(column_count)] for _ in range(draw(st.integers(1, 2)))
             ],
         }
-        if draw(st.booleans()):
-            block["caption"] = draw(_TEXT)
         return block
     if block_type == "chart":
         kind = draw(st.sampled_from(("bar", "line", "donut")))
@@ -123,8 +121,6 @@ def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, 
             "categories": categories,
             "series": series,
         }
-        if draw(st.booleans()):
-            block["caption"] = draw(_TEXT)
         return block
     if block_type == "metric":
         block = {
@@ -133,8 +129,6 @@ def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, 
             "label": draw(_TEXT),
             "value": draw(_TEXT),
         }
-        if draw(st.booleans()):
-            block["caption"] = draw(_TEXT)
         return block
     if block_type == "code":
         block = {"id": block_id, "type": "code", "code": draw(_TEXT)}
@@ -148,8 +142,6 @@ def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, 
             "path": "assets/gambar.png",
             "alt": draw(_TEXT),
         }
-        if draw(st.booleans()):
-            block["caption"] = draw(_TEXT)
         return block
     block = {
         "id": block_id,
@@ -157,8 +149,6 @@ def _block(draw, block_id: str, *, forced_type: str | None = None) -> dict[str, 
         "source": "assets/diagram.puml",
         "alt": draw(_TEXT),
     }
-    if draw(st.booleans()):
-        block["caption"] = draw(_TEXT)
     return block
 
 
@@ -179,8 +169,6 @@ def _deck_dict(draw) -> dict[str, object]:
         }
         if draw(st.booleans()):
             slide["notes"] = draw(_NOTES)
-        if draw(st.booleans()):
-            slide["source"] = {"text": draw(_TEXT)}
         slides.append(slide)
     return {
         "schema": "autooffice.deck/v1",
@@ -266,17 +254,14 @@ def test_make_key_accepts_valid_components(
 
 
 @settings(max_examples=30, deadline=None)
-@given(
-    slide_id=_VALID_SLIDE_ID,
-    leaf=st.sampled_from(("notes", "source.text")),
-)
-def test_make_slide_key_accepts_known_leaves(slide_id: str, leaf: str) -> None:
-    key = make_key(slide_id, None, leaf)
+@given(slide_id=_VALID_SLIDE_ID)
+def test_make_slide_key_accepts_notes(slide_id: str) -> None:
+    key = make_key(slide_id, None, "notes")
     parsed = parse_key(key)
 
     assert parsed.slide_id == slide_id
     assert parsed.block_id is None
-    assert parsed.leaf == leaf
+    assert parsed.leaf == "notes"
 
 
 @settings(max_examples=40, deadline=None)

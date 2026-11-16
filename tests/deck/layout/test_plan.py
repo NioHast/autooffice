@@ -27,7 +27,6 @@ def _slide(
     body_text: str,
     *,
     with_note: bool = False,
-    source: dict[str, str] | None = None,
 ) -> SlideIR:
     blocks = [
         block_factory("title", "text", fields={"text": "Judul"}, role="title"),
@@ -37,7 +36,7 @@ def _slide(
         blocks.append(
             block_factory("note", "text", fields={"text": "Catatan singkat"}, role="caption")
         )
-    return slide_factory(tuple(blocks), source=source)
+    return slide_factory(tuple(blocks))
 
 
 def _layout_map(spec: LayoutSpec) -> dict[str, LayoutSpec]:
@@ -181,25 +180,6 @@ def test_missing_optional_slot_does_not_redistribute_span(
     assert body_box.width_emu == grid.span_width(7)
 
 
-def test_source_is_not_placed_as_a_block(
-    block_factory: Callable[..., BlockIR],
-    slide_factory: Callable[..., SlideIR],
-    deck_factory: Callable[..., DeckIR],
-    demo_spec: LayoutSpec,
-    theme,
-) -> None:
-    slide = _slide(
-        block_factory,
-        slide_factory,
-        "Isi",
-        source={"text": "Sumber internal"},
-    )
-
-    plan = plan_deck(deck_factory((slide,)), theme, layouts=_layout_map(demo_spec))
-
-    assert tuple(box.block_id for box in plan.slides[0].boxes) == ("title", "body")
-
-
 def test_horizontal_overflow_returns_keys_and_fails_default_gate(
     block_factory: Callable[..., BlockIR],
     slide_factory: Callable[..., SlideIR],
@@ -329,8 +309,8 @@ def test_code_plan_box_has_room_for_filename_and_code(
         filename,
         available_width_emu=width - 2 * theme.spacing.card_padding_emu,
         theme=theme,
-        font_size_pt=max(theme.typography.body_pt, theme.typography.minimum_pt),
-        weight=600,
+        font_size_pt=max(theme.code.filename_pt, theme.typography.minimum_pt),
+        weight=theme.typography.weights[1],
     ).height_emu
     code_height = measure_code_text(
         code_text,

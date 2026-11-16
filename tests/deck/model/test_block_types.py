@@ -36,10 +36,8 @@ def test_all_block_keys_are_present(fixture_dir: Path) -> None:
         "s01.title.text",
         "s01.points.item1.text",
         "s01.points.item2.text",
-        "s01.image1.caption",
         "s01.table1.h1",
         "s01.table1.r1.c2",
-        "s01.table1.caption",
         "s01.chart1.title",
         "s01.chart1.cat1",
         "s01.chart1.cat2",
@@ -48,15 +46,12 @@ def test_all_block_keys_are_present(fixture_dir: Path) -> None:
         "s01.chart1.series1.name",
         "s01.chart1.series1.value1",
         "s01.chart1.series2.value4",
-        "s01.chart1.caption",
         "s01.snippet.code",
         "s01.snippet.filename",
         "s01.quote1.text",
         "s01.quote1.attribution",
-        "s01.process.caption",
         "s01.kpi1.label",
         "s01.kpi1.value",
-        "s01.kpi1.caption",
     }
 
     assert expected <= keys
@@ -117,32 +112,26 @@ def test_inline_markdown_is_normalized_in_ir_fields(fixture_dir: Path) -> None:
 def test_binding_kinds_and_sync_flags(fixture_dir: Path) -> None:
     bindings = {binding.key: binding for binding in _all_blocks_ir(fixture_dir).keys.bindings}
 
-    assert bindings["s01.image1.caption"].kind == "media_text"
     assert bindings["s01.chart1.title"].kind == "text"
     assert bindings["s01.chart1.title"].sync is False
     assert bindings["s01.chart1.series1.value1"].kind == "data"
     assert bindings["s01.chart1.series1.value1"].sync is False
     assert bindings["s01.notes"].kind == "notes"
-    assert bindings["s01.source.text"].kind == "source"
+    assert not any(binding.block_id == "image1" for binding in bindings.values())
 
 
-def test_alt_text_and_source_url_are_not_keys(fixture_dir: Path) -> None:
+def test_alt_text_is_not_a_key(fixture_dir: Path) -> None:
     keys = set(_all_blocks_ir(fixture_dir).keys.keys())
 
     assert "s01.image1.alt" not in keys
     assert "s01.chart1.alt" not in keys
     assert "s01.process.alt" not in keys
-    assert "s01.source.url" not in keys
 
 
-def test_source_and_notes_are_in_ir(fixture_dir: Path) -> None:
+def test_notes_are_in_ir(fixture_dir: Path) -> None:
     slide = _all_blocks_ir(fixture_dir).slides[0]
 
     assert slide.notes == "Slide custom dengan seluruh block type."
-    assert slide.source == {
-        "text": "Sumber: fixture internal",
-        "url": "http://example.com/source",
-    }
 
 
 def test_custom_spans_are_preserved(fixture_dir: Path) -> None:

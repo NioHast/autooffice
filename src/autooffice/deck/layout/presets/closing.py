@@ -40,5 +40,5 @@ LAYOUT = LayoutSpec(
         ("contact",),
         ("note",),
     ),
-    accepts_source=True,
+    vertical_align="center",
 )

@@ -1,8 +1,8 @@
 """Text box native dan renderer block berbasis teks untuk PPTX."""
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.xmlchemy import OxmlElement
 from pptx.shapes.base import BaseShape
@@ -10,7 +10,7 @@ from pptx.slide import Slide
 from pptx.text.text import TextFrame, _Paragraph
 from pptx.util import Emu
 
-from autooffice.deck.layout.measure import measure_code_text, measure_text
+from autooffice.deck.layout.measure import measure_code_text, measure_text, role_typography
 from autooffice.deck.model.deck_ir import BlockIR
 from autooffice.design.theme import Theme
 
@@ -24,11 +24,11 @@ from .shapes import (
     field_text,
     primary_typeface,
     record_render_warning,
+    rgb,
     set_chrome_shape,
     set_keyed_shape,
 )
 
-_TITLE_ROLES = frozenset({"display", "title"})
 _ROLE_COLORS = {
     "display": "ink",
     "title": "ink",
@@ -37,15 +37,6 @@ _ROLE_COLORS = {
     "caption": "muted",
     "label": "ink_secondary",
     "kicker": "accent",
-}
-_ROLE_WEIGHTS = {
-    "display": 800,
-    "title": 700,
-    "lead": 600,
-    "body": 400,
-    "caption": 400,
-    "label": 600,
-    "kicker": 700,
 }
 
 
@@ -58,32 +49,33 @@ class TextStyle:
     color: str
     family: str
     line_height: float
+    tracking_em: float
 
 
-def role_style(theme: Theme, role: str | None) -> TextStyle:
+def role_style(theme: Theme, role: str | None, *, layout_id: str | None = None) -> TextStyle:
     """Petakan role authoring ke ukuran, bobot, dan warna token."""
     active_role = role if role in _ROLE_COLORS else "body"
-    typography = theme.typography
-    size_pt = typography.title_pt if active_role in _TITLE_ROLES else typography.body_pt
-    if active_role in {"caption", "label", "kicker"}:
-        size_pt = typography.minimum_pt
+    spec = role_typography(theme, active_role, layout_id=layout_id)
     return TextStyle(
-        size_pt=max(size_pt, typography.minimum_pt),
-        weight=_ROLE_WEIGHTS[active_role],
+        size_pt=spec.size_pt,
+        weight=spec.weight,
         color=_color_for_role(theme, active_role),
-        family=typography.family,
-        line_height=typography.line_height,
+        family=theme.typography.family,
+        line_height=theme.typography.line_height,
+        tracking_em=spec.tracking_em,
     )
 
 
-def body_style(theme: Theme, *, weight: int = 400, color: str | None = None) -> TextStyle:
-    """Gaya body standar yang dapat dipakai caption tabel dan media."""
+def body_style(theme: Theme, *, weight: int | None = None, color: str | None = None) -> TextStyle:
+    """Gaya body standar yang bobotnya berasal dari token ``weights[0]``."""
+    body = role_typography(theme, "body")
     return TextStyle(
-        size_pt=max(theme.typography.body_pt, theme.typography.minimum_pt),
-        weight=weight,
+        size_pt=body.size_pt,
+        weight=body.weight if weight is None else weight,
         color=theme.colors.ink if color is None else color,
         family=theme.typography.family,
         line_height=theme.typography.line_height,
+        tracking_em=body.tracking_em,
     )
 
 
@@ -91,10 +83,23 @@ def code_style(theme: Theme) -> TextStyle:
     """Gaya teks code dari token code."""
     return TextStyle(
         size_pt=max(theme.code.size_pt, theme.typography.minimum_pt),
-        weight=400,
+        weight=theme.typography.weights[0],
         color=theme.colors.ink,
         family=theme.code.family,
         line_height=theme.code.line_height,
+        tracking_em=theme.typography.tracking_em,
+    )
+
+
+def code_filename_style(theme: Theme) -> TextStyle:
+    """Gaya filename code dari token ``code.filename_pt``."""
+    return TextStyle(
+        size_pt=max(theme.code.filename_pt, theme.typography.minimum_pt),
+        weight=theme.typography.weights[1],
+        color=theme.colors.ink_secondary,
+        family=theme.typography.family,
+        line_height=theme.typography.line_height,
+        tracking_em=theme.typography.tracking_em,
     )
 
 
@@ -210,19 +215,6 @@ def _add_text_shape(
     return shape
 
 
-def add_caption(
-    slide: Slide,
-    box: Box,
-    *,
-    key: str,
-    text: str,
-    theme: Theme,
-) -> BaseShape:
-    """Buat caption media berkey dengan gaya caption."""
-    style = body_style(theme, weight=400, color=theme.colors.muted)
-    return add_keyed_text(slide, box, key=key, text=text, style=style, theme=theme)
-
-
 def render_text_block(
     slide: Slide,
     block: BlockIR,
@@ -232,7 +224,6 @@ def render_text_block(
     slide_id: str,
 ) -> tuple[BaseShape, ...]:
     """Render block ``text`` menjadi satu atau dua text box berkey."""
-    inner = box.inset(theme.spacing.card_padding_emu)
     heading = field_optional_text(block.fields, "heading")
     body = field_text(block.fields, "text", block_id=block.block_id)
     body_text_style = role_style(theme, block.role)
@@ -241,7 +232,7 @@ def render_text_block(
         return (
             add_keyed_text(
                 slide,
-                inner,
+                box,
                 key=f"{namespace}.text",
                 text=body,
                 style=body_text_style,
@@ -249,25 +240,30 @@ def render_text_block(
             ),
         )
 
-    heading_style = body_style(theme, weight=600, color=theme.colors.ink_secondary)
+    heading_style = body_style(
+        theme,
+        weight=theme.typography.weights[1],
+        color=theme.colors.ink_secondary,
+    )
     heading_height = measure_text(
         heading,
-        available_width_emu=inner.width,
+        available_width_emu=box.width,
         theme=theme,
         font_size_pt=heading_style.size_pt,
         weight=heading_style.weight,
+        tracking_em=heading_style.tracking_em,
     ).height_emu
-    heading_height = min(max(1, heading_height), inner.height)
-    body_height = inner.height - heading_height
+    heading_height = min(max(1, heading_height), box.height)
+    body_height = box.height - heading_height
     if body_height <= 0:
         raise PptxRenderError(
             f"Block '{block.block_id}' tidak menyisakan ruang untuk teks setelah heading."
         )
-    heading_box = Box(left=inner.left, top=inner.top, width=inner.width, height=heading_height)
+    heading_box = Box(left=box.left, top=box.top, width=box.width, height=heading_height)
     body_box = Box(
-        left=inner.left,
-        top=inner.top + heading_height,
-        width=inner.width,
+        left=box.left,
+        top=box.top + heading_height,
+        width=box.width,
         height=body_height,
     )
     return (
@@ -299,11 +295,11 @@ def render_bullets_block(
     slide_id: str,
 ) -> tuple[BaseShape, ...]:
     """Render setiap item bullets sebagai paragraph native berkey sendiri."""
-    inner = box.inset(theme.spacing.card_padding_emu)
     items = field_sequence(block.fields, "items", block_id=block.block_id)
     ordered = bool(block.fields.get("ordered", False))
-    indent = theme.spacing.md_emu
-    available_width = inner.width - indent
+    indent = theme.spacing.card_padding_emu
+    item_gap = theme.spacing.sm_emu
+    available_width = box.width - indent
     if available_width <= 0:
         raise PptxRenderError(f"Block '{block.block_id}' tidak memiliki lebar untuk bullets.")
     style = body_style(theme)
@@ -317,22 +313,23 @@ def render_bullets_block(
                 theme=theme,
                 font_size_pt=style.size_pt,
                 weight=style.weight,
+                tracking_em=style.tracking_em,
             ).height_emu,
         )
         for item in items
     ]
     if not heights:
         raise PptxRenderError(f"Block bullets '{block.block_id}' tidak memiliki item.")
-    total = sum(heights)
-    if total > inner.height:
+    total = sum(heights) + item_gap * (len(heights) - 1)
+    if total > box.height:
         raise PptxRenderError(
             f"Block bullets '{block.block_id}' memerlukan tinggi {total} EMU, "
-            f"melebihi kotak {inner.height} EMU."
+            f"melebihi kotak {box.height} EMU."
         )
-    top = inner.top
+    top = box.top
     shapes: list[BaseShape] = []
     for index, (item, height) in enumerate(zip(items, heights, strict=True), start=1):
-        item_box = Box(left=inner.left, top=top, width=inner.width, height=height)
+        item_box = Box(left=box.left, top=top, width=box.width, height=height)
         shapes.append(
             add_keyed_text(
                 slide,
@@ -346,7 +343,7 @@ def render_bullets_block(
                 bullet_start=index,
             )
         )
-        top += height
+        top += height + item_gap
     return tuple(shapes)
 
 
@@ -358,21 +355,23 @@ def render_quote_block(
     *,
     slide_id: str,
 ) -> tuple[BaseShape, ...]:
-    """Render quote dan attribution sebagai text box berkey terpisah."""
-    inner = box.inset(theme.spacing.card_padding_emu)
+    """Render card quote dengan teks dan attribution berkey terpisah."""
     text = field_text(block.fields, "text", block_id=block.block_id)
     attribution = field_optional_text(block.fields, "attribution")
     text_style = role_style(theme, "body")
     namespace = f"{slide_id}.{block.block_id}"
+    inner = box.inset(theme.card.padding_emu)
+    shapes: list[BaseShape] = [_add_card(slide, box, theme, namespace=namespace)]
     text_height = measure_text(
         text,
         available_width_emu=inner.width,
         theme=theme,
         font_size_pt=text_style.size_pt,
         weight=text_style.weight,
+        tracking_em=text_style.tracking_em,
     ).height_emu
     text_height = min(max(1, text_height), inner.height)
-    shapes: list[BaseShape] = [
+    shapes.append(
         add_keyed_text(
             slide,
             Box(left=inner.left, top=inner.top, width=inner.width, height=text_height),
@@ -381,11 +380,11 @@ def render_quote_block(
             style=text_style,
             theme=theme,
         )
-    ]
+    )
     if attribution:
         attribution_style = body_style(
             theme,
-            weight=600,
+            weight=theme.typography.weights[1],
             color=theme.colors.ink_secondary,
         )
         remaining = inner.height - text_height
@@ -399,6 +398,7 @@ def render_quote_block(
             theme=theme,
             font_size_pt=attribution_style.size_pt,
             weight=attribution_style.weight,
+            tracking_em=attribution_style.tracking_em,
         ).height_emu
         attribution_height = min(max(1, attribution_height), remaining)
         shapes.append(
@@ -427,29 +427,39 @@ def render_metric_block(
     *,
     slide_id: str,
 ) -> tuple[BaseShape, ...]:
-    """Render metric label, value, dan caption dengan key masing-masing."""
-    inner = box.inset(theme.spacing.card_padding_emu)
+    """Render card metric dengan value dan label berkey masing-masing."""
     label = field_text(block.fields, "label", block_id=block.block_id)
     value = field_text(block.fields, "value", block_id=block.block_id)
-    caption = field_optional_text(block.fields, "caption")
     namespace = f"{slide_id}.{block.block_id}"
     status = block.fields.get("status")
-    status_name = status if isinstance(status, str) else "neutral"
-    value_style = TextStyle(
-        size_pt=max(theme.typography.title_pt, theme.typography.minimum_pt),
-        weight=800,
-        color=theme.colors.status.get(status_name, theme.colors.ink),
-        family=theme.typography.family,
-        line_height=theme.typography.line_height,
+    status_name = status if isinstance(status, str) else None
+    value_color = (
+        theme.colors.status[status_name]
+        if status_name in {"success", "warning", "danger"}
+        else theme.colors.ink
     )
-    label_style = body_style(theme, weight=600, color=theme.colors.ink_secondary)
-    caption_style = body_style(theme, weight=400, color=theme.colors.muted)
+    typography = theme.typography
+    value_style = TextStyle(
+        size_pt=max(typography.metric_pt, typography.minimum_pt),
+        weight=typography.weights[3],
+        color=value_color,
+        family=typography.family,
+        line_height=typography.line_height,
+        tracking_em=typography.tracking_em,
+    )
+    label_style = TextStyle(
+        size_pt=max(typography.label_pt, typography.minimum_pt),
+        weight=typography.weights[1],
+        color=theme.colors.ink_secondary,
+        family=typography.family,
+        line_height=typography.line_height,
+        tracking_em=typography.tracking_em,
+    )
     parts: list[tuple[str, str, TextStyle]] = [
         ("value", value, value_style),
         ("label", label, label_style),
     ]
-    if caption:
-        parts.append(("caption", caption, caption_style))
+    inner = box.inset(theme.card.padding_emu)
     heights = [
         max(
             1,
@@ -459,6 +469,7 @@ def render_metric_block(
                 theme=theme,
                 font_size_pt=style.size_pt,
                 weight=style.weight,
+                tracking_em=style.tracking_em,
             ).height_emu,
         )
         for _, text, style in parts
@@ -469,8 +480,8 @@ def render_metric_block(
             f"Block metric '{block.block_id}' memerlukan tinggi {total} EMU, "
             f"melebihi kotak {inner.height} EMU."
         )
+    shapes: list[BaseShape] = [_add_card(slide, box, theme, namespace=namespace)]
     top = inner.top
-    shapes: list[BaseShape] = []
     for (leaf, text, style), height in zip(parts, heights, strict=True):
         shapes.append(
             add_keyed_text(
@@ -494,22 +505,23 @@ def render_code_block(
     *,
     slide_id: str,
 ) -> tuple[BaseShape, ...]:
-    """Render code literal dan filename opsional sebagai native text box."""
+    """Render code literal dan filename opsional di atas kartu native."""
     inner = box.inset(theme.spacing.card_padding_emu)
     code = field_text(block.fields, "code", block_id=block.block_id)
     filename = field_optional_text(block.fields, "filename")
     namespace = f"{slide_id}.{block.block_id}"
     code_text_style = code_style(theme)
-    shapes: list[BaseShape] = []
+    shapes: list[BaseShape] = [_add_code_card(slide, box, theme, namespace=namespace)]
     top = inner.top
     if filename:
-        filename_style = body_style(theme, weight=600, color=theme.colors.ink_secondary)
+        filename_style = code_filename_style(theme)
         filename_height = measure_text(
             filename,
             available_width_emu=inner.width,
             theme=theme,
             font_size_pt=filename_style.size_pt,
             weight=filename_style.weight,
+            tracking_em=filename_style.tracking_em,
         ).height_emu
         filename_height = min(max(1, filename_height), inner.height)
         shapes.append(
@@ -522,7 +534,7 @@ def render_code_block(
                 theme=theme,
             )
         )
-        top += filename_height
+        top += filename_height + theme.spacing.sm_emu
     remaining = inner.bottom - top
     if remaining <= 0:
         raise PptxRenderError(f"Block code '{block.block_id}' tidak memiliki ruang teks.")
@@ -547,10 +559,11 @@ def render_code_block(
         )
         line_number_style = TextStyle(
             size_pt=code_text_style.size_pt,
-            weight=400,
+            weight=theme.typography.weights[0],
             color=theme.colors.muted,
             family=theme.code.family,
             line_height=theme.code.line_height,
+            tracking_em=theme.typography.tracking_em,
         )
         shapes.append(
             add_chrome_text(
@@ -583,6 +596,49 @@ def render_code_block(
     return tuple(shapes)
 
 
+def _add_card(slide: Slide, box: Box, theme: Theme, *, namespace: str) -> BaseShape:
+    """Gambar card metric/quote tanpa garis dan tanpa bayangan.
+
+    Radius memakai teknik yang sama dengan kartu code: ``adjustments[0]``
+    dihitung dari radius token dibagi sisi pendek shape.
+    """
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Emu(box.left),
+        Emu(box.top),
+        Emu(box.width),
+        Emu(box.height),
+    )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = rgb(theme.card.fill)
+    shape.line.fill.background()
+    shape.shadow.inherit = False
+    short_side = min(box.width, box.height)
+    shape.adjustments[0] = min(0.5, theme.card.radius_emu / short_side)
+    set_chrome_shape(shape, f"card:{namespace}")
+    return shape
+
+
+def _add_code_card(slide: Slide, box: Box, theme: Theme, *, namespace: str) -> BaseShape:
+    """Gambar kartu code di belakang teks dengan fill, border, dan radius token."""
+    shape = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Emu(box.left),
+        Emu(box.top),
+        Emu(box.width),
+        Emu(box.height),
+    )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = rgb(theme.colors.surface)
+    shape.line.color.rgb = rgb(theme.colors.border)
+    shape.line.width = Emu(theme.spacing.divider_emu)
+    shape.shadow.inherit = False
+    short_side = min(box.width, box.height)
+    shape.adjustments[0] = min(0.5, theme.radius.md_emu / short_side)
+    set_chrome_shape(shape, f"code-card:{namespace}")
+    return shape
+
+
 def _code_line_count(code: str) -> int:
     """Hitung baris logis code; baris kosong tetap mendapat nomor."""
     normalized = code.replace("\r\n", "\n").replace("\r", "\n")
@@ -603,35 +659,6 @@ def _line_number_gutter_width(
         theme=theme,
     )
     return max(1, measurement.width_emu)
-
-
-def render_source_text(
-    slide: Slide,
-    slide_id: str,
-    source: Mapping[str, str],
-    theme: Theme,
-) -> BaseShape:
-    """Render ``source.text`` di dalam margin bawah yang disediakan token."""
-    text = source.get("text", "")
-    if not text:
-        raise PptxRenderError(f"Slide '{slide_id}' memiliki source tanpa teks.")
-    margin = max(theme.grid.margin_bottom_emu, theme.spacing.md_emu)
-    box = Box(
-        left=theme.grid.margin_left_emu,
-        top=theme.grid.slide_height_emu - margin,
-        width=theme.grid.slide_width_emu - theme.grid.margin_left_emu - theme.grid.margin_right_emu,
-        height=margin,
-    )
-    style = role_style(theme, "caption")
-    return add_keyed_text(
-        slide,
-        box,
-        key=f"{slide_id}.source.text",
-        text=text,
-        style=style,
-        theme=theme,
-        hyperlink=source.get("url"),
-    )
 
 
 def _color_for_role(theme: Theme, role: str) -> str:
@@ -675,7 +702,7 @@ def _write_paragraphs(
         if bullet:
             _set_bullet(
                 paragraph,
-                indent_emu=theme.spacing.md_emu,
+                indent_emu=theme.spacing.card_padding_emu,
                 ordered=ordered,
                 start_at=bullet_start + index,
                 typeface=typeface,
@@ -687,7 +714,7 @@ def _write_paragraphs(
                 size_pt=style.size_pt,
                 weight=style.weight,
                 color=style.color,
-                tracking_em=theme.typography.tracking_em,
+                tracking_em=style.tracking_em,
             )
             if warning is not None:
                 record_render_warning(warning)
