@@ -118,8 +118,15 @@ def spacer(twips: int) -> str:
     )
 
 
-def _div(style: str, content: str) -> str:
-    return f'::: {{custom-style="{style}"}}\n{content.strip()}\n:::'
+def _div(style: str, content: str, *, lang: str | None = None) -> str:
+    attributes = f'custom-style="{style}"'
+    if lang is not None:
+        attributes += f' lang="{lang}"'
+    return f"::: {{{attributes}}}\n{content.strip()}\n:::"
+
+
+def _styled_span(style: str, content: str) -> str:
+    return f'[{content}]{{custom-style="{style}"}}'
 
 
 def _one_line(text: str) -> str:
@@ -342,15 +349,6 @@ def _render_preface(document: Document) -> str:
     )
 
 
-def _emphasize_paragraphs(text: str) -> str:
-    paragraphs = [
-        paragraph.strip()
-        for paragraph in re.split(r"\n[ \t]*\n", text.strip())
-        if paragraph.strip()
-    ]
-    return "\n\n".join(f"*{paragraph}*" for paragraph in paragraphs)
-
-
 def _render_abstract(
     document: Document,
     *,
@@ -371,12 +369,19 @@ def _render_abstract(
             key=key,
         )
 
+    body_style = "AbstractBodyEn" if english else "AbstractBody"
+    lang = "en-US" if english else None
     blocks: list[str] = [f"# {label} {{-}}"]
-    content = _emphasize_paragraphs(text) if english else text.strip()
-    blocks.append(_div("AbstractBody", content))
+    blocks.append(_div(body_style, text.strip(), lang=lang))
     if keywords:
         joined = ", ".join(keywords)
-        blocks.append(_div("AbstractKeywords", f"**{keyword_label}** *{joined}*"))
+        blocks.append(
+            _div(
+                "AbstractKeywords",
+                f"**{keyword_label}** {_styled_span('AbstractKeywordText', joined)}",
+                lang=lang,
+            )
+        )
     blocks.append(page_break())
     return "\n\n".join(blocks)
 

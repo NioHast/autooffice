@@ -170,8 +170,8 @@ class LayoutReport:
 
 CODE_STYLES = frozenset({"sourcecode", "verbatimchar", "htmlcode", "htmlpreformatted"})
 CAPTION_STYLES = frozenset({"caption", "imagecaption", "tablecaption"})
-ABSTRACT_STYLES = frozenset({"abstractbody", "abstractkeywords"})
-ABSTRACT_BOLD_STRIP_STYLES = frozenset({"abstractbody"})
+ABSTRACT_STYLES = frozenset({"abstractbody", "abstractbodyen", "abstractkeywords"})
+ABSTRACT_BOLD_STRIP_STYLES = frozenset({"abstractbody", "abstractbodyen"})
 FIGURE_STYLES = frozenset({"figure", "captionedfigure", "figurecaption"})
 CUSTOM_HEADING_STYLES = frozenset({"chaptertitle"})
 CHAPTER_HEADING_STYLES = frozenset({"heading1", "chaptertitle"})

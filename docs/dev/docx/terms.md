@@ -7,6 +7,31 @@ yang ditulis miring. Stage `terms` menerapkan style, memverifikasi invariant,
 dan menulis daftar tinjauan. Stage ini hanya aktif bila build memakai
 `--terms`.
 
+## Daftar Isi
+
+- [Sumber italic](#sumber-italic)
+- [Berkas glosarium](#berkas-glosarium)
+- [Penanda istilah](#penanda-istilah)
+- [Stage terms](#stage-terms)
+- [Verifikasi](#verifikasi)
+- [Review dan verifikasi](#review-dan-verifikasi)
+- [API package](#api-package)
+- [Batasan](#batasan)
+
+## Sumber italic
+
+Italic istilah asing berasal dari style karakter `IstilahAsing` (italic dan
+`w:lang en-US`), bukan dari penanda `*...*` di Markdown. Italic abstrak Inggris
+berasal dari style paragraf `AbstractBodyEn`; teks kata kunci memakai style
+karakter `AbstractKeywordText`. Dengan demikian front matter tidak memuat
+asterisk untuk italic, dan penulisan Markdown tidak perlu mengetahui style
+DOCX.
+
+Italic daftar pustaka berasal dari CSL (`citation.csl`), bukan dari Markdown
+maupun glosarium. Italic bawaan style `Caption`, `TableCaption`,
+`ImageCaption`, dan `BlockText` juga sah dan tidak diperiksa sebagai
+pelanggaran istilah.
+
 ## Berkas glosarium
 
 Glosarium paket berada di:
@@ -26,13 +51,18 @@ Format TSV wajib memakai header `term` dan `italic`:
 ```tsv
 term	italic
 machine learning	yes
-data	no
+big data	yes
 ```
 
 Header wajib persis `term<TAB>italic`; header lain ditolak dengan error
 `GLOSSARY-HEADER`. Setiap baris harus memiliki tepat dua kolom. Nilai
 `italic` hanya `yes` atau `no`. Baris kosong dan baris berawalan `#`
 diabaikan.
+
+Glosarium paket hanya memuat entri `yes`: setiap istilah di dalamnya
+diwajibkan memakai style `IstilahAsing`. Entri `no` tetap diterima pada
+glosarium pengguna dan berarti istilah tersebut tidak diproses sebagai istilah
+asing; verifikasi tidak mewajibkan entri `no` ditulis tegak.
 
 Pencocokan istilah:
 
@@ -92,10 +122,13 @@ Style:
 
 - istilah `italic: yes` harus memakai style `IstilahAsing`;
 - run `IstilahAsing` harus efektif italic dan memakai `en-US`;
-- istilah `italic: no` tidak boleh miring atau memakai `IstilahAsing`;
 - run `IstilahAsing` harus berisi istilah yang ada di glosarium;
 - penanda yang masih tersisa adalah pelanggaran;
 - formatting italic manual tanpa style dilaporkan sebagai peringatan.
+
+Entri `italic: no` dilewati oleh verifikasi. Pemeriksaan lama yang mewajibkan
+entri `no` tegak dihapus karena italic sah dapat berasal dari style paragraf
+(mis. abstrak Inggris), bukan hanya dari formatting langsung.
 
 Pelanggaran menggagalkan build dengan `TermsError` dan exit code 1. Perbaiki
 naskah atau glosarium, bukan DOCX.

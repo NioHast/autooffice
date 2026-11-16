@@ -34,11 +34,16 @@ STYLE_REFERENCE_PART = "word/styles.xml"
 DEFAULT_REFERENCE_NAME = "reference.docx"
 
 # Style yang nilainya dibekukan di ``reference.docx`` sumber dan hanya
-# diverifikasi setiap build, bukan ditulis ulang. Empat style pertama punya
-# ``StyleSpec`` di bawah; ``TableofFigures`` diverifikasi stage ``lists``.
+# diverifikasi setiap build, bukan ditulis ulang. ``AbstractBody`` dan
+# ``AbstractKeywords`` punya ``StyleSpec`` di :func:`style_specs_for_format`,
+# ``AbstractBodyEn``/``AbstractKeywordText`` diverifikasi lewat
+# :func:`_baked_abstract_specs`, dan ``TableofFigures`` diverifikasi stage
+# ``lists``.
 BAKED_STYLE_IDS: frozenset[str] = frozenset(
     {
         "AbstractBody",
+        "AbstractBodyEn",
+        "AbstractKeywordText",
         "AbstractKeywords",
         "IstilahAsing",
         "IstilahReview",
@@ -384,6 +389,36 @@ def _abstract_spec(style_id: str, format_spec: Format) -> StyleSpec:
     )
 
 
+def _abstract_en_spec(format_spec: Format) -> StyleSpec:
+    """Style abstrak Inggris: warisi tata letak ``AbstractBody``, tambah italic."""
+
+    italic = format_spec.abstract.english_italic
+    return StyleSpec(
+        style_id="AbstractBodyEn",
+        style_type="paragraph",
+        based_on="AbstractBody",
+        rpr={
+            "i": italic,
+            "iCs": italic,
+            "lang": {"val": "en-US"},
+        },
+        name="AbstractBodyEn",
+    )
+
+
+def _abstract_keyword_text_spec() -> StyleSpec:
+    """Style karakter teks kata kunci; italic berasal dari style, bukan asterisk."""
+
+    return StyleSpec(
+        style_id="AbstractKeywordText",
+        style_type="character",
+        based_on="DefaultParagraphFont",
+        rpr={"i": True, "iCs": True},
+        name="AbstractKeywordText",
+        custom=True,
+    )
+
+
 def _cover_spec(style_id: str) -> StyleSpec:
     bold = style_id == "CoverTitle"
     return StyleSpec(
@@ -451,6 +486,28 @@ def style_specs_for_format(
         specs[style_id] = _cover_spec(style_id)
     for spec in TERM_STYLES:
         specs[spec.style_id] = spec
+    return specs
+
+
+def _baked_abstract_specs(format_spec: Format) -> dict[str, StyleSpec]:
+    """Spesifikasi verifikasi style abstrak yang dibekukan di source.
+
+    Kedua style tidak lagi ditulis oleh :func:`style_specs_for_format`; nilai
+    di ``reference.docx`` sumber harus cocok dengan ``format.yaml`` dan
+    diperiksa setiap build.
+    """
+
+    return {
+        "AbstractBodyEn": _abstract_en_spec(format_spec),
+        "AbstractKeywordText": _abstract_keyword_text_spec(),
+    }
+
+
+def _verification_specs(format_spec: Format) -> dict[str, StyleSpec]:
+    """Gabungan spec yang ditulis stage dan spec style yang dibekukan."""
+
+    specs = style_specs_for_format(format_spec)
+    specs.update(_baked_abstract_specs(format_spec))
     return specs
 
 
@@ -541,7 +598,7 @@ def build_reference_docx(
         footer=page.footer_distance,
         gutter=page.gutter,
     )
-    verify_style_contract(package, specs)
+    verify_style_contract(package, _verification_specs(format_spec))
     verify_heading_numbering(
         package,
         numbering_spec,
@@ -569,7 +626,7 @@ def verify_reference_docx(
 
     format_spec = _resolve_format_arg(format_spec, format)
     package = DocumentPackage.load(Path(path))
-    verify_style_contract(package, style_specs_for_format(format_spec))
+    verify_style_contract(package, _verification_specs(format_spec))
     verify_heading_numbering(
         package,
         numbering or NumberingSpec(),

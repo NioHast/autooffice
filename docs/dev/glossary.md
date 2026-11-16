@@ -5,6 +5,12 @@ dokumentasi developer. Untuk glosarium istilah asing yang ditulis miring,
 lihat [docx/terms.md](docx/terms.md); halaman itu adalah fitur naskah, bukan
 daftar istilah arsitektur.
 
+Italic istilah asing tidak ditulis dengan asterisk Markdown. Glosarium paket
+hanya berisi entri `yes`; gaya datang dari style `IstilahAsing`. Abstrak
+Inggris memakai style paragraf `AbstractBodyEn` dan kata kunci memakai style
+karakter `AbstractKeywordText`, sehingga teks sumber tetap bebas penanda
+italic.
+
 | Istilah | Arti | Rujukan |
 | --- | --- | --- |
 | Adeu | Produk/MCP server eksternal docx↔LLM; repo ini menyediakan integrasi manifest/bookmark dan modul rekonsiliasi internal. | [adeu-integration.md](adeu-integration.md) |

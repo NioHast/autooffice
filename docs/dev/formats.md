@@ -62,6 +62,11 @@ Top-level key:
 | `assets` | `logo` dan `reference_docx`. |
 
 Blok `abstract` mengatur font dan spasi isi abstrak serta kata kunci.
+`abstract.english_italic` (boolean) menentukan apakah style `AbstractBodyEn`
+untuk abstrak Inggris membawa `w:i`/`w:iCs`; bahasa paragrafnya tetap
+`en-US`. Style itu dibekukan di `reference.docx` sumber, jadi nilainya
+diverifikasi saat build: mengubahnya berarti mengubah `word/styles.xml`
+sumber juga.
 
 Blok kode selalu monokrom. Pandoc dijalankan dengan
 `--syntax-highlighting=none`, sehingga tidak menulis token `KeywordTok`,
@@ -82,6 +87,8 @@ Nilai final:
 - Halaman A4 portrait, margin atas 4 cm, bawah 3 cm, kiri 4 cm, kanan 3 cm.
 - Body Times New Roman 12 pt, spasi 1,5, justify, first line indent 1,25 cm.
 - Isi abstrak dan kata kunci Times New Roman 10 pt, spasi 1,0.
+- Abstrak Inggris memakai style `AbstractBodyEn` (italic, `en-US`); kata kunci
+  memakai style karakter `AbstractKeywordText`.
 - Heading 1 rata tengah, bold, 12 pt. Heading 2 dan 3 bold, 12 pt, indent
   gantung 1,25 cm.
 - Caption gambar dan tabel Times New Roman 10 pt, spasi 1,0.

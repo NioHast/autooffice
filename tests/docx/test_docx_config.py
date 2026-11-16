@@ -121,6 +121,7 @@ def test_load_builtin_format() -> None:
     assert format_.abstract.space_before == 0
     assert format_.abstract.space_after == 0
     assert format_.abstract.alignment == "justify"
+    assert format_.abstract.english_italic is True
     assert format_.figures.caption_alignment == "center"
     assert format_.figures.image_alignment == "center"
     assert format_.figures.numbering == "chapter"
@@ -242,8 +243,8 @@ def test_abstract_unknown_key_rejected(tmp_path: Path) -> None:
     text = format_yaml.read_text(encoding="utf-8")
     format_yaml.write_text(
         text.replace(
-            "  alignment: both\n\nheadings:",
-            "  alignment: both\n  bogus: 1\n\nheadings:",
+            "  english_italic: true\n\nheadings:",
+            "  english_italic: true\n  bogus: 1\n\nheadings:",
         ),
         encoding="utf-8",
         newline="\n",
@@ -277,6 +278,23 @@ def test_abstract_defaults_inherit_body_when_omitted(tmp_path: Path) -> None:
     assert format_.abstract.space_before == 0
     assert format_.abstract.space_after == 0
     assert format_.abstract.alignment == body.alignment
+    assert format_.abstract.english_italic is True
+
+
+def test_abstract_english_italic_must_be_boolean(tmp_path: Path) -> None:
+    data_root = _copy_format(tmp_path)
+    format_yaml = data_root / "formats" / "undip-msi" / "format.yaml"
+    text = format_yaml.read_text(encoding="utf-8")
+    format_yaml.write_text(
+        text.replace("  english_italic: true", '  english_italic: "yes"'),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    with pytest.raises(ConfigError) as error:
+        load_format("undip-msi", root=data_root)
+    assert error.value.code == "CFG-TYPE"
+    assert error.value.key == "abstract.english_italic"
 
 
 def test_missing_margin_rejected(tmp_path: Path) -> None:

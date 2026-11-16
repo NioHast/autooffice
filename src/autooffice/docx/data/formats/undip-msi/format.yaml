@@ -45,6 +45,9 @@ abstract:
   space_before: 0pt
   space_after: 0pt
   alignment: both
+  # Abstrak Inggris memakai style AbstractBodyEn (italic, lang en-US) dari
+  # reference.docx, bukan penanda italic Markdown.
+  english_italic: true
 
 headings:
   styles:
