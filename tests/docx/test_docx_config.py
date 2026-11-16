@@ -91,12 +91,8 @@ def _minimal_structure(extra: str = "") -> str:
         '  - {id: pendahuluan, title: "Pendahuluan"}\n\n'
         "back_matter:\n"
         "  - {id: bibliography, source: generated}\n\n"
-        "toc: false\n\n"
         "numbering:\n"
-        "  body: ARABIC_DOTTED\n\n"
-        "lists:\n"
-        "  figures: false\n"
-        "  tables: false\n" + extra
+        "  body: ARABIC_DOTTED\n" + extra
     )
 
 
@@ -418,17 +414,74 @@ def test_structure_template_missing(tmp_path: Path) -> None:
     assert error.value.code == "CFG-TEMPLATE-MISSING"
 
 
-def test_structure_toc_consistency(tmp_path: Path) -> None:
+def test_structure_toc_derived_from_front_matter(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_structure(
         data_root,
         "contoh",
-        _minimal_structure().replace("toc: false", "toc: true"),
+        _minimal_structure().replace(
+            "  - {id: cover, source: generated}\n",
+            "  - {id: cover, source: generated}\n  - {id: toc, source: generated}\n",
+        ),
+    )
+
+    structure = load_structure("contoh", root=data_root)
+    assert structure.toc is True
+
+    _write_structure(data_root, "tanpa-toc", _minimal_structure())
+    without_toc = load_structure("tanpa-toc", root=data_root)
+    assert without_toc.toc is False
+
+
+def test_structure_lists_derived_from_front_matter(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_structure(
+        data_root,
+        "contoh",
+        _minimal_structure().replace(
+            "  - {id: cover, source: generated}\n",
+            "  - {id: cover, source: generated}\n"
+            "  - {id: list_of_tables, source: generated}\n"
+            "  - {id: list_of_figures, source: generated}\n",
+        ),
+    )
+
+    structure = load_structure("contoh", root=data_root)
+    assert structure.lists.tables is True
+    assert structure.lists.figures is True
+
+    _write_structure(data_root, "tanpa-daftar", _minimal_structure())
+    without_lists = load_structure("tanpa-daftar", root=data_root)
+    assert without_lists.lists.tables is False
+    assert without_lists.lists.figures is False
+
+
+def test_structure_toc_key_rejected(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_structure(
+        data_root,
+        "contoh",
+        _minimal_structure() + "\ntoc: true\n",
     )
 
     with pytest.raises(ConfigError) as error:
         load_structure("contoh", root=data_root)
-    assert error.value.code == "CFG-CONDITIONAL"
+    assert error.value.code == "CFG-UNKNOWN-KEY"
+    assert error.value.key == "structure.toc"
+
+
+def test_structure_lists_key_rejected(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_structure(
+        data_root,
+        "contoh",
+        _minimal_structure() + "\nlists:\n  figures: true\n  tables: true\n",
+    )
+
+    with pytest.raises(ConfigError) as error:
+        load_structure("contoh", root=data_root)
+    assert error.value.code == "CFG-UNKNOWN-KEY"
+    assert error.value.key == "structure.lists"
 
 
 def test_structure_unknown_keys(tmp_path: Path) -> None:

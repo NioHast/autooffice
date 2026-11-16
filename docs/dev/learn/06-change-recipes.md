@@ -144,7 +144,8 @@ Cara memeriksa:
 
 - check tidak menghasilkan `CFG-UNKNOWN-KEY`;
 - nilai baru terlihat di DOCX, misalnya margin atau caption;
-- TOC dan daftar konsisten dengan `structure.toc` dan `structure.lists`;
+- TOC dan daftar berasal dari `front_matter`; `structure.toc` dan
+  `structure.lists` adalah nilai turunannya;
 - tidak ada key yang hanya disimpan tetapi tidak dibaca kode;
 - jika mengubah perilaku output, jalankan tes konfigurasi dan golden terkait.
 

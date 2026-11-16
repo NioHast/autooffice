@@ -13,16 +13,10 @@ body:
 back_matter:
   - {id: bibliography, source: generated}
 
-toc: false
-
 numbering:
   body: ARABIC_DOTTED
   sub_dot: true
   subsub_dot: true
-
-lists:
-  figures: false
-  tables: false
 
 # Assignment tidak menampilkan dosen (`show_lecturer: false`).
 cover:
