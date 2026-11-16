@@ -66,6 +66,7 @@ class AbstractStyle:
     space_before: int
     space_after: int
     alignment: str
+    english_italic: bool
 
 
 @dataclass(frozen=True)

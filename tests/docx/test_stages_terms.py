@@ -188,7 +188,9 @@ def test_package_glossary_loads_all_entries() -> None:
 
     assert lines[0] == "term\titalic"
     assert len(glossary) == len(lines) - 1
-    assert "data" in glossary.entries
+    assert len(glossary) == 80
+    assert all(entry.italic for entry in glossary)
+    assert "dataset" in glossary.entries
 
 
 def test_glossary_duplicate_and_invalid_value(tmp_path: Path) -> None:
@@ -322,7 +324,7 @@ def test_verify_fails_for_remaining_marker(tmp_path: Path) -> None:
     assert "masih ada penanda" in report.violations[0]
 
 
-def test_verify_fails_when_italic_no_text_is_slanted(tmp_path: Path) -> None:
+def test_verify_ignores_italic_no_entry(tmp_path: Path) -> None:
     glossary = load_glossary(write_glossary(tmp_path, [("data", "no")]))
     document = Document()
     run = document.add_paragraph().add_run("data")
@@ -332,8 +334,7 @@ def test_verify_fails_when_italic_no_text_is_slanted(tmp_path: Path) -> None:
 
     report = verify_terms(DocumentPackage.load(path), glossary)
 
-    assert report.violations
-    assert "seharusnya tegak" in report.violations[0]
+    assert report.violations == ()
 
 
 def test_external_hyperlink_and_field_untouched(tmp_path: Path) -> None:

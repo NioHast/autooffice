@@ -212,7 +212,8 @@ masih ada `{{?istilah?}}`, putuskan istilahnya:
 2. tambahkan entri ke `istilah.tsv` di samping `document.md`, lalu build ulang.
 
 Kegagalan verifikasi istilah berarti ada pelanggaran style, misalnya istilah
-dengan `italic: no` ditulis miring atau istilah `italic: yes` ditulis tegak.
+`italic: yes` ditulis tegak atau run `IstilahAsing` tidak memakai `en-US`.
+Italic yang berasal dari style paragraf atau style caption bukan pelanggaran.
 Perbaiki naskah atau glosarium, bukan DOCX.
 
 ## Bantuan lanjutan

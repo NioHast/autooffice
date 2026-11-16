@@ -3,6 +3,7 @@
 import hashlib
 import zipfile
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from xml.etree import ElementTree
@@ -273,6 +274,49 @@ def test_abstract_10pt_spacing_10_and_indent(tmp_path: Path, undip_format: Forma
     assert_indent(keywords, first_line=0)
 
 
+def test_abstract_english_styles(tmp_path: Path, undip_format: Format) -> None:
+    _, output = make_reference(tmp_path, undip_format)
+    styles = read_xml(output, "word/styles.xml")
+
+    body_en = get_style(styles, "AbstractBodyEn")
+    assert child(body_en, "name").get(f"{W}val") == "AbstractBodyEn"
+    assert child(body_en, "basedOn").get(f"{W}val") == "AbstractBody"
+    body_en_rpr = body_en.find(f"{W}rPr")
+    assert body_en_rpr is not None
+    assert on_off(body_en_rpr, "i") is True
+    assert on_off(body_en_rpr, "iCs") is True
+    assert child(body_en_rpr, "lang").get(f"{W}val") == "en-US"
+    assert body_en.find(f"{W}pPr") is None
+
+    keyword_text = get_style(styles, "AbstractKeywordText")
+    assert child(keyword_text, "name").get(f"{W}val") == "AbstractKeywordText"
+    assert keyword_text.get(f"{W}type") == "character"
+    assert child(keyword_text, "basedOn").get(f"{W}val") == "DefaultParagraphFont"
+    keyword_rpr = keyword_text.find(f"{W}rPr")
+    assert keyword_rpr is not None
+    assert on_off(keyword_rpr, "i") is True
+    assert on_off(keyword_rpr, "iCs") is True
+
+
+def test_abstract_english_italic_can_be_disabled(
+    tmp_path: Path,
+    undip_format: Format,
+) -> None:
+    disabled = replace(
+        undip_format,
+        abstract=replace(undip_format.abstract, english_italic=False),
+    )
+    _, output = make_reference(tmp_path, disabled)
+    styles = read_xml(output, "word/styles.xml")
+
+    body_en = get_style(styles, "AbstractBodyEn")
+    body_en_rpr = body_en.find(f"{W}rPr")
+    assert body_en_rpr is not None
+    assert on_off(body_en_rpr, "i") is False
+    assert on_off(body_en_rpr, "iCs") is False
+    assert child(body_en_rpr, "lang").get(f"{W}val") == "en-US"
+
+
 def test_all_cover_styles_centered_and_without_indent(
     tmp_path: Path,
     undip_format: Format,
@@ -313,6 +357,7 @@ def test_required_styles_preserved_and_terms_added(
     assert set(base) <= set(derived)
     assert "IstilahAsing" in derived
     assert "IstilahReview" in derived
+    assert {"AbstractBodyEn", "AbstractKeywordText"} <= set(derived)
 
     styles = read_xml(output, "word/styles.xml")
     foreign = get_style(styles, "IstilahAsing")

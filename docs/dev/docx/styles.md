@@ -9,15 +9,17 @@ Style inti yang dipakai pipeline:
 - `Normal`, `Heading1` sampai `Heading5`;
 - `TOCHeading`, `TOC1`, `TOC2`, `TOC3`;
 - `Caption`, `TableCaption`, `ImageCaption`, `Figure`, `TableofFigures`;
-- `AbstractBody`, `AbstractKeywords`;
+- `AbstractBody`, `AbstractBodyEn`, `AbstractKeywords`,
+  `AbstractKeywordText`;
 - `Bibliography`, `SourceCode`, `VerbatimChar`;
 - `IstilahAsing`, `IstilahReview`;
 - style sampul seperti `CoverTitle`, `CoverSubtitle`, `CoverName`,
   `CoverInstitution`, dan `CoverImage`.
 
-Style `AbstractBody`, `AbstractKeywords`, `IstilahAsing`, `IstilahReview`, dan
-`TableofFigures` dibekukan di `reference.docx` sumber. `style_reference` dan
-stage terkait hanya memverifikasi nilainya, tidak menulis ulang.
+Style `AbstractBody`, `AbstractBodyEn`, `AbstractKeywords`,
+`AbstractKeywordText`, `IstilahAsing`, `IstilahReview`, dan `TableofFigures`
+dibekukan di `reference.docx` sumber. `style_reference` dan stage terkait hanya
+memverifikasi nilainya, tidak menulis ulang.
 
 `style_reference` menghasilkan `reference.docx` turunan dari `format.yaml`.
 Sumber `reference.docx` di `src/autooffice/docx/data/` tidak pernah ditimpa.
@@ -47,8 +49,26 @@ didukung.
 
 Setelah 12 style dihapus, lima style yang sebelumnya ditulis saat build
 dibekukan ke source: `AbstractBody`, `AbstractKeywords`, `IstilahAsing`,
-`IstilahReview`, dan `TableofFigures`. Source kini memuat 56 style; derived
-reference dan output mempertahankan jumlah itu.
+`IstilahReview`, dan `TableofFigures`. Dua style abstrak tambahan
+(`AbstractBodyEn`, `AbstractKeywordText`) ikut dibekukan, sehingga source kini
+memuat 58 style; derived reference dan output mempertahankan jumlah itu.
+
+## Style abstrak
+
+`AbstractBody` dan `AbstractKeywords` memakai font, ukuran, spasi, dan
+perataan dari blok `abstract` di `format.yaml`. `AbstractBodyEn` mewarisi
+keduanya dari `AbstractBody` dan menambahkan `w:i`, `w:iCs`, serta
+`w:lang en-US`; front matter Inggris memakai style ini, sehingga teks abstrak
+tidak perlu dibungkus asterisk.
+
+`AbstractKeywordText` adalah style karakter italic untuk teks kata kunci,
+sedangkan label tebal (`**Keywords:**`/`**Kata Kunci:**`) tetap bold.
+`AbstractBodyEn` dan `AbstractBody` dikecualikan dari normalisasi layout agar
+spasi 1,0 dan indentasinya tidak diganti aturan body.
+
+Keempat style abstrak itu dibekukan di `reference.docx` sumber: `format.yaml`
+tidak lagi menghasilkan `AbstractBodyEn`/`AbstractKeywordText`; stage
+`style_reference` hanya memverifikasi nilainya.
 
 ## Numbering heading
 

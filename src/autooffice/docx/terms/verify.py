@@ -109,21 +109,9 @@ def verify_terms(package: object, glossary: Glossary) -> TermsVerifyReport:
             )
 
         for match in match_terms(model.text, glossary):
-            chars = model.chars[match.start : match.end]
             if not match.entry.italic:
-                runs = _unique_runs(chars)
-                uses_foreign_term_style = any(
-                    direct_style_id(run) == FOREIGN_TERM_STYLE for run in runs
-                )
-                uses_italic = any(resolver.effective_italic(run, paragraph) for run in runs)
-                if uses_foreign_term_style or uses_italic:
-                    violations.append(
-                        f"Paragraf {number}: istilah italic=no "
-                        f"{match.entry.term!r} muncul dengan italic/"
-                        "IstilahAsing; seharusnya tegak."
-                    )
                 continue
-
+            chars = model.chars[match.start : match.end]
             status = _term_status(model, match, resolver)
             if status == "plain":
                 violations.append(

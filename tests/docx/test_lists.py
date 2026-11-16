@@ -437,6 +437,29 @@ def test_caption_seq_fields_are_hybrid_chapter(tmp_path: Path) -> None:
     assert paragraph_text(figure) == "Gambar 2.1 Diagram Alur"
 
 
+def test_caption_seq_preserves_run_formatting(tmp_path: Path) -> None:
+    body = (
+        '<w:p><w:pPr><w:pStyle w:val="TableCaption"/></w:pPr>'
+        '<w:r><w:t xml:space="preserve">Tabel 2.1 </w:t></w:r>'
+        '<w:r><w:rPr><w:rStyle w:val="IstilahAsing"/><w:i/>'
+        '<w:lang w:val="en-US"/></w:rPr><w:t>pipeline</w:t></w:r>'
+        '<w:r><w:t xml:space="preserve"> AutoOffice</w:t></w:r>'
+        "</w:p>"
+    )
+    package = DocumentPackage.load(_write_package(tmp_path, body))
+
+    ListsStage().run(_ctx(package, front_matter=(), figures=False))
+
+    table = _caption(package, "Tabel 2.1 pipeline AutoOffice")
+    styled = []
+    for run in table.findall(qn("w:r")):
+        rpr = run.find(qn("w:rPr"))
+        rstyle = rpr.find(qn("w:rStyle")) if rpr is not None else None
+        if rstyle is not None and rstyle.get(qn("w:val")) == "IstilahAsing":
+            styled.append(paragraph_text(run))
+    assert styled == ["pipeline"]
+
+
 def test_caption_seq_uses_canonical_insert_field(monkeypatch, tmp_path: Path) -> None:
     package = _build_package(tmp_path)
     calls: list[tuple[tuple[str, ...], str]] = []

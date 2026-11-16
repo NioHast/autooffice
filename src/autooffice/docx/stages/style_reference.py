@@ -384,6 +384,36 @@ def _abstract_spec(style_id: str, format_spec: Format) -> StyleSpec:
     )
 
 
+def _abstract_en_spec(format_spec: Format) -> StyleSpec:
+    """Style abstrak Inggris: warisi tata letak ``AbstractBody``, tambah italic."""
+
+    italic = format_spec.abstract.english_italic
+    return StyleSpec(
+        style_id="AbstractBodyEn",
+        style_type="paragraph",
+        based_on="AbstractBody",
+        rpr={
+            "i": italic,
+            "iCs": italic,
+            "lang": {"val": "en-US"},
+        },
+        name="AbstractBodyEn",
+    )
+
+
+def _abstract_keyword_text_spec() -> StyleSpec:
+    """Style karakter teks kata kunci; italic berasal dari style, bukan asterisk."""
+
+    return StyleSpec(
+        style_id="AbstractKeywordText",
+        style_type="character",
+        based_on="DefaultParagraphFont",
+        rpr={"i": True, "iCs": True},
+        name="AbstractKeywordText",
+        custom=True,
+    )
+
+
 def _cover_spec(style_id: str) -> StyleSpec:
     bold = style_id == "CoverTitle"
     return StyleSpec(
@@ -447,6 +477,8 @@ def style_specs_for_format(
     specs["Figure"] = _figure_spec(format_spec)
     for style_id in ("AbstractBody", "AbstractKeywords"):
         specs[style_id] = _abstract_spec(style_id, format_spec)
+    specs["AbstractBodyEn"] = _abstract_en_spec(format_spec)
+    specs["AbstractKeywordText"] = _abstract_keyword_text_spec()
     for style_id in _COVER_STYLES:
         specs[style_id] = _cover_spec(style_id)
     for spec in TERM_STYLES:

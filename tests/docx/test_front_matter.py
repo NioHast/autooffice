@@ -201,18 +201,28 @@ def test_abstract_id_keywords_scalar_and_paragraph() -> None:
 
     assert "# ABSTRAK {-}" in output
     assert "Abstrak baris pertama.\n\nAbstrak baris kedua." in output
-    assert "**Kata Kunci:** *machine learning*" in output
+    assert '**Kata Kunci:** [machine learning]{custom-style="AbstractKeywordText"}' in output
     # Kata kunci string adalah satu entri, bukan dipecah per karakter/kata.
-    assert "**Kata Kunci:** *machine learning*" in output
     assert "m, a, c" not in output
+    assert "*machine learning*" not in output
 
 
 def test_abstract_en_keywords_list() -> None:
     output = _render()
 
     assert "# ABSTRACT {-}" in output
-    assert "*First paragraph.*\n\n*Second paragraph.*" in output
-    assert "**Keywords:** *pipeline, DOCX*" in output
+    assert "First paragraph.\n\nSecond paragraph." in output
+    assert '**Keywords:** [pipeline, DOCX]{custom-style="AbstractKeywordText"}' in output
+    assert "*First paragraph.*" not in output
+
+
+def test_abstract_english_uses_paragraph_style_not_asterisks() -> None:
+    output = _render()
+    abstract_en = output[output.index("# ABSTRACT {-}") : output.index("PENDAHULUAN")]
+
+    assert '::: {custom-style="AbstractBodyEn" lang="en-US"}' in abstract_en
+    assert '::: {custom-style="AbstractKeywords" lang="en-US"}' in abstract_en
+    assert not re.search(r"(?<!\*)\*(?!\*)", abstract_en)
 
 
 def test_abstract_without_title_uses_custom_style() -> None:
@@ -227,11 +237,12 @@ def test_abstract_without_title_uses_custom_style() -> None:
     abstract_en = output[output.index("# ABSTRACT {-}") : output.index("PENDAHULUAN")]
     assert "CoverLine" not in abstract_en
     assert _TITLE.upper() not in abstract_en
-    assert '::: {custom-style="AbstractBody"}' in abstract_en
-    assert '::: {custom-style="AbstractKeywords"}' in abstract_en
-    assert "*First paragraph.*" in abstract_en
-    assert "*Second paragraph.*" in abstract_en
-    assert "**Keywords:** *pipeline, DOCX*" in abstract_en
+    assert '::: {custom-style="AbstractBodyEn" lang="en-US"}' in abstract_en
+    assert 'custom-style="AbstractKeywords" lang="en-US"' in abstract_en
+    assert '::: {custom-style="AbstractBody"}' not in abstract_en
+    assert '**Keywords:** [pipeline, DOCX]{custom-style="AbstractKeywordText"}' in abstract_en
+    assert "*First paragraph.*" not in abstract_en
+    assert "*Second paragraph.*" not in abstract_en
 
 
 def test_front_matter_order_and_no_toc_field() -> None:

@@ -246,7 +246,8 @@ Berkas yang disentuh:
 Langkah:
 
 1. pastikan header TSV tepat `term<TAB>italic`;
-2. nilai `italic` hanya `yes` atau `no`;
+2. nilai `italic` di glosarium paket selalu `yes`; `no` hanya untuk override
+   pengguna dan berarti istilah tidak diproses;
 3. tambahkan marker di Markdown bila istilah belum diputuskan;
 4. jalankan build dengan `--terms`:
 
@@ -262,7 +263,6 @@ Cara memeriksa:
 - review file berisi satu istilah per baris dan deterministik;
 - tidak ada `TERMS-VERIFY`;
 - istilah `italic: yes` memakai style `IstilahAsing`;
-- istilah `italic: no` tidak miring;
 - marker tidak tersisa di DOCX.
 
 Jangan memproses istilah tanpa `--terms`. Tanpa flag itu, tidak ada review

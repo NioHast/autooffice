@@ -38,6 +38,7 @@ from ..package.names import (
     W_R,
     W_RPR,
     W_SDT,
+    W_T,
     W_VAL,
     W,
 )
@@ -53,6 +54,7 @@ from ..package.runs import build_run
 from ..package.styles import StyleError, get_style_element
 from ..package.xml import (
     iter_paragraphs,
+    iter_runs,
     qn,
     tree_digest,
 )
@@ -187,11 +189,12 @@ def _caption_prefix(
     text: str,
     label: str,
     scope: str,
-) -> tuple[str, str, str] | None:
-    """Pisahkan caption menjadi ``(before, counter, after)``.
+) -> tuple[str, str, str, int, int] | None:
+    """Pisahkan caption menjadi ``(before, counter, after, start, end)``.
 
     ``before`` mempertahankan label dan prefix bab literal; ``counter`` adalah
-    angka yang akan diganti field ``SEQ``.
+    angka yang akan diganti field ``SEQ``. ``start`` dan ``end`` adalah offset
+    ``counter`` di dalam ``text``.
     """
 
     match = _caption_pattern(label).match(text)
@@ -205,9 +208,57 @@ def _caption_prefix(
         prefix = text[:counter_start]
         counter = text[counter_start : start + len(number)]
         after = text[start + len(number) :]
-        return prefix, counter, after
+        return prefix, counter, after, counter_start, start + len(number)
     counter_start = start
-    return text[:counter_start], number, text[start + len(number) :]
+    return (
+        text[:counter_start],
+        number,
+        text[start + len(number) :],
+        counter_start,
+        start + len(number),
+    )
+
+
+def _run_text(run: etree._Element) -> str:
+    return "".join(node.text or "" for node in run.iter(W_T))
+
+
+def _caption_run_segments(
+    paragraph: etree._Element,
+    *,
+    counter_start: int,
+    counter_end: int,
+) -> tuple[list[tuple[etree._Element | None, str]], list[tuple[etree._Element | None, str]]]:
+    """Potong teks run caption menjadi bagian sebelum/sesudah nomor.
+
+    ``w:rPr`` setiap run dipertahankan agar style karakter (mis.
+    ``IstilahAsing``) pada teks caption tidak hilang saat nomor diganti field
+    ``SEQ``.
+    """
+
+    before: list[tuple[etree._Element | None, str]] = []
+    after: list[tuple[etree._Element | None, str]] = []
+    offset = 0
+    for run in iter_runs(paragraph):
+        value = _run_text(run)
+        if not value:
+            continue
+        run_start = offset
+        run_end = offset + len(value)
+        offset = run_end
+        if run_end <= counter_start:
+            before.append((run.find(W_RPR), value))
+            continue
+        if run_start >= counter_end:
+            after.append((run.find(W_RPR), value))
+            continue
+        local_start = max(counter_start - run_start, 0)
+        local_end = min(counter_end - run_start, len(value))
+        if local_start > 0:
+            before.append((run.find(W_RPR), value[:local_start]))
+        if local_end < len(value):
+            after.append((run.find(W_RPR), value[local_end:]))
+    return before, after
 
 
 def _ensure_caption_seq(
@@ -227,24 +278,29 @@ def _ensure_caption_seq(
     parts = _caption_prefix(text, label, scope)
     if parts is None:
         return False
-    before, counter, after = parts
+    _before, counter, _after, counter_start, counter_end = parts
 
-    runs = list(paragraph.findall(W_R))
-    template_rpr = runs[0].find(W_RPR) if runs else None
+    before_runs, after_runs = _caption_run_segments(
+        paragraph,
+        counter_start=counter_start,
+        counter_end=counter_end,
+    )
+    template_rpr = before_runs[-1][0] if before_runs else None
     remove_direct_children(paragraph, W_R)
 
     switches = ["SEQ", label, "\\*", "ARABIC"]
     if scope == "chapter":
         switches.extend(("\\s", "1"))
 
-    paragraph.append(build_run(text=before, rpr=template_rpr))
+    for rpr, value in before_runs:
+        paragraph.append(build_run(text=value, rpr=rpr))
     insert_field(
         switches,
         FieldPosition(paragraph=paragraph, rpr=template_rpr),
         counter,
     )
-    if after:
-        paragraph.append(build_run(text=after, rpr=template_rpr))
+    for rpr, value in after_runs:
+        paragraph.append(build_run(text=value, rpr=rpr))
     return True
 
 

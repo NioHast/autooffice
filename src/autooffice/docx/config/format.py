@@ -102,7 +102,15 @@ _BODY_FONT_KEYS = frozenset(
 )
 _MONO_FONT_KEYS = frozenset({"family", "size"})
 _ABSTRACT_KEYS = frozenset(
-    {"font", "size", "line_spacing", "space_before", "space_after", "alignment"}
+    {
+        "font",
+        "size",
+        "line_spacing",
+        "space_before",
+        "space_after",
+        "alignment",
+        "english_italic",
+    }
 )
 _HEADINGS_KEYS = frozenset({"styles"})
 _HEADING_STYLE_KEYS = frozenset(
@@ -397,6 +405,12 @@ def _parse_abstract(
             path=path,
             key="abstract.alignment",
             default=body.alignment,
+        ),
+        english_italic=_boolean(
+            raw.get("english_italic"),
+            path=path,
+            key="abstract.english_italic",
+            default=True,
         ),
     )
 

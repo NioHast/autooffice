@@ -38,3 +38,13 @@ terbentuk.
   field Word lebih sulit dijaga.
 - **Filter Lua untuk semua pascaproses.** Ditolak karena logika Word lebih
   mudah diuji dan diisolasi dalam stage Python.
+
+## Amandemen 2026-11-16: italic abstrak dari style
+
+Italic abstrak Inggris adalah properti visual `reference.docx`, bukan penanda
+Markdown. Front matter memakai style paragraf `AbstractBodyEn` yang diturunkan
+dari `AbstractBody` dan membawa `w:i`, `w:iCs`, serta `w:lang en-US`. Teks kata
+kunci memakai style karakter `AbstractKeywordText`. Pipeline tidak lagi
+membungkus abstrak dengan `*...*`; pembungkus itu akan menjadi formatting
+langsung yang tidak dapat dibedakan dari italic manual. Daftar pustaka tetap
+memperoleh italic dari CSL dan tidak berubah.
