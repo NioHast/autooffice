@@ -53,8 +53,6 @@ TERM_STYLES: tuple[StyleSpec, ...] = (
 _CODE_STYLE_TYPES: Mapping[str, str] = {
     "SourceCode": "paragraph",
     "VerbatimChar": "character",
-    "HTMLCode": "character",
-    "HTMLPreformatted": "paragraph",
 }
 
 _COVER_STYLES: tuple[str, ...] = (

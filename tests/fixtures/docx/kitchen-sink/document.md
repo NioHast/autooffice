@@ -12,8 +12,6 @@ $E = mc^2$.
 
 ##### Heading Tingkat Lima
 
-###### Heading Tingkat Enam
-
 - butir rapat satu
 - butir rapat dua
   - sub butir rapat
@@ -45,11 +43,6 @@ kode tanpa bahasa
 
 | Baris pertama
 | Baris kedua
-
-Istilah
-:   Definisi istilah.
-
-: Definisi tanpa istilah.
 
 $$
 E = mc^2

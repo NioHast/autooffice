@@ -41,6 +41,21 @@ dicatat ADR, termasuk numbering heading native Word pada ADR 0015.
     Field dan TOC tidak diperbarui otomatis; pengguna membuka DOCX di Word,
     menekan Ctrl+A lalu F9, sebelum review atau ekspor PDF.
 
+## Style reference yang dipensiunkan
+
+`reference.docx` sumber bukan lagi salinan stok Pandoc: 12 style dihapus
+secara sengaja dari `word/styles.xml` (63 menjadi 51 style dasar), yaitu
+`Heading6`-`Heading9` beserta `Heading6Char`-`Heading9Char`,
+`DefinitionTerm`/`Definition`, dan `HTMLPreformatted`/`HTMLCode`.
+`FootnoteText`, `FootnoteBlockText`, dan `FootnoteReference` tetap
+dipertahankan.
+
+Dokumen yang memakai heading level 6+, definition list, atau blok HTML mentah
+akan **gagal** di gate parity (`tests/docx/test_style_parity.py`) karena
+output memakai atau mengimpor style yang tidak ada di reference. Tambahkan
+style itu kembali ke `reference.docx` bila konstruksinya memang perlu
+didukung.
+
 ## API `build_docx`
 
 API publik berada di `autooffice.docx.command` dan memiliki urutan argumen
