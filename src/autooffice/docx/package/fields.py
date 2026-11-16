@@ -9,8 +9,8 @@ satunya scanner marker field untuk modul DOCX serta stage. Stage TOC memakai
 Field kompleks selalu ditulis lengkap: ``begin`` -> ``instrText`` ->
 ``separate`` -> hasil -> ``end``. Word/LibreOffice yang mengisi hasil;
 pipeline tidak menulis cache nomor halaman palsu. ``w:dirty="true"`` hanya
-ditulis bila pemanggil memintanya secara eksplisit (mis. field ``STYLEREF``
-di header body); field TOC dan nomor halaman tidak memakainya.
+ditulis bila pemanggil memintanya secara eksplisit; field TOC dan nomor
+halaman tidak memakainya.
 
 Referensi: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing?view=openxml-3.0.1
 """

@@ -32,9 +32,6 @@ class PageFormat:
     header_distance: int
     footer_distance: int
     gutter: int
-    # Nama style heading untuk field ``STYLEREF`` di header body. ``None``
-    # mempertahankan header body tanpa judul bab.
-    header_style_ref: str | None = None
 
 
 @dataclass(frozen=True)

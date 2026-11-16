@@ -20,10 +20,6 @@ page:
   header_distance: 1.27cm
   footer_distance: 1.27cm
   gutter: 0cm
-  # Nama style heading untuk field STYLEREF di header body. Nomor bab ikut
-  # tercetak karena nomor heading berupa teks literal. Hapus key ini untuk
-  # header body tanpa judul bab.
-  header_style_ref: "Heading 1"
 
 font:
   body:

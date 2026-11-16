@@ -49,7 +49,7 @@ Top-level key:
 | --- | --- |
 | `format` | ID format. |
 | `name`, `description` | Nama dan deskripsi tampilan. |
-| `page` | Ukuran, orientasi, margin, jarak header/footer, gutter, nama style untuk `STYLEREF`. |
+| `page` | Ukuran, orientasi, margin, jarak header/footer, dan gutter. |
 | `font` | Font body dan monospace. |
 | `abstract` | Font dan spasi isi abstrak serta kata kunci. |
 | `headings` | Style `heading1`, `heading2`, `heading3`. |
@@ -62,11 +62,6 @@ Top-level key:
 | `assets` | `logo` dan `reference_docx`. |
 
 Blok `abstract` mengatur font dan spasi isi abstrak serta kata kunci.
-
-Key opsional `page.header_style_ref` mengisi nama style heading untuk field
-`STYLEREF` di header body. Nilai diresolusi ke `w:name` style saat build;
-style yang tidak ada menggagalkan stage `page_numbers` dengan
-`STAGE-HEADER-STYLE`. Tanpa key ini header body hanya berisi nomor halaman.
 
 Blok `code.highlight` memetakan `styleId` token Pandoc (mis. `KeywordTok`) ke
 `bold`, `italic`, dan `color`. Semua style token tetap dideklarasikan oleh
@@ -88,7 +83,7 @@ Nilai final:
   gantung 1,25 cm.
 - Caption gambar dan tabel Times New Roman 10 pt, spasi 1,0.
 - Heading memakai numbering native Word (`BAB I`, `1.1`, `1.1.1`); header body
-  menampilkan nomor + judul bab melalui `STYLEREF`.
+  tidak memuat teks judul bab.
 - Kode Courier New 10 pt dalam tabel 1x1 dengan border penuh.
 - Sitasi memakai `citation.csl` dan `references.bib`.
 - Aset memakai `logo.jpg` dan `reference.docx`.

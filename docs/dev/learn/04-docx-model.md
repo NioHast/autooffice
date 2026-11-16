@@ -172,8 +172,8 @@ field = insert_field(
 
 `FieldPosition` memiliki `paragraph`, `before`, `end_paragraph`, dan `rpr`.
 Field selalu ditulis lengkap: `begin`, `instrText`, `separate`, hasil, lalu
-`end`. `w:dirty="true"` hanya ditulis bila diminta eksplisit (field
-`STYLEREF` header); pipeline tidak mengarang hasil field.
+`end`. `w:dirty="true"` hanya ditulis bila diminta eksplisit; pipeline tidak
+mengarang hasil field.
 
 Helper tipis di atasnya:
 
@@ -241,12 +241,10 @@ Field yang ditulis pipeline:
 | `PAGEREF` | Rujukan nomor halaman. |
 | `PAGE` | Nomor halaman di header/footer. |
 | `NUMPAGES` | Jumlah halaman bila diperlukan. |
-| `STYLEREF "heading 1" \n` | Nomor bab di header body. |
-| `STYLEREF "heading 1"` | Judul bab di baris kedua header body. |
 
 Python menulis instruksi field; cache hasil hanya diisi untuk PAGE (nilai awal
-`1`) dan TOC/SEQ yang memang punya nilai awal. Hasil `STYLEREF` dibiarkan
-kosong sampai Word memperbaruinya. Word yang menghitung hasil final, termasuk
+`1`) dan TOC/SEQ yang memang punya nilai awal. Header body tidak memuat field
+header berjalan. Word yang menghitung hasil final, termasuk
 entri TOC dan nomor halaman. AutoOffice tidak memanggil Word,
 sehingga field belum final setelah build. TOC yang baru bisa tampil kosong
 sampai pengguna membuka DOCX di Word dan menekan Ctrl+A lalu F9.

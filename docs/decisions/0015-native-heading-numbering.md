@@ -17,6 +17,7 @@
 - [Alternatif yang ditolak](#alternatif-yang-ditolak)
 - [Bukti](#bukti)
 - [Status](#status)
+- [Amandemen: STYLEREF dihapus](#amandemen-styleref-dihapus)
 
 ## Konteks
 
@@ -167,9 +168,21 @@ setiap paragraf.
 
 ## Status
 
-Diterima. Perubahan mekanisme numbering heading, switch `STYLEREF`, atau cara
-caption/persamaan memperoleh nomor bab memerlukan ADR baru. Bug footer Romawi
-front matter dan drift style `TOC1`/`TOC2`/`TOC3`/`TableofFigures` dicatat
-sebagai pekerjaan lanjutan, bukan bagian ADR ini.
+Diterima. Perubahan mekanisme numbering heading atau cara caption/persamaan
+memperoleh nomor bab memerlukan ADR baru. Bug footer Romawi front matter dan
+drift style `TOC1`/`TOC2`/`TOC3`/`TableofFigures` dicatat sebagai pekerjaan
+lanjutan, bukan bagian ADR ini.
+
+## Amandemen: STYLEREF dihapus
+
+- Tanggal: 2026-11-16
+
+Fitur header berjalan berbasis `STYLEREF` dicabut karena tidak dibutuhkan
+untuk saat ini. Keputusan numbering native Word pada ADR ini **tetap
+berlaku**: `w:numPr`, `word/numbering.xml`, dan override `numId=0` tidak
+berubah. Konsekuensinya, header body kembali tanpa teks (hanya field `PAGE`),
+tanpa salinan nomor atau judul bab. `PageFormat.header_style_ref`, pembangkit
+field `STYLEREF`, dan helper `resolve_style_name` dihapus. Pencabutan ini
+tidak memakai ADR baru; amandemen ini bagian dari ADR 0015.
 
 [Rencana AutoOffice](../../AUTO_OFFICE_PLAN.md)
