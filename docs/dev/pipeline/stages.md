@@ -20,7 +20,7 @@ Kontrak stage ada di [contracts/docx.md](../../contracts/docx.md).
 | 100 | `numbering` | `autooffice/docx/stages/numbering.py` | `word/document.xml`, `word/numbering.xml` | Indentasi daftar. |
 | 110 | `blank_lines` | `autooffice/docx/stages/blank_lines.py` | `word/document.xml` | Paragraf kosong sesuai aturan layout. |
 | 120 | `terms` | `autooffice/docx/stages/terms.py` | `word/document.xml`, `word/styles.xml` | Hanya aktif dengan `--terms`. |
-| 130 | `toc` | `autooffice/docx/stages/toc.py` | `word/document.xml`, `word/styles.xml` | Field TOC native bila `structure.toc`. |
+| 130 | `toc` | `autooffice/docx/stages/toc.py` | `word/document.xml` | Field TOC native bila `structure.toc`; style TOC dibekukan di reference dan hanya diverifikasi. |
 | 140 | `page_numbers` | `autooffice/docx/stages/page_numbers.py` | document, header/footer, rels, content types | Romawi front matter, Arab body. |
 | 150 | `lists` | `autooffice/docx/stages/lists.py` | `word/document.xml` | Daftar tabel/gambar dan field `SEQ`. |
 

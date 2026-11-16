@@ -2,6 +2,7 @@
 
 import hashlib
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from xml.etree import ElementTree
@@ -11,6 +12,7 @@ import pytest
 from autooffice.docx.config import Format, load_format
 from autooffice.docx.package import DocumentPackage
 from autooffice.docx.package.styles import (
+    StyleContractError,
     StyleError,
     apply_page_layout,
     build_style_patch,
@@ -18,12 +20,17 @@ from autooffice.docx.package.styles import (
     patch_style,
     verify_style_contract,
 )
+from autooffice.docx.package.xml import RPR_ORDER
 from autooffice.docx.pipeline import ArtifactStore, Workspace
+from autooffice.docx.stages.lists import verify_list_entry_style
 from autooffice.docx.stages.style_reference import (
+    BAKED_STYLE_IDS,
+    TERM_STYLES,
     StyleReferenceStage,
     build_reference_docx,
     style_specs_for_format,
 )
+from autooffice.docx.stages.toc import tab_position, verify_toc_styles
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
@@ -113,6 +120,18 @@ def make_reference(tmp_path: Path, format_spec: Format) -> tuple[Path, Path]:
     output = tmp_path / ".laporan-build" / "reference.docx"
     build_reference_docx(source, output, format_spec)
     return source, output
+
+
+def mutated_source(
+    tmp_path: Path,
+    format_spec: Format,
+    mutate: Callable[[ElementTree.Element], None],
+) -> Path:
+    package = DocumentPackage.load(Path(format_spec.assets.reference_docx))
+    mutate(package.xml("word/styles.xml"))
+    source = tmp_path / "source.docx"
+    package.save(source)
+    return source
 
 
 def test_reference_source_unchanged(tmp_path: Path, undip_format: Format) -> None:
@@ -300,6 +319,75 @@ def test_required_styles_preserved_and_terms_added(
     assert foreign.get(f"{W}type") == "character"
     assert child(foreign.find(f"{W}rPr"), "i") is not None
     assert child(foreign.find(f"{W}rPr"), "lang").get(f"{W}val") == "en-US"
+
+
+def test_all_baked_styles_preserved_in_derived(
+    tmp_path: Path,
+    undip_format: Format,
+) -> None:
+    _, output = make_reference(tmp_path, undip_format)
+
+    derived = set(style_ids(read_xml(output, "word/styles.xml")))
+
+    assert derived >= BAKED_STYLE_IDS
+
+
+def test_baked_toc_and_list_styles_match_derived_geometry(
+    tmp_path: Path,
+    undip_format: Format,
+) -> None:
+    _, output = make_reference(tmp_path, undip_format)
+    package = DocumentPackage.load(output)
+    position = tab_position(package)
+
+    verify_toc_styles(package, tab_pos=position)
+    verify_list_entry_style(package, tab_pos=position)
+
+    styles = read_xml(output, "word/styles.xml")
+    for style_id in ("TOC1", "TOC2", "TOC3", "TableofFigures"):
+        rpr = child(get_style(styles, style_id), "rPr")
+        names = [item.tag.rsplit("}", 1)[-1] for item in rpr if isinstance(item.tag, str)]
+        indices = [RPR_ORDER.index(name) for name in names]
+        assert indices == sorted(indices), style_id
+
+
+@pytest.mark.parametrize("style_id", sorted(BAKED_STYLE_IDS))
+def test_build_reference_fails_when_baked_style_missing(
+    tmp_path: Path,
+    undip_format: Format,
+    style_id: str,
+) -> None:
+    def remove_style(root: ElementTree.Element) -> None:
+        root.remove(get_style(root, style_id))  # type: ignore[arg-type]
+
+    source = mutated_source(tmp_path, undip_format, remove_style)
+    output = tmp_path / "derived.docx"
+
+    with pytest.raises(StyleError, match=style_id) as caught:
+        build_reference_docx(source, output, undip_format)
+
+    assert caught.value.code == "STYLE-MISSING"
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("spec", TERM_STYLES, ids=lambda spec: spec.style_id)
+def test_build_reference_verifies_term_style_values(
+    tmp_path: Path,
+    undip_format: Format,
+    spec,
+) -> None:
+    def drop_first_rpr_child(root: ElementTree.Element) -> None:
+        rpr = get_style(root, spec.style_id).find(f"{W}rPr")
+        assert rpr is not None
+        rpr.remove(rpr[0])
+
+    source = mutated_source(tmp_path, undip_format, drop_first_rpr_child)
+    output = tmp_path / "derived.docx"
+
+    with pytest.raises(StyleContractError, match=spec.style_id) as caught:
+        build_reference_docx(source, output, undip_format)
+
+    assert caught.value.code == "STYLE-CONTRACT"
 
 
 def test_reference_deterministic(tmp_path: Path, undip_format: Format) -> None:

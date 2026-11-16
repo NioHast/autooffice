@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from autooffice.docx.errors import StageError
 from autooffice.docx.package.fields import (
     Field,
     FieldError,
@@ -33,17 +34,15 @@ from autooffice.docx.package.package import (
     DocumentPackage,
 )
 from autooffice.docx.package.paragraphs import paragraph_text
-from autooffice.docx.package.xml import RPR_ORDER, qn
+from autooffice.docx.package.xml import qn, sha256_c14n
 from autooffice.docx.pipeline import StageName
 from autooffice.docx.stages.toc import (
-    LIST_ENTRY_STYLE_ID,
-    TOC_STYLE_IDS,
+    TOC_ENTRY_STYLE_IDS,
     TocError,
     TocStage,
-    ensure_list_entry_style,
-    ensure_toc_styles,
     format_tab_fallback,
     tab_position,
+    verify_toc_styles,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,14 +59,40 @@ DOCUMENT_CONTENT_TYPE = (
 )
 STYLES_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
 
-STYLES_XML = (
-    f'<w:styles xmlns:w="{W_NS}">'
-    '<w:style w:type="paragraph" w:styleId="Normal">'
-    '<w:name w:val="Normal"/></w:style>'
-    '<w:style w:type="paragraph" w:styleId="Heading1">'
-    '<w:name w:val="heading 1"/></w:style>'
-    "</w:styles>"
-).encode()
+
+def _styles_xml(
+    *,
+    tab_pos: int = 9026,
+    leader: str = "dot",
+    omit: tuple[str, ...] = (),
+    with_ppr: bool = True,
+    with_tabs: bool = True,
+) -> bytes:
+    styles = [
+        '<w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/></w:style>',
+        '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>',
+    ]
+    for level, style_id in enumerate(TOC_ENTRY_STYLE_IDS, start=1):
+        if style_id in omit:
+            continue
+        based_on = "Normal" if level == 1 else TOC_ENTRY_STYLE_IDS[level - 2]
+        ppr = ""
+        if with_ppr:
+            tabs = (
+                f'<w:tabs><w:tab w:val="right" w:leader="{leader}" w:pos="{tab_pos}"/></w:tabs>'
+                if with_tabs
+                else ""
+            )
+            ppr = f"<w:pPr>{tabs}</w:pPr>"
+        styles.append(
+            f'<w:style w:type="paragraph" w:styleId="{style_id}">'
+            f'<w:name w:val="toc {level}"/><w:basedOn w:val="{based_on}"/>{ppr}'
+            "</w:style>"
+        )
+    return f'<w:styles xmlns:w="{W_NS}">{"".join(styles)}</w:styles>'.encode()
+
+
+STYLES_XML = _styles_xml()
 
 
 # ---------------------------------------------------------------------------
@@ -595,83 +620,60 @@ def test_field_scanner_reads_split_instruction_and_simple_field(tmp_path: Path) 
     assert field_text_ranges(paragraph) == ((0, 1), (1, 2))
 
 
-def test_ensure_toc_styles_is_idempotent(tmp_path: Path) -> None:
-    path = _write_package(tmp_path, _paragraph("BAB I", style="Heading1"))
-    package = DocumentPackage.load(path)
-    assert ensure_toc_styles(package, tab_pos=9026) == 4
-    styles = package.xml("word/styles.xml")
-    assert set(TOC_STYLE_IDS) <= _style_ids(styles)
-    toc1 = next(style for style in styles if style.get(qn("w:styleId")) == "TOC1")
-    tab = toc1.find(".//" + qn("w:tab"))
-    assert tab.get(qn("w:pos")) == "9026"
-    assert ensure_toc_styles(package, tab_pos=9026) == 0
+def _package_with_styles(tmp_path: Path, styles: bytes) -> DocumentPackage:
+    path = _write_package(
+        tmp_path,
+        _paragraph("BAB I", style="Heading1"),
+        styles=styles,
+    )
+    return DocumentPackage.load(path)
 
 
-def _style_by_id(styles_root, style_id: str):
-    return next(style for style in styles_root if style.get(qn("w:styleId")) == style_id)
+def test_verify_toc_styles_accepts_baked_styles(tmp_path: Path) -> None:
+    package = _package_with_styles(tmp_path, _styles_xml())
+
+    assert verify_toc_styles(package, tab_pos=9026) is None
 
 
-def test_ensure_list_entry_style_is_idempotent(tmp_path: Path) -> None:
-    path = _write_package(tmp_path, _paragraph("BAB I", style="Heading1"))
-    package = DocumentPackage.load(path)
-    assert ensure_list_entry_style(package, tab_pos=9026) == 1
+@pytest.mark.parametrize("style_id", TOC_ENTRY_STYLE_IDS)
+def test_verify_toc_styles_requires_each_style(tmp_path: Path, style_id: str) -> None:
+    package = _package_with_styles(tmp_path, _styles_xml(omit=(style_id,)))
 
-    styles = package.xml("word/styles.xml")
-    style = _style_by_id(styles, LIST_ENTRY_STYLE_ID)
-    assert style.find(qn("w:basedOn")).get(qn("w:val")) == "Normal"
-    assert style.find(qn("w:next")).get(qn("w:val")) == "Normal"
-    assert style.find(qn("w:name")).get(qn("w:val")) == "table of figures"
+    with pytest.raises(TocError, match=f"style '{style_id}' wajib ada") as caught:
+        verify_toc_styles(package, tab_pos=9026)
 
-    ppr = style.find(qn("w:pPr"))
-    assert ppr is not None
-    spacing = ppr.find(qn("w:spacing"))
-    assert spacing.get(qn("w:before")) == "0"
-    assert spacing.get(qn("w:after")) == "0"
-    assert spacing.get(qn("w:line")) == "360"
-    assert spacing.get(qn("w:lineRule")) == "auto"
-    ind = ppr.find(qn("w:ind"))
-    assert ind.get(qn("w:left")) == "0"
-    assert ind.get(qn("w:right")) == "0"
-    assert ind.get(qn("w:firstLine")) == "0"
-    assert ppr.find(qn("w:jc")).get(qn("w:val")) == "left"
-    tab = ppr.find(f"{qn('w:tabs')}/{qn('w:tab')}")
-    assert tab.get(qn("w:val")) == "right"
-    assert tab.get(qn("w:leader")) == "dot"
-    assert tab.get(qn("w:pos")) == "9026"
-
-    assert ensure_list_entry_style(package, tab_pos=9026) == 0
-    assert ensure_list_entry_style(package, tab_pos=8500) == 1
-    updated = _style_by_id(package.xml("word/styles.xml"), LIST_ENTRY_STYLE_ID)
-    assert updated.find(".//" + qn("w:tab")).get(qn("w:pos")) == "8500"
+    assert caught.value.code == "TOC-STYLE"
 
 
-def test_ensure_list_entry_style_without_tab_position(tmp_path: Path) -> None:
-    path = _write_package(tmp_path, _paragraph("BAB I", style="Heading1"))
-    package = DocumentPackage.load(path)
-    assert ensure_list_entry_style(package, tab_pos=None) == 1
+def test_verify_toc_styles_rejects_wrong_tab_position(tmp_path: Path) -> None:
+    package = _package_with_styles(tmp_path, _styles_xml(tab_pos=8500))
 
-    style = _style_by_id(package.xml("word/styles.xml"), LIST_ENTRY_STYLE_ID)
-    assert style.find(f"{qn('w:pPr')}/{qn('w:tabs')}") is None
-    assert ensure_list_entry_style(package, tab_pos=None) == 0
+    with pytest.raises(TocError, match="tidak memiliki tab kanan pada 9026 twip") as caught:
+        verify_toc_styles(package, tab_pos=9026)
 
-
-def _assert_rpr_order(style) -> None:
-    rpr = style.find(qn("w:rPr"))
-    assert rpr is not None
-    names = [child.tag.rsplit("}", 1)[-1] for child in rpr if isinstance(child.tag, str)]
-    indices = [RPR_ORDER.index(name) for name in names]
-    assert indices == sorted(indices), f"urutan rPr tidak sesuai RPR_ORDER: {names}"
+    assert caught.value.code == "TOC-STYLE"
 
 
-def test_toc_style_rpr_children_follow_rpr_order(tmp_path: Path) -> None:
-    path = _write_package(tmp_path, _paragraph("BAB I", style="Heading1"))
-    package = DocumentPackage.load(path)
-    ensure_toc_styles(package, tab_pos=9026)
-    ensure_list_entry_style(package, tab_pos=9026)
+@pytest.mark.parametrize(
+    "styles_kwargs",
+    ({"with_ppr": False}, {"with_tabs": False}),
+    ids=("tanpa-pPr", "tanpa-tabs"),
+)
+def test_verify_toc_styles_rejects_missing_tabs(
+    tmp_path: Path,
+    styles_kwargs: dict[str, bool],
+) -> None:
+    package = _package_with_styles(tmp_path, _styles_xml(**styles_kwargs))
 
-    styles = package.xml("word/styles.xml")
-    for style_id in (*TOC_STYLE_IDS, LIST_ENTRY_STYLE_ID):
-        _assert_rpr_order(_style_by_id(styles, style_id))
+    with pytest.raises(TocError, match="tab aktual: tidak ada"):
+        verify_toc_styles(package, tab_pos=9026)
+
+
+def test_verify_toc_styles_rejects_wrong_tab_leader(tmp_path: Path) -> None:
+    package = _package_with_styles(tmp_path, _styles_xml(leader="none"))
+
+    with pytest.raises(TocError, match="leader 'none', seharusnya 'dot'"):
+        verify_toc_styles(package, tab_pos=9026)
 
 
 def test_no_blank_page_between_toc_and_chapter_i(tmp_path: Path) -> None:
@@ -797,23 +799,39 @@ def test_toc_stage_skipped_when_disabled(tmp_path: Path) -> None:
     assert not _sdt_gallery(package.xml(DOCUMENT_PART))
 
 
-def test_toc_stage_writes_field_and_styles_idempotently(tmp_path: Path) -> None:
+def test_toc_stage_writes_field_and_verifies_styles_idempotently(tmp_path: Path) -> None:
     path = _write_package(
         tmp_path,
         _paragraph("Sampul", style="CoverTitle") + _paragraph("BAB I", style="Heading1"),
     )
     package = DocumentPackage.load(path)
     ctx = _fake_ctx(package, toc=True)
+    styles_before = sha256_c14n(package.xml("word/styles.xml"))
 
     result = TocStage().run(ctx)
     assert result.stage == StageName.TOC.value
     assert result.status == "ok"
     assert result.changed is True
+    assert result.metrics["toc_styles"] == len(TOC_ENTRY_STYLE_IDS)
     fields = [field for field in iter_fields(package) if field.kind is FieldKind.TOC]
     assert len(fields) == 1
     assert len(_sdt_gallery(package.xml(DOCUMENT_PART))) == 1
-    assert set(TOC_STYLE_IDS) <= _style_ids(package.xml("word/styles.xml"))
+    assert sha256_c14n(package.xml("word/styles.xml")) == styles_before
 
     second = TocStage().run(ctx)
     assert second.changed is False
     assert len(_sdt_gallery(package.xml(DOCUMENT_PART))) == 1
+
+
+def test_toc_stage_fails_when_baked_style_missing(tmp_path: Path) -> None:
+    path = _write_package(
+        tmp_path,
+        _paragraph("BAB I", style="Heading1"),
+        styles=_styles_xml(omit=("TOC2",)),
+    )
+    package = DocumentPackage.load(path)
+
+    with pytest.raises(StageError, match="style 'TOC2' wajib ada") as caught:
+        TocStage().run(_fake_ctx(package, toc=True))
+
+    assert caught.value.code == "TOC-STYLE"

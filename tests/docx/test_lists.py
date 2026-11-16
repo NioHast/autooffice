@@ -5,6 +5,9 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+from autooffice.docx.errors import StageError
 from autooffice.docx.package.fields import (
     FieldKind,
     field_instruction,
@@ -25,7 +28,7 @@ from autooffice.docx.package.paragraphs import paragraph_text
 from autooffice.docx.package.xml import qn, sha256_c14n
 from autooffice.docx.pipeline import StageName, canonical_prefix
 from autooffice.docx.stages import lists as lists_module
-from autooffice.docx.stages.lists import ListsStage
+from autooffice.docx.stages.lists import LIST_ENTRY_STYLE_ID, ListsStage
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -50,6 +53,21 @@ STYLES_XML = (
     '<w:name w:val="Image Caption"/><w:basedOn w:val="Normal"/></w:style>'
     '<w:style w:type="paragraph" w:styleId="TOCHeading">'
     '<w:name w:val="TOC Heading"/><w:basedOn w:val="Normal"/></w:style>'
+    '<w:style w:type="paragraph" w:styleId="TableofFigures">'
+    '<w:name w:val="table of figures"/><w:basedOn w:val="Normal"/>'
+    '<w:next w:val="Normal"/>'
+    "<w:pPr>"
+    '<w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9026"/></w:tabs>'
+    '<w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/>'
+    '<w:ind w:left="0" w:right="0" w:firstLine="0"/>'
+    '<w:jc w:val="left"/>'
+    "</w:pPr>"
+    "<w:rPr>"
+    '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+    '<w:b w:val="0"/><w:bCs w:val="0"/><w:color w:val="000000"/>'
+    '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+    "</w:rPr>"
+    "</w:style>"
     "</w:styles>"
 ).encode()
 
@@ -113,6 +131,7 @@ def _write_package(
     *,
     name: str = "lists.docx",
     sect_pr: str = SECT_PR,
+    styles: bytes = STYLES_XML,
 ) -> Path:
     path = tmp_path / name
     entries = {
@@ -120,7 +139,7 @@ def _write_package(
         PACKAGE_RELS_PART: _package_rels(),
         DOCUMENT_PART: _document(body, sect_pr=sect_pr),
         "word/_rels/document.xml.rels": _document_rels(),
-        "word/styles.xml": STYLES_XML,
+        "word/styles.xml": styles,
     }
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for entry_name, data in entries.items():
@@ -240,7 +259,7 @@ def test_stage_metadata() -> None:
     assert stage.name is StageName.LISTS
     assert stage.order == 150
     assert stage.requires == canonical_prefix(StageName.LISTS)
-    assert stage.mutates == frozenset({"word/document.xml", "word/styles.xml"})
+    assert stage.mutates == frozenset({"word/document.xml"})
     assert stage.idempotent is True
 
 
@@ -270,11 +289,16 @@ def test_list_headings_start_on_new_page(tmp_path: Path) -> None:
     assert _has_page_break_before(_sdt_heading(sdts[2])) is True
 
 
-def test_list_entry_style_is_flush_left_with_content_width_tab(tmp_path: Path) -> None:
+def test_list_entry_style_is_preserved_with_content_width_tab(tmp_path: Path) -> None:
     package = _build_package(tmp_path)
-    ListsStage().run(_ctx(package))
+    before = sha256_c14n(_style(package, LIST_ENTRY_STYLE_ID))
 
-    style = _style(package, "TableofFigures")
+    result = ListsStage().run(_ctx(package))
+
+    assert result.status == "ok"
+    assert result.metrics["list_styles"] == 1
+    style = _style(package, LIST_ENTRY_STYLE_ID)
+    assert sha256_c14n(style) == before
     assert style.find(qn("w:basedOn")).get(qn("w:val")) == "Normal"
     assert style.find(qn("w:next")).get(qn("w:val")) == "Normal"
     assert style.find(qn("w:name")).get(qn("w:val")) == "table of figures"
@@ -293,23 +317,28 @@ def test_list_entry_style_is_flush_left_with_content_width_tab(tmp_path: Path) -
     assert tab.get(qn("w:pos")) == str(CONTENT_WIDTH)
 
 
-def test_list_entry_style_without_page_geometry_has_no_tabs(tmp_path: Path) -> None:
+def test_list_entry_style_tab_check_skipped_without_page_geometry(tmp_path: Path) -> None:
     body = _paragraph("BAB II", style="Heading1")
     path = _write_package(tmp_path, body, sect_pr="<w:sectPr/>")
     package = DocumentPackage.load(path)
+    style = _style(package, LIST_ENTRY_STYLE_ID)
+    ppr = style.find(qn("w:pPr"))
+    assert ppr is not None
+    ppr.remove(ppr.find(qn("w:tabs")))
+    before = sha256_c14n(style)
 
     result = ListsStage().run(_ctx(package, front_matter=("cover", "toc", "list_of_tables")))
+
     assert result.status == "ok"
     assert result.changed is True
-
-    style = _style(package, "TableofFigures")
-    assert style.find(f"{qn('w:pPr')}/{qn('w:tabs')}") is None
+    assert sha256_c14n(_style(package, LIST_ENTRY_STYLE_ID)) == before
 
 
-def test_list_entry_style_uses_format_fallback_without_page_geometry(tmp_path: Path) -> None:
+def test_list_entry_style_verifies_format_fallback_tab(tmp_path: Path) -> None:
     body = _paragraph("BAB II", style="Heading1")
     path = _write_package(tmp_path, body, sect_pr="<w:sectPr/>")
     package = DocumentPackage.load(path)
+    before = sha256_c14n(_style(package, LIST_ENTRY_STYLE_ID))
 
     result = ListsStage().run(
         _ctx(
@@ -318,14 +347,74 @@ def test_list_entry_style_uses_format_fallback_without_page_geometry(tmp_path: P
             page=_a4_page(),
         )
     )
-    assert result.status == "ok"
 
-    style = _style(package, "TableofFigures")
-    tab = style.find(f"{qn('w:pPr')}/{qn('w:tabs')}/{qn('w:tab')}")
-    assert tab is not None
-    assert tab.get(qn("w:val")) == "right"
-    assert tab.get(qn("w:leader")) == "dot"
-    assert tab.get(qn("w:pos")) == str(CONTENT_WIDTH)
+    assert result.status == "ok"
+    assert sha256_c14n(_style(package, LIST_ENTRY_STYLE_ID)) == before
+
+
+def _style_tab(package: DocumentPackage):
+    style = _style(package, LIST_ENTRY_STYLE_ID)
+    ppr = style.find(qn("w:pPr"))
+    assert ppr is not None
+    return ppr.find(f"{qn('w:tabs')}/{qn('w:tab')}")
+
+
+def test_list_entry_style_missing_fails_with_clear_message(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    package.xml("word/styles.xml").remove(_style(package, LIST_ENTRY_STYLE_ID))
+
+    with pytest.raises(StageError, match=r"wajib ada di word/styles\.xml"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_wrong_tab_position_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    _style_tab(package).set(qn("w:pos"), "8500")
+
+    with pytest.raises(StageError, match="tidak memiliki tab kanan pada 9026 twip"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_wrong_tab_leader_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    _style_tab(package).set(qn("w:leader"), "none")
+
+    with pytest.raises(StageError, match="leader 'none', seharusnya 'dot'"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_non_paragraph_type_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    _style(package, LIST_ENTRY_STYLE_ID).set(qn("w:type"), "character")
+
+    with pytest.raises(StageError, match="bertipe 'character'"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_without_ppr_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    style = _style(package, LIST_ENTRY_STYLE_ID)
+    style.remove(style.find(qn("w:pPr")))
+
+    with pytest.raises(StageError, match="tidak memiliki w:pPr"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_without_name_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    style = _style(package, LIST_ENTRY_STYLE_ID)
+    style.remove(style.find(qn("w:name")))
+
+    with pytest.raises(StageError, match="tidak memiliki w:name"):
+        ListsStage().run(_ctx(package))
+
+
+def test_list_entry_style_wrong_based_on_fails(tmp_path: Path) -> None:
+    package = _build_package(tmp_path)
+    _style(package, LIST_ENTRY_STYLE_ID).find(qn("w:basedOn")).set(qn("w:val"), "BodyText")
+
+    with pytest.raises(StageError, match="w:basedOn@val bernilai 'BodyText'"):
+        ListsStage().run(_ctx(package))
 
 
 def test_caption_seq_fields_are_hybrid_chapter(tmp_path: Path) -> None:
@@ -445,7 +534,7 @@ def test_stage_is_idempotent(tmp_path: Path) -> None:
     stage = ListsStage()
     before_styles = sha256_c14n(package.xml("word/styles.xml"))
     stage.run(ctx)
-    assert sha256_c14n(package.xml("word/styles.xml")) != before_styles
+    assert sha256_c14n(package.xml("word/styles.xml")) == before_styles
     first = sha256_c14n(package.xml(DOCUMENT_PART))
     first_styles = sha256_c14n(package.xml("word/styles.xml"))
     result = stage.run(ctx)
