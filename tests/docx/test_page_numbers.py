@@ -2,6 +2,7 @@
 
 import html
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,13 +19,16 @@ from autooffice.docx.package.package import (
     CONTENT_TYPES_PART,
     DOCUMENT_PART,
     PACKAGE_RELS_PART,
+    REL_TYPE_FOOTER,
     REL_TYPE_OFFICE_DOCUMENT,
     REL_TYPE_STYLES,
     DocumentPackage,
 )
 from autooffice.docx.package.sections import (
+    FOOTER_CONTENT_TYPE,
     header_footer_part,
     iter_sections,
+    remove_unused_header_footer_parts,
     section_header_footer,
 )
 from autooffice.docx.package.xml import qn, sha256_c14n
@@ -69,7 +73,7 @@ STYLES_XML = (
 # ---------------------------------------------------------------------------
 
 
-def _content_types() -> bytes:
+def _content_types(extra: str = "") -> bytes:
     return (
         f'<Types xmlns="{CT_NS}">'
         f'<Default Extension="rels" ContentType="{RELS_CONTENT_TYPE}"/>'
@@ -78,7 +82,7 @@ def _content_types() -> bytes:
         f'ContentType="{DOCUMENT_CONTENT_TYPE}"/>'
         '<Override PartName="/word/styles.xml" '
         f'ContentType="{STYLES_CONTENT_TYPE}"/>'
-        "</Types>"
+        f"{extra}</Types>"
     ).encode()
 
 
@@ -91,12 +95,12 @@ def _package_rels() -> bytes:
     ).encode()
 
 
-def _document_rels() -> bytes:
+def _document_rels(extra: str = "") -> bytes:
     return (
         f'<Relationships xmlns="{REL_NS}">'
         f'<Relationship Id="rId2" Type="{REL_TYPE_STYLES}" '
         'Target="styles.xml"/>'
-        "</Relationships>"
+        f"{extra}</Relationships>"
     ).encode()
 
 
@@ -114,10 +118,10 @@ def _break_paragraph(sect_pr: str = "<w:sectPr/>") -> str:
     return f"<w:p><w:pPr>{sect_pr}</w:pPr></w:p>"
 
 
-def _document(body: str) -> bytes:
+def _document(body: str, *, final_sect: str = "<w:sectPr/>") -> bytes:
     return (
         f'<w:document xmlns:w="{W_NS}" xmlns:r="{R_NS}">'
-        f"<w:body>{body}<w:sectPr/></w:body></w:document>"
+        f"<w:body>{body}{final_sect}</w:body></w:document>"
     ).encode()
 
 
@@ -126,15 +130,20 @@ def _write_package(
     body: str,
     *,
     name: str = "test.docx",
+    extra_parts: Mapping[str, bytes] | None = None,
+    extra_content_types: str = "",
+    extra_relationships: str = "",
+    final_sect: str = "<w:sectPr/>",
 ) -> Path:
     path = tmp_path / name
     entries = {
-        CONTENT_TYPES_PART: _content_types(),
+        CONTENT_TYPES_PART: _content_types(extra_content_types),
         PACKAGE_RELS_PART: _package_rels(),
-        DOCUMENT_PART: _document(body),
-        "word/_rels/document.xml.rels": _document_rels(),
+        DOCUMENT_PART: _document(body, final_sect=final_sect),
+        "word/_rels/document.xml.rels": _document_rels(extra_relationships),
         "word/styles.xml": STYLES_XML,
     }
+    entries.update(extra_parts or {})
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for entry_name, data in entries.items():
             archive.writestr(entry_name, data)
@@ -200,6 +209,47 @@ def _document_with_sections(tmp_path: Path) -> Path:
         + _paragraph("Isi bab dua")
     )
     return _write_package(tmp_path, body, name="sections.docx")
+
+
+def _shared_footer_break(sect_pr: str = "<w:sectPr>") -> str:
+    return _break_paragraph(
+        sect_pr + '<w:footerReference w:type="default" r:id="rId10"/></w:sectPr>'
+    )
+
+
+def _document_with_shared_footer(tmp_path: Path) -> Path:
+    """Tiru Pandoc: satu footer1.xml dirujuk semua section, termasuk cover."""
+
+    body = (
+        _paragraph("Sampul", style="CoverTitle")
+        + _shared_footer_break()
+        + _paragraph("KATA PENGANTAR", style="Heading1")
+        + _shared_footer_break()
+        + _paragraph("ABSTRAK", style="Heading1")
+        + _shared_footer_break()
+        + _paragraph("BAB I", style="Heading1")
+        + _paragraph("Isi bab satu")
+        + _shared_footer_break()
+        + _paragraph("BAB II", style="Heading1")
+        + _paragraph("Isi bab dua")
+    )
+    return _write_package(
+        tmp_path,
+        body,
+        name="shared-footer.docx",
+        final_sect=('<w:sectPr><w:footerReference w:type="default" r:id="rId10"/></w:sectPr>'),
+        extra_parts={
+            "word/footer1.xml": (
+                f'<w:ftr xmlns:w="{W_NS}"><w:p><w:r><w:t>placeholder</w:t></w:r></w:p></w:ftr>'
+            ).encode(),
+        },
+        extra_content_types=(
+            f'<Override PartName="/word/footer1.xml" ContentType="{FOOTER_CONTENT_TYPE}"/>'
+        ),
+        extra_relationships=(
+            f'<Relationship Id="rId10" Type="{REL_TYPE_FOOTER}" Target="footer1.xml"/>'
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +327,70 @@ def test_page_numbers_stage_front_matter_only_footer(tmp_path: Path) -> None:
     part_name, part_root = header_footer_part(package, refs.footer)
     assert _page_fields(package, part_name) == 1
     assert part_root.tag == qn("w:ftr")
+
+
+def test_page_numbers_stage_front_matter_footer_not_shared_with_body(
+    tmp_path: Path,
+) -> None:
+    package = DocumentPackage.load(_document_with_shared_footer(tmp_path))
+    PageNumbersStage().run(_fake_ctx(package))
+
+    sections = iter_sections(package)
+    assert [section.kind for section in sections] == [
+        "cover",
+        "front_matter",
+        "front_matter",
+        "body",
+        "body",
+    ]
+    front = section_header_footer(sections[1])
+    body = section_header_footer(sections[3])
+    assert front.footer is not None
+    assert body.footer is not None
+    assert front.footer != body.footer
+
+    front_part, front_root = header_footer_part(package, front.footer)
+    body_part, body_root = header_footer_part(package, body.footer)
+    assert _page_fields(package, front_part) == 1
+    assert _page_fields(package, body_part) == 1
+    assert not list(front_root.iter(qn("w:vanish")))
+    assert list(body_root.iter(qn("w:vanish")))
+    # Part bawaan Pandoc tetap menjadi footer body tersembunyi.
+    assert body_part == "word/footer1.xml"
+    assert front_part != body_part
+
+
+def test_page_numbers_stage_shared_footer_leaves_no_orphan_parts(
+    tmp_path: Path,
+) -> None:
+    package = DocumentPackage.load(_document_with_shared_footer(tmp_path))
+    PageNumbersStage().run(_fake_ctx(package))
+
+    before = package.part_names()
+    assert remove_unused_header_footer_parts(package) == 0
+    assert package.part_names() == before
+
+
+def test_page_numbers_stage_shared_footer_is_idempotent(tmp_path: Path) -> None:
+    package = DocumentPackage.load(_document_with_shared_footer(tmp_path))
+    ctx = _fake_ctx(package)
+    PageNumbersStage().run(ctx)
+    refs = [section_header_footer(section) for section in iter_sections(package)]
+    parts = {
+        name: package.part(name)
+        for name in package.part_names()
+        if name.startswith(("word/footer", "word/header"))
+    }
+
+    second = PageNumbersStage().run(ctx)
+
+    assert second.changed is False
+    assert [section_header_footer(section) for section in iter_sections(package)] == refs
+    assert {
+        name: package.part(name)
+        for name in package.part_names()
+        if name.startswith(("word/footer", "word/header"))
+    } == parts
 
 
 def test_page_numbers_stage_body_has_first_page_variants(tmp_path: Path) -> None:

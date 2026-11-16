@@ -7,6 +7,7 @@ yang mengisi nilai field saat dokumen dibuka.
 """
 
 import time
+from collections.abc import Mapping
 
 from lxml import etree
 
@@ -16,6 +17,7 @@ from ..package.names import R_ID, W, local_name
 from ..package.package import DOCUMENT_PART, DocumentPackage
 from ..package.runs import copy_rpr
 from ..package.sections import (
+    HeaderFooterRefs,
     Section,
     SectionError,
     clear_header_footer_references,
@@ -35,6 +37,9 @@ from ..pipeline import BaseStage, StageName, StageResult, canonical_prefix
 FRONT_FOOTER_SIZE_HALF_POINTS = 24
 BODY_HEADER_SIZE_HALF_POINTS = 20
 BODY_FOOTER_SIZE_HALF_POINTS = 24
+
+_FRONT_MATTER_KINDS = frozenset({"front_matter"})
+_BODY_KINDS = frozenset({"body", "back_matter"})
 
 
 def _root(kind: str) -> etree._Element:
@@ -103,6 +108,55 @@ def empty_part(kind: str) -> etree._Element:
     return root
 
 
+def _default_footer_owners(
+    package: DocumentPackage,
+    *,
+    body_titles: tuple[str, ...] = (),
+) -> dict[str, frozenset[str]]:
+    """Peta rel id footer default ke jenis section yang merujuknya.
+
+    Pandoc dapat menulis satu part footer yang dipakai bersama oleh front
+    matter dan body. Peta ini dipakai untuk memastikan part seperti itu tidak
+    dipakai ulang untuk dua peran berbeda.
+    """
+
+    owners: dict[str, set[str]] = {}
+    for section in iter_sections(package, body_titles=body_titles):
+        rel_id = section_header_footer(section).footer
+        if rel_id is not None:
+            owners.setdefault(rel_id, set()).add(section.kind)
+    return {rel_id: frozenset(kinds) for rel_id, kinds in owners.items()}
+
+
+def _shared_footer_rel_id(
+    owners: Mapping[str, frozenset[str]],
+    allowed: frozenset[str],
+) -> str | None:
+    """Rel id footer pertama yang hanya dirujuk jenis section ``allowed``."""
+
+    for rel_id, kinds in owners.items():
+        if kinds <= allowed:
+            return rel_id
+    return None
+
+
+def _safe_footer_rel_id(
+    refs: HeaderFooterRefs,
+    owners: Mapping[str, frozenset[str]],
+    allowed: frozenset[str],
+    fallback: str | None,
+) -> str | None:
+    """Pakai ``refs.footer`` hanya bila tidak dirujuk jenis section lain.
+
+    ``fallback`` adalah part yang sudah dipakai section sejenis sebelumnya;
+    ``None`` berarti pemanggil harus membuat part baru.
+    """
+
+    if refs.footer is not None and owners.get(refs.footer, frozenset()) <= allowed:
+        return refs.footer
+    return fallback
+
+
 def _ensure_part(
     package: object,
     *,
@@ -138,9 +192,15 @@ def _configure_front_matter(
     section: Section,
     *,
     start: int | None,
-) -> bool:
+    footer_rel_id: str | None,
+) -> tuple[bool, str]:
+    """Footer Romawi khusus front matter; mengembalikan rel id yang dipakai.
+
+    ``footer_rel_id=None`` membuat part footer baru sehingga part body tidak
+    pernah ditimpa oleh footer front matter.
+    """
+
     before = tree_digest(section.sect_pr)
-    refs = section_header_footer(section)
     footer_root = page_part(
         "footer",
         align="center",
@@ -149,7 +209,7 @@ def _configure_front_matter(
     footer_id, part_changed = _ensure_part(
         package,
         kind="footer",
-        rel_id=refs.footer,
+        rel_id=footer_rel_id,
         root=footer_root,
     )
     clear_header_footer_references(section)
@@ -161,7 +221,7 @@ def _configure_front_matter(
     )
     set_title_page(section, False)
     set_page_number_format(section, fmt="lowerRoman", start=start)
-    return part_changed or tree_digest(section.sect_pr) != before
+    return part_changed or tree_digest(section.sect_pr) != before, footer_id
 
 
 def _configure_body(
@@ -169,11 +229,15 @@ def _configure_body(
     section: Section,
     *,
     start: int | None,
-) -> bool:
+    footer_rel_id: str | None,
+) -> tuple[bool, str]:
     """Konfigurasi header/footer dan format nomor untuk section body.
 
-    Mengembalikan ``True`` bila part header/footer atau ``sectPr`` berubah.
-    ``SectionError`` dari helper part diteruskan ke pemanggil.
+    ``footer_rel_id`` adalah part footer default tersembunyi yang dipakai
+    bersama section body; ``None`` membuat part baru. Mengembalikan ``True``
+    bila part header/footer atau ``sectPr`` berubah beserta rel id footer
+    default yang dipakai. ``SectionError`` dari helper part diteruskan ke
+    pemanggil.
     """
 
     before = tree_digest(section.sect_pr)
@@ -203,7 +267,7 @@ def _configure_body(
     hidden_footer_id, changed_footer = _ensure_part(
         package,
         kind="footer",
-        rel_id=refs.footer,
+        rel_id=footer_rel_id,
         root=hidden_footer_root,
     )
     first_footer_root = page_part(
@@ -237,13 +301,14 @@ def _configure_body(
     )
     set_title_page(section, True)
     set_page_number_format(section, fmt="decimal", start=start)
-    return (
+    changed = (
         changed_header
         or changed_first_header
         or changed_footer
         or changed_first_footer
         or tree_digest(section.sect_pr) != before
     )
+    return changed, hidden_footer_id
 
 
 def _page_field_count(package: DocumentPackage) -> int:
@@ -323,24 +388,53 @@ class PageNumbersStage(BaseStage):
         structure = getattr(ctx, "structure", None)
         body_titles = tuple(str(chapter.title) for chapter in getattr(structure, "body", ()) or ())
         sections = iter_sections(package, body_titles=body_titles)
+        front_owners: dict[str, frozenset[str]] | None = None
+        front_footer_id: str | None = None
+        body_owners: dict[str, frozenset[str]] | None = None
+        body_footer_id: str | None = None
         try:
             for section in sections:
                 if section.kind == "cover":
                     changed = _configure_cover(section) or changed
                 elif section.kind == "front_matter":
+                    # Peta dihitung setelah cover dibersihkan agar reference
+                    # cover tidak memaksa part footer baru.
+                    if front_owners is None:
+                        front_owners = _default_footer_owners(package, body_titles=body_titles)
+                        front_footer_id = _shared_footer_rel_id(front_owners, _FRONT_MATTER_KINDS)
                     start = 1 if front_seen == 0 else None
-                    changed = (
-                        _configure_front_matter(
-                            package,
-                            section,
-                            start=start,
-                        )
-                        or changed
+                    section_changed, front_footer_id = _configure_front_matter(
+                        package,
+                        section,
+                        start=start,
+                        footer_rel_id=_safe_footer_rel_id(
+                            section_header_footer(section),
+                            front_owners,
+                            _FRONT_MATTER_KINDS,
+                            front_footer_id,
+                        ),
                     )
+                    changed = section_changed or changed
                     front_seen += 1
                 else:
+                    # Peta dihitung setelah front matter selesai agar footer
+                    # miliknya tidak lagi terlihat sebagai milik body.
+                    if body_owners is None:
+                        body_owners = _default_footer_owners(package, body_titles=body_titles)
+                        body_footer_id = _shared_footer_rel_id(body_owners, _BODY_KINDS)
                     start = 1 if body_seen == 0 else None
-                    changed = _configure_body(package, section, start=start) or changed
+                    section_changed, body_footer_id = _configure_body(
+                        package,
+                        section,
+                        start=start,
+                        footer_rel_id=_safe_footer_rel_id(
+                            section_header_footer(section),
+                            body_owners,
+                            _BODY_KINDS,
+                            body_footer_id,
+                        ),
+                    )
+                    changed = section_changed or changed
                     body_seen += 1
             if remove_unused_header_footer_parts(package):
                 changed = True
